@@ -1,4 +1,4 @@
-import { useLoaderData, useFetcher, Form } from "react-router";
+import { useLoaderData, useFetcher, Form, Link } from "react-router";
 import { useState, useEffect } from "react";
 import { requireAuth } from "~/lib/auth.middleware";
 import { 
@@ -7,7 +7,6 @@ import {
   getTranslations, 
   upsertTranslation,
   createLanguage,
-  createSection,
   type Language,
   type Section,
   type Translation 
@@ -74,11 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
       return { success: true };
     }
 
-    case "add-section": {
-      const name = formData.get("name") as string;
-      await createSection(name);
-      return { success: true };
-    }
+
 
     case "add-translation": {
       const key = formData.get("key") as string;
@@ -149,7 +144,6 @@ function TranslationCell({
 export default function I18n() {
   const { languages, sections, translations, sectionFilter } = useLoaderData<typeof loader>();
   const [showAddLanguage, setShowAddLanguage] = useState(false);
-  const [showAddSection, setShowAddSection] = useState(false);
   const [showAddTranslation, setShowAddTranslation] = useState(false);
 
   const translationKeys = Array.from(translations.keys()).sort();
@@ -180,8 +174,10 @@ export default function I18n() {
           <Button onClick={() => setShowAddLanguage(true)} variant="outline">
             Add Language
           </Button>
-          <Button onClick={() => setShowAddSection(true)} variant="outline">
-            Add Section
+          <Button asChild variant="outline">
+            <Link to="/edge-cms/sections">
+              Manage Sections
+            </Link>
           </Button>
           <Button onClick={() => setShowAddTranslation(true)}>
             Add Translation
@@ -224,31 +220,7 @@ export default function I18n() {
         </Form>
       )}
 
-      {/* Add Section Form */}
-      {showAddSection && (
-        <Form method="post" className="mb-6 p-4 border rounded-lg">
-          <input type="hidden" name="intent" value="add-section" />
-          <div className="flex gap-4 items-end">
-            <div>
-              <Label htmlFor="name">Section Name</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="e.g., homepage, dashboard"
-                required
-              />
-            </div>
-            <Button type="submit">Add</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowAddSection(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </Form>
-      )}
+
 
       {/* Add Translation Form */}
       {showAddTranslation && (

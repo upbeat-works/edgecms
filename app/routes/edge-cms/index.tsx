@@ -1,12 +1,20 @@
 import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
 import type { Route } from "./+types/index";
+import { requireAuth } from "~/lib/auth.middleware";
+import { env } from "cloudflare:workers";
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "EdgeCMS Dashboard" },
     { name: "description", content: "EdgeCMS content management dashboard" },
   ];
+}
+
+export async function loader({ request }: Route.LoaderArgs) {
+  await requireAuth(request, env);
+  
+  return new Response("ok");
 }
 
 export default function EdgeCMSIndex() {
@@ -32,6 +40,12 @@ export default function EdgeCMSIndex() {
           <Button asChild className="w-full" size="lg" variant="outline">
             <Link to="/edge-cms/media">
               Media
+            </Link>
+          </Button>
+
+          <Button asChild className="w-full" size="lg" variant="outline">
+            <Link to="/edge-cms/sections">
+              Sections
             </Link>
           </Button>
         </div>

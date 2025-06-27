@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { languages, sections, translations, media } from "./schema.server";
 
@@ -59,6 +59,43 @@ export async function getSections(): Promise<Section[]> {
 
 export async function createSection(name: string) {
   await db.insert(sections).values({ name });
+}
+
+export async function updateSection(oldName: string, newName: string) {
+  // With CASCADE foreign keys, this will automatically update all references
+  await db.update(sections).set({ name: newName }).where(eq(sections.name, oldName));
+}
+
+export async function deleteSection(name: string) {
+  // With SET NULL foreign keys, this will automatically set section to null in related tables
+  await db.delete(sections).where(eq(sections.name, name));
+}
+
+export interface SectionWithCounts {
+  name: string;
+  mediaCount: number;
+  translationCount: number;
+}
+
+export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
+  const allSections = await db.select().from(sections).orderBy(sections.name);
+  
+  const result: SectionWithCounts[] = [];
+  
+  for (const section of allSections) {
+    const [mediaCountResult, translationCountResult] = await Promise.all([
+      db.select({ count: count() }).from(media).where(eq(media.section, section.name)),
+      db.select({ count: count() }).from(translations).where(eq(translations.section, section.name))
+    ]);
+    
+    result.push({
+      name: section.name,
+      mediaCount: mediaCountResult[0]?.count || 0,
+      translationCount: translationCountResult[0]?.count || 0,
+    });
+  }
+  
+  return result;
 }
 
 // Translation operations

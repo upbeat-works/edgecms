@@ -60,7 +60,7 @@ export const translations = sqliteTable("Translations", {
   key: text("key").notNull(),
   language: text("language").notNull(),
   value: text("value").notNull(),
-  section: text("section")
+  section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" })
 });
 
 export const media = sqliteTable("Media", {
@@ -68,7 +68,7 @@ export const media = sqliteTable("Media", {
   filename: text("filename").notNull().unique(),
   mimeType: text("mimeType").notNull(),
   sizeBytes: integer("sizeBytes").notNull(),
-  section: text("section"),
+  section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" }),
   uploadedAt: text("uploadedAt").default("CURRENT_TIMESTAMP")
 });
 

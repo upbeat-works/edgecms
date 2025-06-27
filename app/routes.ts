@@ -6,6 +6,7 @@ export default [
     layout("routes/edge-cms/_layout.tsx", [
       route("i18n", "routes/edge-cms/i18n.tsx"),
       route("media", "routes/edge-cms/media.tsx"),
+      route("sections", "routes/edge-cms/sections.tsx"),
     ]),
     route("sign-in", "routes/edge-cms/sign-in.tsx"),
     route("public/i18n/:locale.json", "routes/edge-cms/public/i18n.$locale[.]json.tsx"),
