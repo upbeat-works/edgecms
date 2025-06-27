@@ -33,9 +33,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const sectionFilter = url.searchParams.get("section");
   
   const [languages, sections, translations] = await Promise.all([
-    getLanguages(env),
-    getSections(env),
-    getTranslations(env, sectionFilter || undefined),
+    getLanguages(),
+    getSections(),
+    getTranslations(sectionFilter || undefined),
   ]);
 
   // Group translations by key
@@ -63,20 +63,20 @@ export async function action({ request }: Route.ActionArgs) {
       const value = formData.get("value") as string;
       const section = formData.get("section") as string | null;
 
-      await upsertTranslation(env, key, language, value, section || undefined);
+      await upsertTranslation(key, language, value, section || undefined);
       return { success: true };
     }
 
     case "add-language": {
       const locale = formData.get("locale") as string;
       const isDefault = formData.get("default") === "on";
-      await createLanguage(env, locale, isDefault);
+      await createLanguage(locale, isDefault);
       return { success: true };
     }
 
     case "add-section": {
       const name = formData.get("name") as string;
-      await createSection(env, name);
+      await createSection(name);
       return { success: true };
     }
 
@@ -85,9 +85,9 @@ export async function action({ request }: Route.ActionArgs) {
       const section = formData.get("section") as string | null;
       
       // Add empty translations for all languages
-      const languages = await getLanguages(env);
+      const languages = await getLanguages();
       for (const language of languages) {
-        await upsertTranslation(env, key, language.locale, "", section || undefined);
+        await upsertTranslation(key, language.locale, "", section || undefined);
       }
       return { success: true };
     }

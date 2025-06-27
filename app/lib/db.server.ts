@@ -1,9 +1,9 @@
 import { drizzle } from "drizzle-orm/d1";
-import { sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { languages, sections, translations, media } from "./schema.server";
 
-export function getDb(env: Env) {
-  return drizzle(env.DB);
-}
+const db = drizzle(env.DB);
 
 export interface Language {
   locale: string;
@@ -31,127 +31,157 @@ export interface Media {
 }
 
 // Language operations
-export async function getLanguages(env: Env): Promise<Language[]> {
-  const result = await env.DB.prepare("SELECT * FROM Languages ORDER BY locale").all();
-  return result.results as unknown as Language[];
+export async function getLanguages(): Promise<Language[]> {
+  const result = await db.select().from(languages).orderBy(languages.locale);
+  return result.map(row => ({
+    locale: row.locale,
+    default: row.default || false
+  }));
 }
 
-export async function createLanguage(env: Env, locale: string, isDefault: boolean = false) {
+export async function createLanguage(locale: string, isDefault: boolean = false) {
   // If setting as default, unset other defaults
   if (isDefault) {
-    await env.DB.prepare("UPDATE Languages SET `default` = FALSE").run();
+    await db.update(languages).set({ default: false });
   }
   
-  await env.DB.prepare(
-    "INSERT INTO Languages (locale, `default`) VALUES (?, ?)"
-  ).bind(locale, isDefault).run();
+  await db.insert(languages).values({
+    locale,
+    default: isDefault
+  });
 }
 
 // Section operations
-export async function getSections(env: Env): Promise<Section[]> {
-  const result = await env.DB.prepare("SELECT * FROM Sections ORDER BY name").all();
-  return result.results as unknown as Section[];
+export async function getSections(): Promise<Section[]> {
+  const result = await db.select().from(sections).orderBy(sections.name);
+  return result;
 }
 
-export async function createSection(env: Env, name: string) {
-  await env.DB.prepare("INSERT INTO Sections (name) VALUES (?)").bind(name).run();
+export async function createSection(name: string) {
+  await db.insert(sections).values({ name });
 }
 
 // Translation operations
-export async function getTranslations(env: Env, section?: string): Promise<Translation[]> {
-  let query = "SELECT * FROM Translations";
+export async function getTranslations(section?: string): Promise<Translation[]> {
   if (section) {
-    query += " WHERE section = ?";
+    return await db.select()
+      .from(translations)
+      .where(eq(translations.section, section))
+      .orderBy(translations.key, translations.language);
   }
-  query += " ORDER BY key, language";
   
-  const stmt = env.DB.prepare(query);
-  const result = section ? await stmt.bind(section).all() : await stmt.all();
-  return result.results as unknown as Translation[];
+  return await db.select()
+    .from(translations)
+    .orderBy(translations.key, translations.language);
 }
 
-export async function getTranslationsByLocale(env: Env, locale: string): Promise<Translation[]> {
-  const result = await env.DB.prepare(
-    "SELECT * FROM Translations WHERE language = ? ORDER BY key"
-  ).bind(locale).all();
-  return result.results as unknown as Translation[];
+export async function getTranslationsByLocale(locale: string): Promise<Translation[]> {
+  const result = await db.select()
+    .from(translations)
+    .where(eq(translations.language, locale))
+    .orderBy(translations.key);
+  return result;
 }
 
 export async function upsertTranslation(
-  env: Env,
   key: string,
   language: string,
   value: string,
   section?: string
 ) {
-  await env.DB.prepare(
-    `INSERT INTO Translations (key, language, value, section) 
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(language, key) 
-     DO UPDATE SET value = excluded.value, section = excluded.section`
-  ).bind(key, language, value, section || null).run();
+  await db.insert(translations)
+    .values({
+      key,
+      language,
+      value,
+      section: section || null
+    })
+    .onConflictDoUpdate({
+      target: [translations.language, translations.key],
+      set: {
+        value,
+        section: section || null
+      }
+    });
   
   // Invalidate cache for this locale
   await env.CACHE.delete(`translations:${language}`);
 }
 
 // Media operations
-export async function getMedia(env: Env, section?: string): Promise<Media[]> {
-  let query = "SELECT * FROM Media";
+export async function getMedia(section?: string): Promise<Media[]> {
+  let result;
   if (section) {
-    query += " WHERE section = ?";
+    result = await db.select()
+      .from(media)
+      .where(eq(media.section, section))
+      .orderBy(desc(media.uploadedAt));
+  } else {
+    result = await db.select()
+      .from(media)
+      .orderBy(desc(media.uploadedAt));
   }
-  query += " ORDER BY uploadedAt DESC";
   
-  const stmt = env.DB.prepare(query);
-  const result = section ? await stmt.bind(section).all() : await stmt.all();
-  return result.results as unknown as Media[];
+  return result.map(row => ({
+    id: row.id,
+    filename: row.filename,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    section: row.section,
+    uploadedAt: row.uploadedAt || new Date().toISOString()
+  }));
 }
 
 export async function createMedia(
-  env: Env,
   filename: string,
   mimeType: string,
   sizeBytes: number,
   section?: string
 ) {
-  await env.DB.prepare(
-    `INSERT INTO Media (filename, mimeType, sizeBytes, section) 
-     VALUES (?, ?, ?, ?)`
-  ).bind(filename, mimeType, sizeBytes, section || null).run();
+  await db.insert(media).values({
+    filename,
+    mimeType,
+    sizeBytes,
+    section: section || null
+  });
 }
 
-export async function updateMediaSection(env: Env, mediaId: number, section: string | null) {
-  await env.DB.prepare(
-    "UPDATE Media SET section = ? WHERE id = ?"
-  ).bind(section, mediaId).run();
+export async function updateMediaSection(mediaId: number, section: string | null) {
+  await db.update(media)
+    .set({ section })
+    .where(eq(media.id, mediaId));
 }
 
 // Helper to get translations with fallback to default language
-export async function getTranslationsWithFallback(env: Env, locale: string): Promise<Record<string, string>> {
+export async function getTranslationsWithFallback(locale: string): Promise<Record<string, string>> {
   // Get default language
-  const defaultLangResult = await env.DB.prepare(
-    "SELECT locale FROM Languages WHERE `default` = TRUE LIMIT 1"
-  ).first();
-  const defaultLocale = defaultLangResult?.locale as string || 'en';
+  const defaultLangResult = await db.select({ locale: languages.locale })
+    .from(languages)
+    .where(eq(languages.default, true))
+    .limit(1);
+  const defaultLocale = defaultLangResult[0]?.locale || 'en';
   
-  // Get all translations for the requested locale and default locale
-  const result = await env.DB.prepare(
-    `SELECT DISTINCT 
-       t1.key,
-       COALESCE(t1.value, t2.value) as value
-     FROM (
-       SELECT key FROM Translations
-     ) keys
-     LEFT JOIN Translations t1 ON keys.key = t1.key AND t1.language = ?
-     LEFT JOIN Translations t2 ON keys.key = t2.key AND t2.language = ?
-     WHERE t1.value IS NOT NULL OR t2.value IS NOT NULL`
-  ).bind(locale, defaultLocale).all();
+  // Get all unique keys first
+  const allKeys = await db.selectDistinct({ key: translations.key }).from(translations);
   
-  const translations: Record<string, string> = {};
-  for (const row of result.results) {
-    translations[row.key as string] = row.value as string;
+  // Get translations for both locales
+  const [requestedTranslations, defaultTranslations] = await Promise.all([
+    db.select().from(translations).where(eq(translations.language, locale)),
+    db.select().from(translations).where(eq(translations.language, defaultLocale))
+  ]);
+  
+  // Create lookup maps
+  const requestedMap = new Map(requestedTranslations.map(t => [t.key, t.value]));
+  const defaultMap = new Map(defaultTranslations.map(t => [t.key, t.value]));
+  
+  // Build final result with fallback logic
+  const result: Record<string, string> = {};
+  for (const { key } of allKeys) {
+    const value = requestedMap.get(key) || defaultMap.get(key);
+    if (value) {
+      result[key] = value;
+    }
   }
   
-  return translations;
+  return result;
 } 

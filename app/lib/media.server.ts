@@ -29,7 +29,7 @@ export async function uploadMedia(
   
   // Store metadata in D1
   const { createMedia } = await import("~/lib/db.server");
-  await createMedia(env, sanitizedFilename, file.type, file.size, section);
+  await createMedia(sanitizedFilename, file.type, file.size, section);
   
   // Return the filename for reference
   return {

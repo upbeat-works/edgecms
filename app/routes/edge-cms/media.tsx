@@ -13,8 +13,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   await requireAuth(request, env);
   
   const [media, sections] = await Promise.all([
-    getMedia(env),
-    getSections(env),
+    getMedia(),
+    getSections(),
   ]);
 
   // Group media by section
@@ -59,7 +59,7 @@ export async function action({ request }: Route.ActionArgs) {
       const mediaId = parseInt(formData.get("mediaId") as string);
       const section = formData.get("section") as string | null;
       
-      await updateMediaSection(env, mediaId, section === "" ? null : section);
+      await updateMediaSection(mediaId, section === "" ? null : section);
       return { success: true };
     }
 
