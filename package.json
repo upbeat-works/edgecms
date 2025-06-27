@@ -12,19 +12,27 @@
 		"typecheck": "npm run cf-typegen && react-router typegen && tsc -b"
 	},
 	"dependencies": {
+		"@radix-ui/react-slot": "^1.2.3",
+		"better-auth": "1.2.10",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
+		"drizzle-kit": "^0.31.4",
+		"drizzle-orm": "^0.44.2",
 		"isbot": "^5.1.27",
+		"lucide-react": "^0.524.0",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
-		"react-router": "^7.5.3"
+		"react-router": "^7.5.3",
+		"tailwind-merge": "^3.3.1"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.0.12",
 		"@react-router/dev": "^7.5.3",
-		"@tailwindcss/vite": "^4.1.4",
+		"@tailwindcss/vite": "^4.0.0",
 		"@types/node": "^20",
 		"@types/react": "^19.1.2",
 		"@types/react-dom": "^19.1.2",
-		"tailwindcss": "^4.1.4",
+		"tailwindcss": "^4.0.0",
 		"typescript": "^5.8.3",
 		"vite": "^6.3.3",
 		"vite-tsconfig-paths": "^5.1.4",

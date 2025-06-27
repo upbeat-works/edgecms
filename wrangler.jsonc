@@ -6,13 +6,15 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "edgecms",
 	"compatibility_date": "2025-04-04",
+	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
 	"vars": {
-		"VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare"
+		"VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare",
+		"R2_BUCKET_NAME": "edgecms-media"
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -47,4 +49,36 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+
+	/**
+	 * D1 Database Binding
+	 */
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "edgecms-db",
+			"database_id": "73defcff-5a27-408b-bb3b-41cb31b17698",
+			"migrations_dir": "./migrations"
+		}
+	],
+	
+	/**
+	 * KV Namespace Binding
+	 */
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "1c545352faed4be8b4029683188183b7"
+		}
+	],
+	
+	/**
+	 * R2 Bucket Binding
+	 */
+	"r2_buckets": [
+		{
+			"binding": "MEDIA_BUCKET",
+			"bucket_name": "edgecms-media"
+		}
+	]
 }
