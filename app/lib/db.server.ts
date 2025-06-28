@@ -202,7 +202,7 @@ export async function getTranslationsWithFallback(locale: string): Promise<Recor
     .from(languages)
     .where(eq(languages.default, true))
     .limit(1);
-  const defaultLocale = defaultLangResult[0]?.locale || 'en';
+  const defaultLocale = defaultLangResult[0]?.locale;
   
   // Get all unique keys first
   const allKeys = await db.selectDistinct({ key: translations.key }).from(translations);

@@ -1,6 +1,6 @@
 import { useLoaderData, useFetcher, Form, Link } from "react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { VariableSizeList as List } from 'react-window';
+import { FixedSizeGrid, type GridChildComponentProps } from 'react-window';
 import { requireAuth } from "~/lib/auth.middleware";
 import { 
   getLanguages, 
@@ -162,15 +162,11 @@ function TranslationCell({
   language, 
   translation,
   section,
-  onCellFocus,
-  onCellBlur,
 }: { 
   translationKey: string; 
   language: string; 
   translation?: Translation;
   section?: string | null;
-  onCellFocus: () => void;
-  onCellBlur: () => void;
 }) {
   const fetcher = useFetcher();
   const [value, setValue] = useState(translation?.value || "");
@@ -197,7 +193,6 @@ function TranslationCell({
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.rows = 1;
-    onCellBlur();
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -205,7 +200,6 @@ function TranslationCell({
     const textarea = e.target;
     textarea.style.height = 'auto';
     textarea.style.height = Math.max(textarea.scrollHeight, 40) + 'px';
-    onCellFocus();
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -232,50 +226,80 @@ function TranslationCell({
   );
 }
 
-function VirtualizedRow({ index, style, data }: {
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    translationKeys: string[];
-    translations: Map<string, Map<string, Translation>>;
-    sortedLanguages: Language[];
-    sections: Section[];
-    onCellFocus: () => void;
-    onCellBlur: () => void;
-  };
-}) {
-  const { translationKeys, translations, sortedLanguages, sections, onCellFocus, onCellBlur } = data;
-  const key = translationKeys[index];
+function VirtualizedCell({ columnIndex, rowIndex, style, data }: GridChildComponentProps<{
+  translationKeys: string[];
+  translations: Map<string, Map<string, Translation>>;
+  sortedLanguages: Language[];
+  sections: Section[];
+}>) {
+  const { translationKeys, translations, sortedLanguages, sections } = data;
+
+  // Header row
+  if (rowIndex === 0) {
+    if (columnIndex === 0) {
+      return (
+        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
+          Key
+        </div>
+      );
+    } else if (columnIndex === 1) {
+      return (
+        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
+          Section
+        </div>
+      );
+    } else {
+      const langIndex = columnIndex - 2;
+      const lang = sortedLanguages[langIndex];
+      return (
+        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
+          {lang.locale}
+          {lang.default && " (default)"}
+        </div>
+      );
+    }
+  }
+  
+  // Data rows
+  const dataIndex = rowIndex - 1;
+  const key = translationKeys[dataIndex];
   const keyTranslations = translations.get(key)!;
   const firstTranslation = Array.from(keyTranslations.values())[0];
   const section = firstTranslation?.section;
 
-  return (
-    <div style={style} className="flex border-b hover:bg-muted/50">
-      <div className="min-w-[200px] p-4 font-mono text-sm border-r bg-background sticky left-0 z-10 flex items-center">
+  if (columnIndex === 0) {
+    // Key column
+    return (
+      <div style={style} className="p-4 font-mono text-sm border-r border-b bg-background flex items-center">
         {key}
       </div>
-      <div className="min-w-[150px] p-2 border-r flex items-center">
+    );
+  } else if (columnIndex === 1) {
+    // Section column
+    return (
+      <div style={style} className="p-2 border-r border-b flex items-center">
         <SectionCell
           translationKey={key}
           currentSection={section}
           sections={sections}
         />
       </div>
-      {sortedLanguages.map((lang) => (
-        <div key={lang.locale} className="min-w-[200px] p-2 border-r flex items-center">
-          <TranslationCell
-            translationKey={key}
-            language={lang.locale}
-            onCellFocus={onCellFocus}
-            onCellBlur={onCellBlur}
-            translation={keyTranslations.get(lang.locale)}
-            section={section}
-          />
-        </div>
-      ))}
-    </div>
-  );
+    );
+  } else {
+    // Language columns
+    const langIndex = columnIndex - 2;
+    const lang = sortedLanguages[langIndex];
+    return (
+      <div style={style} className="p-2 border-r border-b flex items-center">
+        <TranslationCell
+          translationKey={key}
+          language={lang.locale}
+          translation={keyTranslations.get(lang.locale)}
+          section={section}
+        />
+      </div>
+    );
+  }
 }
 
 export default function I18n() {
@@ -285,10 +309,9 @@ export default function I18n() {
   const addLanguageFetcher = useFetcher();
   const addTranslationFetcher = useFetcher();
   const defaultLanguageFetcher = useFetcher();
-  const listRef = useRef<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [wrapperHeight, setWrapperHeight] = useState(0);
-  const rowHeights = useRef<Map<number, number>>(new Map());
+  const [wrapperBounds, setWrapperBounds] = useState({ width: 0, height: 0 });
+  
   // Hide the form after successful submission
   useEffect(() => {
     if (addLanguageFetcher.data?.success) {
@@ -312,49 +335,12 @@ export default function I18n() {
     return a.locale.localeCompare(b.locale);
   });
 
-  // Height estimator function for VariableSizeList
-  const getItemSize = useCallback((index: number) => {
-    const cachedHeight = rowHeights.current.get(index);
-    if (cachedHeight) {
-      return cachedHeight;
-    }
-    
-    // Estimate height based on content
-    const key = translationKeys[index];
-    const keyTranslations = translations.get(key)!;
-    let maxHeight = 60; // minimum row height
-    
-    // Check all translations for this key to estimate maximum content height
-    for (const [, translation] of keyTranslations) {
-      if (translation.value) {
-        const lines = translation.value.split('\n').length;
-        const estimatedHeight = Math.max(40, lines * 20 + 20); // ~20px per line + padding
-        maxHeight = Math.max(maxHeight, estimatedHeight);
-      }
-    }
-    
-    return maxHeight;
-  }, [translationKeys, translations]);
-
-  const onCellFocus = useCallback(() => {
-    if (listRef.current && listRef.current.parentElement) {
-      listRef.current.parentElement.style.overflow = 'visible';
-    }
-  }, []);
-
-  const onCellBlur = useCallback(() => {
-    if (listRef.current && listRef.current.parentElement) {
-      listRef.current.parentElement.style.overflow = 'auto';
-    }
-  }, []);
-
   useEffect(() => {
     if (wrapperRef.current) {
-      const { height } = wrapperRef.current.getBoundingClientRect();
-      setWrapperHeight(height);
+      const { height, width } = wrapperRef.current.getBoundingClientRect();
+      setWrapperBounds({ width, height });
     }
   }, [wrapperRef.current]);
-
 
   return (
     <main className="flex flex-col h-[calc(100vh-70px)]">
@@ -501,37 +487,24 @@ export default function I18n() {
       </Dialog>
 
       <div className="border rounded-lg overflow-hidden flex flex-col flex-1">
-        {/* Table Header */}
-        <div className="flex bg-muted/50 border-b sticky top-0">
-          <div className="min-w-[200px] p-4 font-medium border-r bg-background">Key</div>
-          <div className="min-w-[150px] p-4 font-medium border-r bg-background">Section</div>
-          {sortedLanguages.map((lang) => (
-            <div key={lang.locale} className="min-w-[200px] p-4 font-medium border-r bg-background">
-              {lang.locale}
-              {lang.default && " (default)"}
-            </div>
-          ))}
-        </div>
-        
-        <div ref={wrapperRef} className="flex-1">
-          {wrapperHeight > 0 && (
-            <List
-              height={wrapperHeight}
-              itemCount={translationKeys.length}
-              itemSize={getItemSize}
-              innerRef={listRef}
-              width="100%"
+        <div ref={wrapperRef} className="flex-1" style={{ overscrollBehavior: 'contain' }}>
+          {wrapperBounds.height > 0 && (
+            <FixedSizeGrid
+              height={wrapperBounds.height}
+              columnCount={languages.length + 2} // +2 for key and section
+              rowCount={translationKeys.length + 1} // +1 for header
+              columnWidth={200}
+              rowHeight={60}
+              width={wrapperBounds.width}
               itemData={{
                 translationKeys,
                 translations,
                 sortedLanguages,
                 sections,
-                onCellFocus,
-                onCellBlur,
               }}
             >
-              {VirtualizedRow}
-            </List> 
+              {VirtualizedCell}
+            </FixedSizeGrid> 
           )}
         </div>
       </div>
