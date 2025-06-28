@@ -13,4 +13,17 @@ export async function requireAuth(request: Request, env: Env) {
   }
 
   return session;
-} 
+}
+
+export async function requireAnonymous(request: Request, env: Env) {
+  const auth = createAuth(env);
+
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
+
+  if (session) {
+    console.log(session);
+    throw redirect("/edge-cms");
+  }
+}

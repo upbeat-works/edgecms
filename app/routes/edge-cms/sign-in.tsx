@@ -4,18 +4,10 @@ import { Input } from "~/components/ui/input";
 import { createAuth } from "~/lib/auth.server";
 import { env } from "cloudflare:workers";
 import type { Route } from "./+types/sign-in";
+import { requireAnonymous } from "~/lib/auth.middleware";
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-  const auth = createAuth(context.cloudflare.env);
-  
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  // If user is already logged in, redirect to index
-  if (session) {
-    throw redirect("/edge-cms");
-  }
+export async function loader({ request }: Route.LoaderArgs) {
+  await requireAnonymous(request, env);
 
   return {};
 }
@@ -44,19 +36,22 @@ export async function action({ request }: Route.ActionArgs) {
 
   try {
     // Try to sign in without asResponse to get the actual result
-    const result = await auth.api.signInEmail({
+    const response = await auth.api.signInEmail({
       body: {
         email,
         password,
       },
+      asResponse: true,
     });
     
     // If sign in was successful, redirect to dashboard
-    if (result.user) {
-      return redirect("/edge-cms");
+    if (response.ok) {
+      return redirect("/edge-cms", response);
     }
+
+    const { message } = await response.json() as { message: string };
+    throw new Error(message);
   } catch (error) {
-    console.error("Auth error:", error);
     return { error: (error as Error).message };
   }
 }

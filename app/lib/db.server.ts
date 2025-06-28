@@ -39,16 +39,22 @@ export async function getLanguages(): Promise<Language[]> {
   }));
 }
 
-export async function createLanguage(locale: string, isDefault: boolean = false) {
-  // If setting as default, unset other defaults
-  if (isDefault) {
-    await db.update(languages).set({ default: false });
-  }
-  
+export async function createLanguage(locale: string) {
+  const [{ count: languageCount }] = await db.select({ count: count() }).from(languages);
+
   await db.insert(languages).values({
     locale,
-    default: isDefault
+    default: languageCount === 0
   });
+}
+
+export async function setDefaultLanguage(locale: string) {
+  await db.update(languages).set({ default: false })
+  .where(eq(languages.default, true));
+
+  await db.update(languages)
+    .set({ default: true })
+    .where(eq(languages.locale, locale));
 }
 
 // Section operations

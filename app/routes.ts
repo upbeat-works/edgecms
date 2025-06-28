@@ -9,6 +9,7 @@ export default [
       route("sections", "routes/edge-cms/sections.tsx"),
     ]),
     route("sign-in", "routes/edge-cms/sign-in.tsx"),
+    route("sign-up", "routes/edge-cms/sign-up.ts"),
     route("public/i18n/:locale.json", "routes/edge-cms/public/i18n.$locale[.]json.tsx"),
     route("public/media/:filename", "routes/edge-cms/public/media.$filename.tsx"),
   ])

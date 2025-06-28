@@ -1,5 +1,6 @@
 import { useLoaderData, Form, useFetcher } from "react-router";
 import { useState, useEffect } from "react";
+import { Trash2 } from "lucide-react";
 import { requireAuth } from "~/lib/auth.middleware";
 import { 
   getSectionsWithCounts, 
@@ -19,6 +20,13 @@ import {
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/components/ui/dialog";
 import { env } from "cloudflare:workers";
 
 export async function loader({ request }: { request: Request }) {
@@ -107,6 +115,14 @@ function EditableSectionName({
 export default function Sections() {
   const { sections } = useLoaderData<typeof loader>();
   const [showAddSection, setShowAddSection] = useState(false);
+  const addSectionFetcher = useFetcher();
+
+  // Hide the form after successful submission
+  useEffect(() => {
+    if (addSectionFetcher.data?.success) {
+      setShowAddSection(false);
+    }
+  }, [addSectionFetcher.data]);
 
   return (
     <main>
@@ -114,36 +130,41 @@ export default function Sections() {
         <h1 className="text-3xl font-bold mb-8">Sections Management</h1>
 
         <div className="mb-6 flex justify-end">
-          <Button onClick={() => setShowAddSection(true)}>
-            Add Section
-          </Button>
+          <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
+            <DialogTrigger asChild>
+              <Button>Add Section</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Section</DialogTitle>
+              </DialogHeader>
+              <addSectionFetcher.Form method="post" className="space-y-4">
+                <input type="hidden" name="intent" value="add-section" />
+                <div className="space-y-2">
+                  <Label htmlFor="name">Section Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="e.g., homepage, dashboard"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddSection(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={addSectionFetcher.state === "submitting"}>
+                    {addSectionFetcher.state === "submitting" ? "Adding..." : "Add"}
+                  </Button>
+                </div>
+              </addSectionFetcher.Form>
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {/* Add Section Form */}
-        {showAddSection && (
-          <Form method="post" className="mb-6 p-4 border rounded-lg">
-            <input type="hidden" name="intent" value="add-section" />
-            <div className="flex gap-4 items-end">
-              <div>
-                <Label htmlFor="name">Section Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  placeholder="e.g., homepage, dashboard"
-                  required
-                />
-              </div>
-              <Button type="submit">Add</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAddSection(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </Form>
-        )}
 
         {/* Sections Table */}
         <div className="border rounded-lg overflow-hidden">
@@ -151,9 +172,9 @@ export default function Sections() {
             <TableHeader>
               <TableRow>
                 <TableHead>Section Name</TableHead>
-                <TableHead className="text-center">Media Count</TableHead>
-                <TableHead className="text-center">Translations Count</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
+                <TableHead className="text-center">Media</TableHead>
+                <TableHead className="text-center">Translations</TableHead>
+                <TableHead className="w-[100px]"/>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -163,14 +184,10 @@ export default function Sections() {
                     <EditableSectionName sectionName={section.name} />
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                      {section.mediaCount}
-                    </span>
+                    {section.mediaCount}
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                      {section.translationCount}
-                    </span>
+                    {section.translationCount}
                   </TableCell>
                   <TableCell>
                     <Form method="post" className="inline">
@@ -178,15 +195,16 @@ export default function Sections() {
                       <input type="hidden" name="name" value={section.name} />
                       <Button
                         type="submit"
-                        variant="destructive"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => {
                           if (!confirm(`Are you sure you want to delete the section "${section.name}"? This will remove the section from all associated media and translations.`)) {
                             e.preventDefault();
                           }
                         }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
-                        Delete
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </Form>
                   </TableCell>

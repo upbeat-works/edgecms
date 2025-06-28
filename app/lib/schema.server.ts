@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 // Better Auth tables
 export const user = sqliteTable("user", {
@@ -61,7 +61,9 @@ export const translations = sqliteTable("Translations", {
   language: text("language").notNull(),
   value: text("value").notNull(),
   section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" })
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.language, table.key] })
+}));
 
 export const media = sqliteTable("Media", {
   id: integer("id").primaryKey({ autoIncrement: true }),

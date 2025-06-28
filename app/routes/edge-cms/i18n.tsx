@@ -1,5 +1,6 @@
 import { useLoaderData, useFetcher, Form, Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { VariableSizeList as List } from 'react-window';
 import { requireAuth } from "~/lib/auth.middleware";
 import { 
   getLanguages, 
@@ -7,21 +8,21 @@ import {
   getTranslations, 
   upsertTranslation,
   createLanguage,
+  setDefaultLanguage,
   type Language,
   type Section,
   type Translation 
 } from "~/lib/db.server";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/components/ui/dialog";
 import { env } from "cloudflare:workers";
 import type { Route } from "./+types/i18n";
 
@@ -68,12 +69,15 @@ export async function action({ request }: Route.ActionArgs) {
 
     case "add-language": {
       const locale = formData.get("locale") as string;
-      const isDefault = formData.get("default") === "on";
-      await createLanguage(locale, isDefault);
+      await createLanguage(locale);
       return { success: true };
     }
 
-
+    case "set-default-language": {
+      const locale = formData.get("locale") as string;
+      await setDefaultLanguage(locale);
+      return { success: true };
+    }
 
     case "add-translation": {
       const key = formData.get("key") as string;
@@ -87,21 +91,86 @@ export async function action({ request }: Route.ActionArgs) {
       return { success: true };
     }
 
+    case "update-section": {
+      const key = formData.get("key") as string;
+      const newSection = formData.get("section") as string | null;
+      
+      // Update section for all translations of this key
+      const keyTranslations = await getTranslations();
+      const translationsForKey = keyTranslations.filter(t => t.key === key);
+      
+      for (const translation of translationsForKey) {
+        await upsertTranslation(
+          translation.key, 
+          translation.language, 
+          translation.value, 
+          newSection || undefined
+        );
+      }
+      return { success: true };
+    }
+
     default:
       return { error: "Invalid action" };
   }
+}
+
+function SectionCell({
+  translationKey,
+  currentSection,
+  sections,
+}: {
+  translationKey: string;
+  currentSection?: string | null;
+  sections: Section[];
+}) {
+  const fetcher = useFetcher();
+
+  const handleSectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSection = e.target.value || null;
+    if (newSection !== currentSection) {
+      fetcher.submit(
+        {
+          intent: "update-section",
+          key: translationKey,
+          section: newSection || "",
+        },
+        { method: "post" }
+      );
+    }
+  };
+
+  return (
+    <select
+      value={currentSection || ""}
+      onChange={handleSectionChange}
+      className="w-full border-0 bg-transparent text-sm focus:ring-1 focus:ring-ring rounded-md p-1 cursor-pointer hover:bg-muted/50"
+      disabled={fetcher.state === "submitting"}
+    >
+      <option value="">-</option>
+      {sections.map((section) => (
+        <option key={section.name} value={section.name}>
+          {section.name}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 function TranslationCell({ 
   translationKey, 
   language, 
   translation,
-  section 
+  section,
+  onCellFocus,
+  onCellBlur,
 }: { 
   translationKey: string; 
   language: string; 
   translation?: Translation;
   section?: string | null;
+  onCellFocus: () => void;
+  onCellBlur: () => void;
 }) {
   const fetcher = useFetcher();
   const [value, setValue] = useState(translation?.value || "");
@@ -112,7 +181,7 @@ function TranslationCell({
     setIsDirty(false);
   }, [translation?.value]);
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     if (isDirty && value !== translation?.value) {
       fetcher.submit(
         {
@@ -125,19 +194,87 @@ function TranslationCell({
         { method: "post" }
       );
     }
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.rows = 1;
+    onCellBlur();
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    // Auto-resize on focus
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.max(textarea.scrollHeight, 40) + 'px';
+    onCellFocus();
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target;
+    setValue(textarea.value);
+    setIsDirty(true);
+    
+    // Auto-resize as user types
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.max(textarea.scrollHeight, 40) + 'px';
   };
 
   return (
-    <Input
+    <textarea
       value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-        setIsDirty(true);
-      }}
+      onChange={handleInput}
+      onFocus={handleFocus}
       onBlur={handleBlur}
-      className="border-0 p-1 h-auto focus:ring-1"
+      rows={1}
+      className="w-full border-0 p-1 resize-none overflow-hidden focus:ring-1 focus:ring-ring rounded-md bg-transparent text-sm min-h-[40px] focus:bg-background relative focus:z-50"
       placeholder="Enter translation..."
+      style={{ height: '40px' }}
     />
+  );
+}
+
+function VirtualizedRow({ index, style, data }: {
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    translationKeys: string[];
+    translations: Map<string, Map<string, Translation>>;
+    sortedLanguages: Language[];
+    sections: Section[];
+    onCellFocus: () => void;
+    onCellBlur: () => void;
+  };
+}) {
+  const { translationKeys, translations, sortedLanguages, sections, onCellFocus, onCellBlur } = data;
+  const key = translationKeys[index];
+  const keyTranslations = translations.get(key)!;
+  const firstTranslation = Array.from(keyTranslations.values())[0];
+  const section = firstTranslation?.section;
+
+  return (
+    <div style={style} className="flex border-b hover:bg-muted/50">
+      <div className="min-w-[200px] p-4 font-mono text-sm border-r bg-background sticky left-0 z-10 flex items-center">
+        {key}
+      </div>
+      <div className="min-w-[150px] p-2 border-r flex items-center">
+        <SectionCell
+          translationKey={key}
+          currentSection={section}
+          sections={sections}
+        />
+      </div>
+      {sortedLanguages.map((lang) => (
+        <div key={lang.locale} className="min-w-[200px] p-2 border-r flex items-center">
+          <TranslationCell
+            translationKey={key}
+            language={lang.locale}
+            onCellFocus={onCellFocus}
+            onCellBlur={onCellBlur}
+            translation={keyTranslations.get(lang.locale)}
+            section={section}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -145,15 +282,86 @@ export default function I18n() {
   const { languages, sections, translations, sectionFilter } = useLoaderData<typeof loader>();
   const [showAddLanguage, setShowAddLanguage] = useState(false);
   const [showAddTranslation, setShowAddTranslation] = useState(false);
+  const addLanguageFetcher = useFetcher();
+  const addTranslationFetcher = useFetcher();
+  const defaultLanguageFetcher = useFetcher();
+  const listRef = useRef<any>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [wrapperHeight, setWrapperHeight] = useState(0);
+  const rowHeights = useRef<Map<number, number>>(new Map());
+  // Hide the form after successful submission
+  useEffect(() => {
+    if (addLanguageFetcher.data?.success) {
+      setShowAddLanguage(false);
+    }
+  }, [addLanguageFetcher.data]);
+
+  useEffect(() => {
+    if (addTranslationFetcher.data?.success) {
+      setShowAddTranslation(false);
+    }
+  }, [addTranslationFetcher.data]);
 
   const translationKeys = Array.from(translations.keys()).sort();
+  const currentDefaultLanguage = languages.find(lang => lang.default)?.locale || "";
+
+  // Sort languages to show default first, then others alphabetically
+  const sortedLanguages = [...languages].sort((a, b) => {
+    if (a.default && !b.default) return -1;
+    if (!a.default && b.default) return 1;
+    return a.locale.localeCompare(b.locale);
+  });
+
+  // Height estimator function for VariableSizeList
+  const getItemSize = useCallback((index: number) => {
+    const cachedHeight = rowHeights.current.get(index);
+    if (cachedHeight) {
+      return cachedHeight;
+    }
+    
+    // Estimate height based on content
+    const key = translationKeys[index];
+    const keyTranslations = translations.get(key)!;
+    let maxHeight = 60; // minimum row height
+    
+    // Check all translations for this key to estimate maximum content height
+    for (const [, translation] of keyTranslations) {
+      if (translation.value) {
+        const lines = translation.value.split('\n').length;
+        const estimatedHeight = Math.max(40, lines * 20 + 20); // ~20px per line + padding
+        maxHeight = Math.max(maxHeight, estimatedHeight);
+      }
+    }
+    
+    return maxHeight;
+  }, [translationKeys, translations]);
+
+  const onCellFocus = useCallback(() => {
+    if (listRef.current && listRef.current.parentElement) {
+      listRef.current.parentElement.style.overflow = 'visible';
+    }
+  }, []);
+
+  const onCellBlur = useCallback(() => {
+    if (listRef.current && listRef.current.parentElement) {
+      listRef.current.parentElement.style.overflow = 'auto';
+    }
+  }, []);
+
+  useEffect(() => {
+    if (wrapperRef.current) {
+      const { height } = wrapperRef.current.getBoundingClientRect();
+      setWrapperHeight(height);
+    }
+  }, [wrapperRef.current]);
+
 
   return (
-    <main>
-      <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Translations Management</h1>
-
-      <div className="mb-6 flex gap-4 flex-wrap">
+    <main className="flex flex-col h-[calc(100vh-70px)]">
+      <div className="flex flex-col flex-1 container mx-auto py-8">
+        <div className="flex flex-col">
+        <h1 className="text-3xl font-bold mb-8">Translations Management</h1>
+        <div className="mb-6 flex gap-4 flex-wrap">
         <Form method="get" className="flex gap-2">
           <select
             name="section"
@@ -170,6 +378,27 @@ export default function I18n() {
           </select>
         </Form>
 
+        <defaultLanguageFetcher.Form method="post" className="flex gap-2 items-center">
+          <input type="hidden" name="intent" value="set-default-language" />
+          <Label htmlFor="defaultLanguage" className="text-sm font-medium whitespace-nowrap">
+            Default Language:
+          </Label>
+          <select
+            id="defaultLanguage"
+            name="locale"
+            value={currentDefaultLanguage}
+            onChange={(e) => e.target.form?.submit()}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">No default</option>
+            {languages.map((language) => (
+              <option key={language.locale} value={language.locale}>
+                {language.locale}
+              </option>
+            ))}
+          </select>
+        </defaultLanguageFetcher.Form>
+
         <div className="flex gap-2 ml-auto">
           <Button onClick={() => setShowAddLanguage(true)} variant="outline">
             Add Language
@@ -184,127 +413,127 @@ export default function I18n() {
           </Button>
         </div>
       </div>
+        </div>
 
-      {/* Add Language Form */}
-      {showAddLanguage && (
-        <Form method="post" className="mb-6 p-4 border rounded-lg">
-          <input type="hidden" name="intent" value="add-language" />
-          <div className="flex gap-4 items-end">
-            <div>
-              <Label htmlFor="locale">Language Code</Label>
-              <Input
-                id="locale"
-                name="locale"
-                placeholder="e.g., en, es, fr"
-                required
-              />
+      {/* Add Language Dialog */}
+      <Dialog open={showAddLanguage} onOpenChange={setShowAddLanguage}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Language</DialogTitle>
+          </DialogHeader>
+          <addLanguageFetcher.Form method="post">
+            <input type="hidden" name="intent" value="add-language" />
+            <div className="grid gap-4 py-4">
+              <div>
+                <Label htmlFor="locale">Language Code</Label>
+                <Input
+                  id="locale"
+                  name="locale"
+                  placeholder="e.g., en, es, fr"
+                  required
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="default"
-                name="default"
-                type="checkbox"
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="default">Default language</Label>
-            </div>
-            <Button type="submit">Add</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowAddLanguage(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </Form>
-      )}
-
-
-
-      {/* Add Translation Form */}
-      {showAddTranslation && (
-        <Form method="post" className="mb-6 p-4 border rounded-lg">
-          <input type="hidden" name="intent" value="add-translation" />
-          <div className="flex gap-4 items-end">
-            <div>
-              <Label htmlFor="key">Translation Key</Label>
-              <Input
-                id="key"
-                name="key"
-                placeholder="e.g., welcome.title"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="section">Section (optional)</Label>
-              <select
-                id="section"
-                name="section"
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm h-10"
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddLanguage(false)}
               >
-                <option value="">No section</option>
-                {sections.map((section) => (
-                  <option key={section.name} value={section.name}>
-                    {section.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button type="submit">Add</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowAddTranslation(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </Form>
-      )}
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addLanguageFetcher.state === "submitting"}>
+                {addLanguageFetcher.state === "submitting" ? "Adding..." : "Add Language"}
+              </Button>
+            </DialogFooter>
+          </addLanguageFetcher.Form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Translations Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Key</TableHead>
-              <TableHead className="w-[150px]">Section</TableHead>
-              {languages.map((lang) => (
-                <TableHead key={lang.locale}>
-                  {lang.locale}
-                  {lang.default && " (default)"}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {translationKeys.map((key) => {
-              const keyTranslations = translations.get(key)!;
-              const firstTranslation = Array.from(keyTranslations.values())[0];
-              const section = firstTranslation?.section;
-
-              return (
-                <TableRow key={key}>
-                  <TableCell className="font-mono text-sm">{key}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {section || "-"}
-                  </TableCell>
-                  {languages.map((lang) => (
-                    <TableCell key={lang.locale} className="p-2">
-                      <TranslationCell
-                        translationKey={key}
-                        language={lang.locale}
-                        translation={keyTranslations.get(lang.locale)}
-                        section={section}
-                      />
-                    </TableCell>
+      {/* Add Translation Dialog */}
+      <Dialog open={showAddTranslation} onOpenChange={setShowAddTranslation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Translation</DialogTitle>
+          </DialogHeader>
+          <addTranslationFetcher.Form method="post">
+            <input type="hidden" name="intent" value="add-translation" />
+            <div className="grid gap-4 py-4">
+              <div>
+                <Label htmlFor="key">Translation Key</Label>
+                <Input
+                  id="key"
+                  name="key"
+                  placeholder="e.g., welcome.title"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="section">Section (optional)</Label>
+                <select
+                  id="section"
+                  name="section"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm h-10"
+                >
+                  <option value="">-</option>
+                  {sections.map((section) => (
+                    <option key={section.name} value={section.name}>
+                      {section.name}
+                    </option>
                   ))}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddTranslation(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addTranslationFetcher.state === "submitting"}>
+                {addTranslationFetcher.state === "submitting" ? "Adding..." : "Add Translation"}
+              </Button>
+            </DialogFooter>
+          </addTranslationFetcher.Form>
+        </DialogContent>
+      </Dialog>
+
+      <div className="border rounded-lg overflow-hidden flex flex-col flex-1">
+        {/* Table Header */}
+        <div className="flex bg-muted/50 border-b sticky top-0">
+          <div className="min-w-[200px] p-4 font-medium border-r bg-background">Key</div>
+          <div className="min-w-[150px] p-4 font-medium border-r bg-background">Section</div>
+          {sortedLanguages.map((lang) => (
+            <div key={lang.locale} className="min-w-[200px] p-4 font-medium border-r bg-background">
+              {lang.locale}
+              {lang.default && " (default)"}
+            </div>
+          ))}
+        </div>
+        
+        <div ref={wrapperRef} className="flex-1">
+          {wrapperHeight > 0 && (
+            <List
+              height={wrapperHeight}
+              itemCount={translationKeys.length}
+              itemSize={getItemSize}
+              innerRef={listRef}
+              width="100%"
+              itemData={{
+                translationKeys,
+                translations,
+                sortedLanguages,
+                sections,
+                onCellFocus,
+                onCellBlur,
+              }}
+            >
+              {VirtualizedRow}
+            </List> 
+          )}
+        </div>
       </div>
     </div>
     </main>
