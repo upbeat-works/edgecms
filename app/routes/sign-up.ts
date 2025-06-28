@@ -1,6 +1,3 @@
-// Standard library imports only – we don't rely on Remix helpers here
-// The route is a resource route that returns raw Response objects.
-
 import { createAuth } from "~/lib/auth.server";
 import { env } from "cloudflare:workers";
 
@@ -23,18 +20,12 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: "Method Not Allowed" }, { status: 405 });
   }
 
-  // ---------------------------------------------------------------------------
-  // 1. Authorization ─ ensure caller knows the shared secret
-  // ---------------------------------------------------------------------------
   const adminSecretHeader = request.headers.get("x-admin-secret");
   const ADMIN_SECRET = (env as unknown as Record<string, string>)["ADMIN_SIGNUP_SECRET"];
   if (!adminSecretHeader || adminSecretHeader !== ADMIN_SECRET) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // ---------------------------------------------------------------------------
-  // 2. Parse payload (accepts application/json or application/x-www-form-urlencoded)
-  // ---------------------------------------------------------------------------
   let email: string | undefined;
   let password: string | undefined;
   let name: string | undefined;
@@ -60,9 +51,6 @@ export async function action({ request }: { request: Request }) {
     return Response.json({ error: "Missing required fields: email & password" }, { status: 400 });
   }
 
-  // ---------------------------------------------------------------------------
-  // 3. Delegate to Better Auth so all hashing / validation logic stays intact
-  // ---------------------------------------------------------------------------
   const auth = createAuth(env);
   try {
     const result = await auth.api.signUpEmail({

@@ -9,7 +9,6 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
 	"vars": {
-		"VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare",
 		"R2_BUCKET_NAME": "edgecms-media"
 	},
 	"observability": {
