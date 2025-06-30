@@ -233,49 +233,16 @@ function VirtualizedCell({ columnIndex, rowIndex, style, data }: GridChildCompon
   sections: Section[];
 }>) {
   const { translationKeys, translations, sortedLanguages, sections } = data;
-
-  // Header row
-  if (rowIndex === 0) {
-    if (columnIndex === 0) {
-      return (
-        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
-          Key
-        </div>
-      );
-    } else if (columnIndex === 1) {
-      return (
-        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
-          Section
-        </div>
-      );
-    } else {
-      const langIndex = columnIndex - 2;
-      const lang = sortedLanguages[langIndex];
-      return (
-        <div style={style} className="p-4 font-medium border-r border-b bg-muted/50 flex items-center">
-          {lang.locale}
-          {lang.default && " (default)"}
-        </div>
-      );
-    }
-  }
   
-  // Data rows
-  const dataIndex = rowIndex - 1;
+  // Data rows only (header is rendered separately)
+  const dataIndex = rowIndex;
   const key = translationKeys[dataIndex];
   const keyTranslations = translations.get(key)!;
   const firstTranslation = Array.from(keyTranslations.values())[0];
   const section = firstTranslation?.section;
 
+  // Section column (now at index 0)
   if (columnIndex === 0) {
-    // Key column
-    return (
-      <div style={style} className="p-4 font-mono text-sm border-r border-b bg-background flex items-center">
-        {key}
-      </div>
-    );
-  } else if (columnIndex === 1) {
-    // Section column
     return (
       <div style={style} className="p-2 border-r border-b flex items-center">
         <SectionCell
@@ -287,7 +254,7 @@ function VirtualizedCell({ columnIndex, rowIndex, style, data }: GridChildCompon
     );
   } else {
     // Language columns
-    const langIndex = columnIndex - 2;
+    const langIndex = columnIndex - 1;
     const lang = sortedLanguages[langIndex];
     return (
       <div style={style} className="p-2 border-r border-b flex items-center">
@@ -310,6 +277,9 @@ export default function I18n() {
   const addTranslationFetcher = useFetcher();
   const defaultLanguageFetcher = useFetcher();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<any>(null);
+  const keyColumnRef = useRef<HTMLDivElement>(null);
   const [wrapperBounds, setWrapperBounds] = useState({ width: 0, height: 0 });
   
   // Hide the form after successful submission
@@ -341,6 +311,16 @@ export default function I18n() {
       setWrapperBounds({ width, height });
     }
   }, [wrapperRef.current]);
+
+  // Sync scroll between header, key column and grid
+  const handleGridScroll = ({ scrollLeft, scrollTop }: { scrollLeft: number; scrollTop: number }) => {
+    if (headerRef.current) {
+      headerRef.current.scrollLeft = scrollLeft;
+    }
+    if (keyColumnRef.current) {
+      keyColumnRef.current.scrollTop = scrollTop;
+    }
+  };
 
   return (
     <main className="flex flex-col h-[calc(100vh-70px)]">
@@ -487,25 +467,84 @@ export default function I18n() {
       </Dialog>
 
       <div className="border rounded-lg overflow-hidden flex flex-col flex-1">
-        <div ref={wrapperRef} className="flex-1" style={{ overscrollBehavior: 'contain' }}>
-          {wrapperBounds.height > 0 && (
-            <FixedSizeGrid
-              height={wrapperBounds.height}
-              columnCount={languages.length + 2} // +2 for key and section
-              rowCount={translationKeys.length + 1} // +1 for header
-              columnWidth={200}
-              rowHeight={60}
-              width={wrapperBounds.width}
-              itemData={{
-                translationKeys,
-                translations,
-                sortedLanguages,
-                sections,
+        {/* Sticky header */}
+        <div className="flex sticky top-0 z-20 bg-background border-b">
+          {/* Top-left corner cell */}
+          <div className="min-w-[200px] w-[200px] p-4 font-medium border-r bg-muted/50 flex-shrink-0 z-30">
+            Key
+          </div>
+          
+          {/* Scrollable header */}
+          <div 
+            ref={headerRef} 
+            className="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            onScroll={(e) => {
+              // If header is scrolled manually, sync back to grid
+              if (gridRef.current) {
+                gridRef.current.scrollTo({ scrollLeft: e.currentTarget.scrollLeft });
+              }
+            }}
+          >
+            <div className="flex" style={{ width: `${200 + (sortedLanguages.length * 200)}px` }}>
+              <div className="min-w-[200px] w-[200px] p-4 font-medium border-r bg-muted/50 flex-shrink-0">
+                Section
+              </div>
+              {sortedLanguages.map((lang) => (
+                <div key={lang.locale} className="min-w-[200px] w-[200px] p-4 font-medium border-r bg-muted/50 flex-shrink-0">
+                  {lang.locale}
+                  {lang.default && " (default)"}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Main content area */}
+        <div ref={wrapperRef} className="flex flex-1 overflow-hidden" style={{ overscrollBehavior: 'contain' }}>
+          {/* Sticky key column */}
+          <div className="flex-shrink-0 bg-background border-r w-[200px]">
+            <div 
+              ref={keyColumnRef}
+              className="overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              style={{ height: wrapperBounds.height }}
+              onScroll={(e) => {
+                // If key column is scrolled manually, sync back to grid
+                if (gridRef.current) {
+                  gridRef.current.scrollTo({ scrollTop: e.currentTarget.scrollTop });
+                }
               }}
             >
-              {VirtualizedCell}
-            </FixedSizeGrid> 
-          )}
+              {translationKeys.map((key) => (
+                <div key={key} className="w-[200px] p-4 font-mono text-sm border-b h-[60px] flex items-center">
+                  {key}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Grid content (without key column) */}
+          <div className="flex-1 overflow-hidden">
+            {wrapperBounds.height > 0 && (
+              <FixedSizeGrid
+                ref={gridRef}
+                height={wrapperBounds.height}
+                columnCount={languages.length + 1} // +1 for section only
+                rowCount={translationKeys.length} // No header row
+                columnWidth={200}
+                rowHeight={60}
+                width={wrapperBounds.width - 200} // Subtract key column width
+                onScroll={handleGridScroll}
+                itemData={{
+                  translationKeys,
+                  translations,
+                  sortedLanguages,
+                  sections,
+                }}
+              >
+                {VirtualizedCell}
+              </FixedSizeGrid> 
+            )}
+          </div>
         </div>
       </div>
     </div>
