@@ -1,5 +1,9 @@
 import { createRequestHandler } from "react-router";
 
+if (import.meta.hot) {
+  import.meta.hot.accept();
+}
+
 declare module "react-router" {
   export interface AppLoadContext {
     cloudflare: {
