@@ -77,6 +77,18 @@ export const media = sqliteTable("media", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Version management for file-based production
+export const versions = sqliteTable("versions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  description: text("description"),
+  status: text("status", { enum: ["draft", "live", "archived"] }).default("draft"),
+  createdAt: text("createdAt")
+  .notNull()
+  .default(sql`CURRENT_TIMESTAMP`),
+  createdBy: text("createdBy")
+  .references(() => user.id)
+});
+
 // Export schema for better-auth
 export const authSchema = {
   user,

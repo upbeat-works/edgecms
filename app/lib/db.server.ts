@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import { eq, desc, count, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
-import { languages, sections, translations, media } from "./schema.server";
+import { languages, sections, translations, media, versions } from "./schema.server";
 
 const db = drizzle(env.DB);
 
@@ -27,7 +27,133 @@ export interface Media {
   mimeType: string;
   sizeBytes: number;
   section: string | null;
-  uploadedAt: string;
+  uploadedAt: Date;
+}
+
+export interface Version {
+  id: number;
+  description: string | null;
+  status: 'draft' | 'live' | 'archived';
+  createdAt: Date;
+  createdBy: string | null;
+}
+
+// Version operations
+export async function getVersions(): Promise<Version[]> {
+  const result = await db.select().from(versions).orderBy(desc(versions.id));
+  return result.map(row => ({
+    id: row.id,
+    description: row.description,
+    status: row.status || 'draft',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy
+  }));
+}
+
+export async function getLiveVersion(): Promise<Version | null> {
+  const result = await db.select().from(versions).where(eq(versions.status, 'live')).limit(1);
+  if (result.length === 0) return null;
+  
+  const row = result[0];
+  return {
+    id: row.id,
+    description: row.description,
+    status: row.status || 'live',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy || null
+  };
+}
+
+export async function getLatestVersion(): Promise<Version | null> {
+  const result = await db.select().from(versions).orderBy(desc(versions.id)).limit(1);
+  if (result.length === 0) return null;
+  
+  const row = result[0];
+  return {
+    id: row.id,
+    description: row.description,
+    status: row.status || 'draft',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy || null
+  };
+}
+
+export async function createVersion(description?: string, createdBy?: string): Promise<Version> {
+  const result = await db.insert(versions).values({
+    description: description || null,
+    status: 'draft',
+    createdBy: createdBy || null
+  }).returning();
+  
+  const row = result[0];
+  return {
+    id: row.id,
+    description: row.description,
+    status: row.status || 'draft',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy
+  };
+}
+
+export async function promoteVersion(versionId: number): Promise<void> {
+  // Archive current live version
+  await db.update(versions).set({ status: 'archived' })
+    .where(eq(versions.status, 'live'));
+  
+  // Promote target version to live
+  await db.update(versions).set({ status: 'live' })
+    .where(eq(versions.id, versionId));
+  
+  // Invalidate all translation caches since live version changed
+  const allLanguages = await getLanguages();
+  for (const lang of allLanguages) {
+    await env.CACHE.delete(`translations:${lang.locale}`);
+  }
+}
+
+// File generation for production
+export async function generateTranslationFiles(): Promise<void> {
+  const liveVersion = await getLiveVersion();
+  if (!liveVersion) {
+    throw new Error("No live version found");
+  }
+  
+  const languages = await getLanguages();
+  
+  for (const language of languages) {
+    const translations = await getTranslationsByLocale(language.locale);
+    
+    // Convert to key-value format
+    const translationMap: Record<string, string> = {};
+    for (const translation of translations) {
+      translationMap[translation.key] = translation.value;
+    }
+    
+    // Store in R2 bucket as JSON file
+    const filename = `i18n/${language.locale}.json`;
+    const content = JSON.stringify(translationMap, null, 2);
+    
+    await env.MEDIA_BUCKET.put(filename, content, {
+      httpMetadata: {
+        contentType: 'application/json',
+        cacheControl: 'public, max-age=3600' // Cache for 1 hour
+      }
+    });
+  }
+}
+
+export async function releaseDraft(): Promise<void> {
+  // 1. Create new version from current draft
+  const latestVersion = await getLatestVersion();
+  if (!latestVersion || latestVersion.status !== 'draft') {
+    throw new Error("No draft version found");
+  }
+  
+  // 2. Generate translation files from current database state
+  await generateTranslationFiles();
+  
+  // 3. Promote the draft to live
+  await promoteVersion(latestVersion.id);
 }
 
 // Language operations
@@ -171,7 +297,7 @@ export async function getMedia(section?: string): Promise<Media[]> {
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
     section: row.section,
-    uploadedAt: row.uploadedAt || new Date().toISOString()
+    uploadedAt: new Date(row.uploadedAt)
   }));
 }
 

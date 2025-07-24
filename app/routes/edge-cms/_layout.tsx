@@ -28,6 +28,7 @@ export default function Layout() {
     { href: "/edge-cms/i18n", label: "Translations" },
     { href: "/edge-cms/media", label: "Media" },
     { href: "/edge-cms/sections", label: "Sections" },
+    { href: "/edge-cms/versions", label: "Versions" },
   ];
 
   return (
