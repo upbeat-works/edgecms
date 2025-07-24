@@ -1,16 +1,16 @@
 -- Create Languages table
-CREATE TABLE Languages (
+CREATE TABLE languages (
   locale TEXT PRIMARY KEY,
   "default" BOOLEAN DEFAULT FALSE
 );
 
 -- Create Sections table
-CREATE TABLE Sections (
+CREATE TABLE sections (
   name TEXT PRIMARY KEY
 );
 
 -- Create Translations table
-CREATE TABLE Translations (
+CREATE TABLE translations (
   key TEXT NOT NULL,
   language TEXT NOT NULL,
   value TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE Translations (
 CREATE INDEX idx_translations_key ON Translations(key);
 
 -- Create Media table
-CREATE TABLE Media (
+CREATE TABLE media (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   filename TEXT NOT NULL UNIQUE,
   mimeType TEXT NOT NULL,
