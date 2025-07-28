@@ -11,7 +11,9 @@ import {
   setDefaultLanguage,
   type Language,
   type Section,
-  type Translation 
+  type Translation, 
+  getLatestVersion,
+  createVersion
 } from "~/lib/db.server";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
@@ -32,10 +34,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const sectionFilter = url.searchParams.get("section");
   
-  const [languages, sections, translations] = await Promise.all([
+  const [languages, sections, translations, activeVersion] = await Promise.all([
     getLanguages(),
     getSections(),
     getTranslations(sectionFilter || undefined),
+    getLatestVersion('live'),
   ]);
 
   // Group translations by key
@@ -47,14 +50,25 @@ export async function loader({ request }: Route.LoaderArgs) {
     translationsByKey.get(translation.key)!.set(translation.language, translation);
   }
 
-  return { languages, sections, translations: translationsByKey, sectionFilter };
+  return { languages, sections, translations: translationsByKey, sectionFilter, activeVersion };
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  await requireAuth(request, env);
+  const auth = await requireAuth(request, env);
   
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  // Before any change we need to create a new draft version if none exists
+  const [draftVersion, liveVersion] = await Promise.all([
+    getLatestVersion('draft'),
+    getLatestVersion('live')
+  ]);
+
+  if (draftVersion == null) {
+    const description = liveVersion ? `v${liveVersion.id + 1}` : new Date().toLocaleDateString();
+    await createVersion(description, auth.user.id);
+  }
 
   switch (intent) {
     case "update-translation": {
@@ -85,9 +99,9 @@ export async function action({ request }: Route.ActionArgs) {
       
       // Add empty translations for all languages
       const languages = await getLanguages();
-      for (const language of languages) {
+      await Promise.all(languages.map(async (language) => {
         await upsertTranslation(key, language.locale, "", section || undefined);
-      }
+      }));
       return { success: true };
     }
 
@@ -99,14 +113,14 @@ export async function action({ request }: Route.ActionArgs) {
       const keyTranslations = await getTranslations();
       const translationsForKey = keyTranslations.filter(t => t.key === key);
       
-      for (const translation of translationsForKey) {
-        await upsertTranslation(
+      await Promise.all(translationsForKey.map(async (translation) => {
+        upsertTranslation(
           translation.key, 
           translation.language, 
           translation.value, 
           newSection || undefined
-        );
-      }
+        )
+      }));
       return { success: true };
     }
 
@@ -270,7 +284,7 @@ function VirtualizedCell({ columnIndex, rowIndex, style, data }: GridChildCompon
 }
 
 export default function I18n() {
-  const { languages, sections, translations, sectionFilter } = useLoaderData<typeof loader>();
+  const { languages, sections, translations, sectionFilter, activeVersion } = useLoaderData<typeof loader>();
   const [showAddLanguage, setShowAddLanguage] = useState(false);
   const [showAddTranslation, setShowAddTranslation] = useState(false);
   const addLanguageFetcher = useFetcher();
@@ -326,7 +340,24 @@ export default function I18n() {
     <main className="flex flex-col h-[calc(100vh-70px)]">
       <div className="flex flex-col flex-1 container mx-auto py-8">
         <div className="flex flex-col">
-        <h1 className="text-3xl font-bold mb-8">Translations Management</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Translations Management</h1>
+          <div className="flex items-center gap-4">
+            {activeVersion && (
+              <div className="text-sm text-muted-foreground">
+                Active Version:
+                <span className="ml-2 text-xs">
+                  {activeVersion.description ?? `v${activeVersion.id}`}
+                </span>
+              </div>
+            )}
+            <Button asChild variant="outline" size="sm">
+              <Link to="/edge-cms/i18n/versions">
+                Manage Versions
+              </Link>
+            </Button>
+          </div>
+        </div>
         <div className="mb-6 flex gap-4 flex-wrap">
         <Form method="get" className="flex gap-2">
           <select

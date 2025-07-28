@@ -1,5 +1,5 @@
 import { useLoaderData, useSubmit } from "react-router";
-import { getVersions, getLiveVersion, promoteVersion } from "~/lib/db.server";
+import { getVersions, releaseDraft, rollbackVersion } from "~/lib/db.server";
 import { Button } from "~/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 import { requireAuth } from "~/lib/auth.middleware";
@@ -8,29 +8,25 @@ import { env } from "cloudflare:workers";
 export async function loader({ request }: { request: Request }) {
   await requireAuth(request, env);
   
-  const [versions, liveVersion] = await Promise.all([
+  const [versions] = await Promise.all([
     getVersions(),
-    getLiveVersion()
   ]);
   
-  return { versions, liveVersion };
+  return { versions };
 }
 
 export async function action({ request }: { request: Request }) {
-  const auth = await requireAuth(request, env);
-  
   const formData = await request.formData();
   const intent = formData.get("intent");
   
   if (intent === "publish-version") {
-    const versionId = parseInt(formData.get("versionId") as string);
-    await promoteVersion(versionId);
+    await releaseDraft();
     return { success: true };
   }
   
   if (intent === "rollback-version") {
     const versionId = parseInt(formData.get("versionId") as string);
-    await promoteVersion(versionId);
+    await rollbackVersion(versionId);
     return { success: true };
   }
   
@@ -38,7 +34,7 @@ export async function action({ request }: { request: Request }) {
 }
 
 export default function VersionsPage() {
-  const { versions, liveVersion } = useLoaderData<typeof loader>();
+  const { versions } = useLoaderData<typeof loader>();
   const submit = useSubmit();
   
   const handlePublishVersion = (versionId: number) => {
@@ -78,11 +74,6 @@ export default function VersionsPage() {
               <TableRow key={version.id}>
                 <TableCell className="font-medium">
                   v{version.id}
-                  {version.id === liveVersion?.id && (
-                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                      Live
-                    </span>
-                  )}
                 </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 text-xs rounded-full ${

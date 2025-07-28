@@ -1,12 +1,22 @@
-import { getLiveVersion } from "~/lib/db.server";
+import { getLatestVersion } from "~/lib/db.server";
 import type { Route } from "./+types/i18n.$locale[.]json";
 import { env } from 'cloudflare:workers';
 
-export async function loader({ params, context }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const locale = params.locale;
+  const url = new URL(request.url);
+  const requestedVersion = url.searchParams.get('version');
   
+  // Get live version to determine which files to serve
+  const liveVersion = await getLatestVersion('live');
+  if (!liveVersion && !requestedVersion) {
+    return new Response('Version not found', { status: 404 });
+  }
+
+  const version = requestedVersion || liveVersion?.id;
+
   // Try to get from cache first
-  const cacheKey = `translations:${locale}`;
+  const cacheKey = `translations:${locale}:${version}`;
   const cached = await env.CACHE.get(cacheKey);
   
   if (cached) {
@@ -18,29 +28,13 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     });
   }
   
-  // Get live version to determine which files to serve
-  const liveVersion = await getLiveVersion();
-  if (!liveVersion) {
-    return new Response(JSON.stringify({}), {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
-  }
-  
   // Try to get translation file from R2
-  const filename = `i18n/${locale}.json`;
-  const translationFile = await env.MEDIA_BUCKET.get(filename);
+  const filename = `${version}/${locale}.json`;
+  const translationFile = await env.BACKUPS_BUCKET.get(filename);
   
   if (!translationFile) {
     // Fallback to empty object if file doesn't exist
-    return new Response(JSON.stringify({}), {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
+    return new Response('No translation file found', { status: 404 });
   }
   
   // Parse the JSON content
@@ -48,14 +42,13 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   
   // Cache the result
   const jsonResponse = JSON.stringify(translations);
-  await env.CACHE.put(cacheKey, jsonResponse, {
-    expirationTtl: 86400, // 24 hours
-  });
+  await env.CACHE.put(cacheKey, jsonResponse);
   
   return new Response(jsonResponse, {
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=3600", // 1 hour browser cache
+      "Cache-Control": "public, max-age=1800", // 30min browser cache
+      "ETag": `${version}-${locale}`
     },
   });
 } 

@@ -7,7 +7,8 @@ import {
   createSection,
   updateSection,
   deleteSection,
-  type SectionWithCounts
+  type SectionWithCounts,
+  getLanguages
 } from "~/lib/db.server";
 import {
   Table,
@@ -20,6 +21,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
+import { Progress } from "~/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +35,9 @@ export async function loader({ request }: { request: Request }) {
   await requireAuth(request, env);
   
   const sections = await getSectionsWithCounts();
-  return { sections };
+  const languages = await getLanguages();
+
+  return { sections, languages };
 }
 
 export async function action({ request }: { request: Request }) {
@@ -113,7 +117,7 @@ function EditableSectionName({
 }
 
 export default function Sections() {
-  const { sections } = useLoaderData<typeof loader>();
+  const { sections, languages } = useLoaderData<typeof loader>();
   const [showAddSection, setShowAddSection] = useState(false);
   const addSectionFetcher = useFetcher();
 
@@ -181,13 +185,21 @@ export default function Sections() {
               {sections.map((section) => (
                 <TableRow key={section.name}>
                   <TableCell className="p-2">
-                    <EditableSectionName sectionName={section.name} />
+                    {section.name !== '-' ? <EditableSectionName sectionName={section.name} /> : <span className="text-muted-foreground px-2">{section.name}</span>}
                   </TableCell>
                   <TableCell className="text-center">
                     {section.mediaCount}
                   </TableCell>
                   <TableCell className="text-center">
-                    {section.translationCount}
+                    <div className="space-y-2">
+                      <div>{section.translationCount} / {languages.length}</div>
+                      <div className="w-1/3 mx-auto">
+                        <Progress 
+                          value={(section.translationCount / languages.length) * 100} 
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Form method="post" className="inline">

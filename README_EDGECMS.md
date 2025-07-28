@@ -77,7 +77,11 @@ Update the IDs in `wrangler.jsonc` with the actual IDs from the commands above:
     {
       "binding": "MEDIA_BUCKET",
       "bucket_name": "edgecms-media"
-    }
+    },
+    {
+			"binding": "BACKUPS_BUCKET",
+			"bucket_name": "edgecms-backups"
+		}
   ]
 }
 ```
