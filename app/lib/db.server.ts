@@ -1,8 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
-import { eq, desc, count, sql, isNotNull, isNull } from "drizzle-orm";
+import { eq, desc, count, sql, isNull } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { languages, sections, translations, media, versions, user } from "./schema.server";
-import { gzipString, gunzipString } from "./gzip";
 
 const db = drizzle(env.DB);
 
@@ -97,120 +96,14 @@ export async function promoteVersion(versionId: number): Promise<void> {
     .where(eq(versions.id, versionId));
 }
 
-// File generation for production
-export async function generateTranslationFiles(): Promise<void> {
-  const draftVersion = await getLatestVersion('draft');
-  if (!draftVersion) {
-    throw new Error("No live version found");
-  }
-  
-  const languages = await getLanguages();
-
-  let defaultLanguage = null;
-  let restLanguages = [];
-  for (const language of languages) {
-    if (language.default) {
-      defaultLanguage = language;
-    } else {
-      restLanguages.push(language);
-    }
-  }
-
-  if (!defaultLanguage) {
-    throw new Error("No default language found");
-  }
-
-  const defaultTranslations = await getTranslationsByLocale(defaultLanguage.locale);
-  const defaultTranslationsMap = defaultTranslations.reduce((acc, translation) => {
-    acc[translation.key] = translation.value;
-    return acc;
-  }, {} as Record<string, string>);
-  const backup = [
-    defaultTranslations,
-  ];
-  
-  const jsonFiles: { filename: string, content: string }[] = [
-    {
-      filename: `${draftVersion.id}/${defaultLanguage.locale}.json`,
-      content: JSON.stringify(defaultTranslationsMap)
-    }
-  ];
-
-  for (const language of restLanguages) {
-    const translations = await getTranslationsByLocale(language.locale);
-    backup.push(translations);
-    
-    const translationMap = translations.reduce((acc, translation) => {
-      acc[translation.key] = translation.value;
-      return acc;
-    }, { ...defaultTranslationsMap });
-    
-    // Store in R2 bucket as JSON file
-    const filename = `${draftVersion.id}/${language.locale}.json`;
-    const content = JSON.stringify(translationMap);
-
-    jsonFiles.push({
-      filename,
-      content
-    });
-  }
-
-  await Promise.all(jsonFiles.map(({ filename, content }) =>
-    env.BACKUPS_BUCKET.put(filename, content, {
-      httpMetadata: {
-        contentType: 'application/json',
-        cacheControl: 'public, immutable, max-age=31536000' // 1 year
-      }
-    })
-  ));
-
-  const compressed = await gzipString(JSON.stringify(backup));
-  await env.BACKUPS_BUCKET.put(`${draftVersion.id}/backup.gz`, compressed);
-}
-
-export async function releaseDraft(): Promise<void> {
-  // 1. Create new version from current draft
-  const draftVersion = await getLatestVersion('draft');
-  if (!draftVersion) {
-    throw new Error("No draft version found");
-  }
-  
-  // 2. Generate translation files from current database state
-  await generateTranslationFiles();
-  
-  // 3. Promote the draft to live
-  await promoteVersion(draftVersion.id);
+export async function releaseDraft(): Promise<void> {  
+  const instance = await env.RELEASE_VERSION_WORKFLOW.create({ params: {} });
+  console.log('Created release version workflow: ', instance);
 }
 
 export async function rollbackVersion(versionId: number): Promise<void> {
-  const [version] = await db.select().from(versions).where(eq(versions.id, versionId));
-  if (!version || version.status !== 'archived') {
-    throw new Error("Version not found");
-  }
-  
-  const file = await env.BACKUPS_BUCKET.get(`${versionId}/backup.gz`);
-  if (!file) {
-    throw new Error("Backup file not found");
-  }
-  
-  const data = await file.bytes();
-  const backup = await gunzipString(data);
-  const backupData = JSON.parse(backup);
-  const availableLanguages = backupData.map((item: any) => item[0].language);
-
-  await db.delete(translations);
-  await db.delete(languages);
-
-  await db.insert(languages).values(availableLanguages.map((language: string, index: number) => ({
-    locale: language,
-    default: index === 0
-  })));
-
-  await Promise.all(backupData.map((values: any) => {    
-    return db.insert(translations).values(values);
-  }));
-
-  await promoteVersion(versionId);
+  const instance = await env.ROLLBACK_VERSION_WORKFLOW.create({ params: { versionId } });
+  console.log('Created rollback version workflow: ', instance);
 }
 
 // Language operations
