@@ -44,5 +44,36 @@
 		"vite": "^6.3.3",
 		"vite-tsconfig-paths": "^5.1.4",
 		"wrangler": "^4.22.0"
-	}
+	},
+	  "cloudflare": {
+    "bindings": {
+      "DB": {
+        "description": "D1 database for storing CMS content, user data, translations, and versioning information."
+      },
+      "CACHE": {
+        "description": "KV namespace for caching rendered content, API responses, and temporary data."
+      },
+      "MEDIA_BUCKET": {
+        "description": "R2 bucket for storing uploaded media files, images, and other static assets."
+      },
+      "BACKUPS_BUCKET": {
+        "description": "R2 bucket for storing database backups and version snapshots."
+      },
+      "RATE_LIMITER": {
+        "description": "Rate limiting binding to prevent abuse and control API request frequency."
+      },
+      "RELEASE_VERSION_WORKFLOW": {
+        "description": "Workflow binding for handling content version releases and publishing."
+      },
+      "ROLLBACK_VERSION_WORKFLOW": {
+        "description": "Workflow binding for rolling back to previous content versions."
+      },
+      "AUTH_SECRET": {
+        "description": "Secret key for better-auth authentication. Generate using `openssl rand -hex 32`."
+      },
+      "ADMIN_SIGNUP_PASSWORD": {
+        "description": "Secret password required for admin user registration to prevent unauthorized access. Generate using `openssl rand -hex 32`."
+      }
+    }
+  }
 }

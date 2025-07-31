@@ -1,5 +1,7 @@
 # EdgeCMS - Cloudflare Workers CMS
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/upbeat-works/edgecms)
+
 A lightweight content management system built on Cloudflare Workers, using D1 for data storage, KV for caching, and R2 for media storage.
 
 ## Features
