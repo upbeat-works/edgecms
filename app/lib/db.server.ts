@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, count, sql, isNull } from "drizzle-orm";
 import { env } from "cloudflare:workers";
-import { languages, sections, translations, media } from "./schema.server";
+import { languages, sections, translations, media, versions, user } from "./schema.server";
 
 const db = drizzle(env.DB);
 
@@ -27,7 +27,83 @@ export interface Media {
   mimeType: string;
   sizeBytes: number;
   section: string | null;
-  uploadedAt: string;
+  uploadedAt: Date;
+}
+
+export interface Version {
+  id: number;
+  description: string | null;
+  status: 'draft' | 'live' | 'archived';
+  createdAt: Date;
+  createdBy: string | null;
+}
+
+// Version operations
+export async function getVersions(): Promise<Version[]> {
+  const result = await db.select().from(versions)
+  .leftJoin(user, eq(versions.createdBy, user.id))
+  .orderBy(desc(versions.id));
+
+  return result.map(row => ({
+    id: row.versions.id,
+    description: row.versions.description,
+    status: row.versions.status || 'draft',
+    createdAt: new Date(row.versions.createdAt),
+    createdBy: row.user?.name || 'System'
+  }));
+}
+
+export async function getLatestVersion(status?: 'draft' | 'live' | 'archived'): Promise<Version | null> {
+  const result = await db.select().from(versions)
+  .where(status != null ? eq(versions.status, status) : sql`1 = 1`)
+  .orderBy(desc(versions.id)).limit(1);
+  if (result.length === 0) return null;
+  
+  const row = result[0];
+  return {
+    id: row.id,
+    description: row.description,
+    status: row.status || 'draft',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy || null
+  };
+}
+
+export async function createVersion(description?: string, createdBy?: string): Promise<Version> {
+  const result = await db.insert(versions).values({
+    description: description || null,
+    status: 'draft',
+    createdBy: createdBy || null
+  }).returning();
+  
+  const row = result[0];
+  return {
+    id: row.id,
+    description: row.description,
+    status: row.status || 'draft',
+    createdAt: new Date(row.createdAt),
+    createdBy: row.createdBy
+  };
+}
+
+export async function promoteVersion(versionId: number): Promise<void> {
+  // Archive current live version
+  await db.update(versions).set({ status: 'archived' })
+    .where(eq(versions.status, 'live'));
+  
+  // Promote target version to live
+  await db.update(versions).set({ status: 'live' })
+    .where(eq(versions.id, versionId));
+}
+
+export async function releaseDraft(): Promise<void> {  
+  const instance = await env.RELEASE_VERSION_WORKFLOW.create({ params: {} });
+  console.log('Created release version workflow: ', instance);
+}
+
+export async function rollbackVersion(versionId: number): Promise<void> {
+  const instance = await env.ROLLBACK_VERSION_WORKFLOW.create({ params: { versionId } });
+  console.log('Created rollback version workflow: ', instance);
 }
 
 // Language operations
@@ -87,7 +163,20 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
   const allSections = await db.select().from(sections).orderBy(sections.name);
   
   const result: SectionWithCounts[] = [];
-  
+
+  const [noSectionMedia, noSectionTranslations] = await Promise.all([
+    db.select({ count: count() }).from(media).where(isNull(media.section)),
+    db.select({ count: count() }).from(translations).where(isNull(translations.section))
+  ]);
+
+  if (noSectionMedia[0]?.count > 0 || noSectionTranslations[0]?.count > 0) {
+    result.push({
+      name: '-',
+      mediaCount: noSectionMedia[0]?.count || 0,
+      translationCount: noSectionTranslations[0]?.count || 0,
+    });
+  }
+
   for (const section of allSections) {
     const [mediaCountResult, translationCountResult] = await Promise.all([
       db.select({ count: count() }).from(media).where(eq(media.section, section.name)),
@@ -146,9 +235,6 @@ export async function upsertTranslation(
         section: section || null
       }
     });
-  
-  // Invalidate cache for this locale
-  await env.CACHE.delete(`translations:${language}`);
 }
 
 // Media operations
@@ -171,7 +257,7 @@ export async function getMedia(section?: string): Promise<Media[]> {
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
     section: row.section,
-    uploadedAt: row.uploadedAt || new Date().toISOString()
+    uploadedAt: new Date(row.uploadedAt)
   }));
 }
 
@@ -193,38 +279,4 @@ export async function updateMediaSection(mediaId: number, section: string | null
   await db.update(media)
     .set({ section })
     .where(eq(media.id, mediaId));
-}
-
-// Helper to get translations with fallback to default language
-export async function getTranslationsWithFallback(locale: string): Promise<Record<string, string>> {
-  // Get default language
-  const defaultLangResult = await db.select({ locale: languages.locale })
-    .from(languages)
-    .where(eq(languages.default, true))
-    .limit(1);
-  const defaultLocale = defaultLangResult[0]?.locale;
-  
-  // Get all unique keys first
-  const allKeys = await db.selectDistinct({ key: translations.key }).from(translations);
-  
-  // Get translations for both locales
-  const [requestedTranslations, defaultTranslations] = await Promise.all([
-    db.select().from(translations).where(eq(translations.language, locale)),
-    db.select().from(translations).where(eq(translations.language, defaultLocale))
-  ]);
-  
-  // Create lookup maps
-  const requestedMap = new Map(requestedTranslations.map(t => [t.key, t.value]));
-  const defaultMap = new Map(defaultTranslations.map(t => [t.key, t.value]));
-  
-  // Build final result with fallback logic
-  const result: Record<string, string> = {};
-  for (const { key } of allKeys) {
-    const value = requestedMap.get(key) || defaultMap.get(key);
-    if (value) {
-      result[key] = value;
-    }
-  }
-  
-  return result;
 } 

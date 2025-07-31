@@ -1,19 +1,19 @@
 -- Seed test data for EdgeCMS
 
 -- Insert languages
-INSERT INTO Languages (locale, "default") VALUES ('en', TRUE);
-INSERT INTO Languages (locale, "default") VALUES ('es', FALSE);
-INSERT INTO Languages (locale, "default") VALUES ('fr', FALSE);
+INSERT INTO languages (locale, "default") VALUES ('en', 1);
+INSERT INTO languages (locale, "default") VALUES ('es', 0);
+INSERT INTO languages (locale, "default") VALUES ('fr', 0);
 
 -- Insert sections
-INSERT INTO Sections (name) VALUES ('homepage');
-INSERT INTO Sections (name) VALUES ('dashboard');
-INSERT INTO Sections (name) VALUES ('settings');
+INSERT INTO sections (name) VALUES ('homepage');
+INSERT INTO sections (name) VALUES ('dashboard');
+INSERT INTO sections (name) VALUES ('settings');
 
 -- Insert translations
 
 -- Homepage translations
-INSERT INTO Translations (key, language, value, section) VALUES 
+INSERT INTO translations (key, language, value, section) VALUES 
 ('welcome.title', 'en', 'Welcome to EdgeCMS', 'homepage'),
 ('welcome.title', 'es', 'Bienvenido a EdgeCMS', 'homepage'),
 ('welcome.title', 'fr', 'Bienvenue sur EdgeCMS', 'homepage'),
@@ -22,13 +22,13 @@ INSERT INTO Translations (key, language, value, section) VALUES
 ('welcome.subtitle', 'fr', 'Gérez votre contenu facilement', 'homepage');
 
 -- Dashboard translations
-INSERT INTO Translations (key, language, value, section) VALUES 
+INSERT INTO translations (key, language, value, section) VALUES 
 ('dashboard.title', 'en', 'Dashboard', 'dashboard'),
 ('dashboard.title', 'es', 'Panel de control', 'dashboard'),
 ('dashboard.title', 'fr', 'Tableau de bord', 'dashboard');
 
 -- Common button translations
-INSERT INTO Translations (key, language, value, section) VALUES 
+INSERT INTO translations (key, language, value, section) VALUES 
 ('button.save', 'en', 'Save', NULL),
 ('button.save', 'es', 'Guardar', NULL),
 ('button.save', 'fr', 'Enregistrer', NULL),
@@ -40,7 +40,7 @@ INSERT INTO Translations (key, language, value, section) VALUES
 ('button.delete', 'fr', 'Supprimer', NULL);
 
 -- Settings translations
-INSERT INTO Translations (key, language, value, section) VALUES 
+INSERT INTO translations (key, language, value, section) VALUES 
 ('settings.title', 'en', 'Settings', 'settings'),
 ('settings.title', 'es', 'Configuración', 'settings'),
 ('settings.title', 'fr', 'Paramètres', 'settings'),

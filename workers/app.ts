@@ -1,4 +1,6 @@
 import { createRequestHandler } from "react-router";
+import { ReleaseVersionWorkflow } from "./release-version-workflow";
+import { RollbackVersionWorkflow } from "./rollback-version-workflow";
 
 if (import.meta.hot) {
   import.meta.hot.accept();
@@ -25,3 +27,8 @@ export default {
     });
   },
 } satisfies ExportedHandler<Env>;
+
+export {
+  ReleaseVersionWorkflow,
+  RollbackVersionWorkflow,
+}

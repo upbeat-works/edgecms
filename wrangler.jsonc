@@ -5,7 +5,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "edgecms",
-	"compatibility_date": "2025-04-04",
+	"compatibility_date": "2025-06-17",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
 	"vars": {
@@ -78,6 +78,26 @@
 		{
 			"binding": "MEDIA_BUCKET",
 			"bucket_name": "edgecms-media"
+		},
+		{
+			"binding": "BACKUPS_BUCKET",
+			"bucket_name": "edgecms-backups"
 		}
-	]
+	],
+
+	/**
+   * Workflows Binding
+   */
+	"workflows": [
+		{
+			"name": "edgecms-release-version-workflow",
+			"binding": "RELEASE_VERSION_WORKFLOW",
+			"class_name": "ReleaseVersionWorkflow"
+		},
+		{
+			"name": "edgecms-rollback-version-workflow",
+			"binding": "ROLLBACK_VERSION_WORKFLOW",
+			"class_name": "RollbackVersionWorkflow"
+		}
+	],
 }

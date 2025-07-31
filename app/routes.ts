@@ -5,6 +5,7 @@ export default [
     index("routes/edge-cms/index.tsx"),
     layout("routes/edge-cms/_layout.tsx", [
       route("i18n", "routes/edge-cms/i18n.tsx"),
+      route("i18n/versions", "routes/edge-cms/versions.tsx"),
       route("media", "routes/edge-cms/media.tsx"),
       route("sections", "routes/edge-cms/sections.tsx"),
     ]),

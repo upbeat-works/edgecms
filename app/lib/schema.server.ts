@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 // Better Auth tables
 export const user = sqliteTable("user", {
@@ -47,31 +48,45 @@ export const verification = sqliteTable("verification", {
 });
 
 // Application tables
-export const languages = sqliteTable("Languages", {
+export const languages = sqliteTable("languages", {
   locale: text("locale").primaryKey(),
   default: integer("default", { mode: 'boolean' }).default(false)
 });
 
-export const sections = sqliteTable("Sections", {
+export const sections = sqliteTable("sections", {
   name: text("name").primaryKey()
 });
 
-export const translations = sqliteTable("Translations", {
+export const translations = sqliteTable("translations", {
   key: text("key").notNull(),
   language: text("language").notNull(),
   value: text("value").notNull(),
-  section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" })
-}, (table) => ({
-  pk: primaryKey({ columns: [table.language, table.key] })
-}));
+  section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" }),
+}, (table) => [
+  primaryKey({ columns: [table.language, table.key] }),
+]);
 
-export const media = sqliteTable("Media", {
+export const media = sqliteTable("media", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   filename: text("filename").notNull().unique(),
   mimeType: text("mimeType").notNull(),
   sizeBytes: integer("sizeBytes").notNull(),
   section: text("section").references(() => sections.name, { onDelete: "set null", onUpdate: "cascade" }),
-  uploadedAt: text("uploadedAt").default("CURRENT_TIMESTAMP")
+  uploadedAt: text("uploadedAt")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Version management for file-based production
+export const versions = sqliteTable("versions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  description: text("description"),
+  status: text("status", { enum: ["draft", "live", "archived"] }).default("draft"),
+  createdAt: text("createdAt")
+  .notNull()
+  .default(sql`CURRENT_TIMESTAMP`),
+  createdBy: text("createdBy")
+  .references(() => user.id)
 });
 
 // Export schema for better-auth
@@ -80,4 +95,4 @@ export const authSchema = {
   session,
   account,
   verification
-}; 
+};
