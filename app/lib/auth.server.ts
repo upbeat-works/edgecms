@@ -3,16 +3,18 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
 import { authSchema } from "./schema.server";
 
-export function createAuth(env: Env) {
+export function createAuth(env: Env, request: Request) {
   const db = drizzle(env.DB);
+  const url = new URL(request.url);
+  const baseURL = `${url.protocol}//${url.host}`;
   
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema: authSchema
     }),
-    baseURL: env.BASE_URL || "http://localhost:5173",
-    trustedOrigins: [env.BASE_URL || "http://localhost:5173"],
+    baseURL,
+    trustedOrigins: [baseURL],
     secret: env.AUTH_SECRET,
     emailAndPassword: {
       enabled: true,

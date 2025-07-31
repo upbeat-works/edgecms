@@ -15,7 +15,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   return new Response(object.body, {
     headers: {
       "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-      "Cache-Control": "public, max-age=31536000, immutable", // 1 year cache
+      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800", // 24 hour cache, 7 day stale
       "Content-Length": object.size.toString(),
     },
   });

@@ -37,13 +37,3 @@ export async function uploadMedia(
     url: `/edge-cms/public/media/${sanitizedFilename}`,
   };
 }
-
-export async function getMediaUrl(env: Env, filename: string): Promise<string> {
-  // In a real deployment, you might want to return a signed URL or public URL
-  // For now, we'll construct the public URL pattern
-  const bucketName = env.R2_BUCKET_NAME;
-  
-  // This assumes you have configured R2 bucket with public access
-  // You might need to adjust this based on your R2 configuration
-  return `https://${bucketName}.r2.dev/${filename}`;
-} 
