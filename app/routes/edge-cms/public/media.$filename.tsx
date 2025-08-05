@@ -10,13 +10,13 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!object) {
     throw new Response("Not Found", { status: 404 });
   }
-  
-  // Stream the object directly from R2
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"); // 24 hour cache, 7 day stale
+
   return new Response(object.body, {
-    headers: {
-      "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800", // 24 hour cache, 7 day stale
-      "Content-Length": object.size.toString(),
-    },
+    headers,
   });
 } 
