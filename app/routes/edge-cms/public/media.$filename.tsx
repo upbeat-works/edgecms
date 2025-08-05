@@ -15,6 +15,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
   headers.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"); // 24 hour cache, 7 day stale
+  headers.set("Accept-Ranges", "bytes");
 
   return new Response(object.body, {
     headers,
