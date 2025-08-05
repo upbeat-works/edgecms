@@ -11,12 +11,6 @@
 	"observability": {
 		"enabled": true
 	},
-	"routes": [
-		{
-			"pattern": "upbeat.works/edgecms/*",
-			"zone_name": "upbeat.works"
-		}
-	],
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
