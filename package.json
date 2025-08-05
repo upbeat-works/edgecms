@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"db:migrations:local": "wrangler d1 migrations apply DB --local",
-		"db:migrations": "wrangler d1 migrations apply EDGECMS_DB --remote",
+		"db:migrations": "wrangler d1 migrations apply DB --remote",
 		"build": "react-router build",
 		"cf-typegen": "wrangler types",
 		"deploy": "npm run db:migrations && npm run build && wrangler deploy",
