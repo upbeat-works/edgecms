@@ -48,9 +48,8 @@ export function MediaPreview({
 				<video
 					src={mediaUrl}
 					className={className}
-					muted
 					preload={preload}
-					controls={disableInteraction ? false : undefined}
+					controls={!disableInteraction}
 				/>
 				{showPlayButton && !disableInteraction && (
 					<div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors group-hover:bg-black/40">

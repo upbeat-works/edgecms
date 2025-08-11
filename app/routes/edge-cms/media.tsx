@@ -13,11 +13,7 @@ import {
 	type Media,
 	type Section,
 } from '~/lib/db.server';
-import {
-	uploadMedia,
-	replaceDocument,
-	deleteDocument,
-} from '~/lib/media.server';
+import { deleteDocument } from '~/lib/media.server';
 import { Button } from '~/components/ui/button';
 import { MediaPreview } from '~/components/media-preview';
 import { Label } from '~/components/ui/label';
@@ -61,25 +57,6 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent');
 
 	switch (intent) {
-		case 'upload': {
-			const files = formData.getAll('files') as File[];
-			const section = formData.get('section') as string | null;
-
-			const uploadPromises = files.map(file =>
-				uploadMedia(file, { section: section || undefined }),
-			);
-
-			await Promise.all(uploadPromises);
-			return { success: true };
-		}
-		case 'replace': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
-			const file = formData.get('file') as File | null;
-			const section = formData.get('section') as string | null;
-			if (!file) return { error: 'File is required' };
-			await replaceDocument(mediaId, file, section || undefined);
-			return { success: true };
-		}
 		case 'delete': {
 			const mediaId = parseInt(formData.get('mediaId') as string);
 			await deleteDocument(mediaId);
@@ -127,12 +104,16 @@ function UploadDialog({
 }) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 	const uploadFetcher = useFetcher();
+	const [error, setError] = useState<string | null>(null);
 
 	// Close dialog on successful upload/replace
 	useEffect(() => {
 		if (uploadFetcher.data?.success && uploadFetcher.state === 'idle') {
 			onOpenChange(false);
 			setSelectedFiles(null);
+		}
+		if (uploadFetcher.data?.error) {
+			setError(uploadFetcher.data.error);
 		}
 	}, [uploadFetcher.data, uploadFetcher.state, onOpenChange]);
 
@@ -147,40 +128,13 @@ function UploadDialog({
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
 				</DialogHeader>
+				{error && <p className="text-red-500">{error}</p>}
 				<uploadFetcher.Form
 					method="post"
 					encType="multipart/form-data"
 					className="space-y-4"
+					action={`/edge-cms/media-upload?intent=${isReplacing ? 'replace' : 'upload'}${isReplacing ? `&mediaId=${mediaId}` : ''}`}
 				>
-					<input
-						type="hidden"
-						name="intent"
-						value={isReplacing ? 'replace' : 'upload'}
-					/>
-					{isReplacing && (
-						<input type="hidden" name="mediaId" value={mediaId?.toString()} />
-					)}
-
-					<div>
-						<Label htmlFor="files">
-							Select {isReplacing ? 'File' : 'Files'}
-						</Label>
-						<Input
-							id="files"
-							name={isReplacing ? 'file' : 'files'}
-							type="file"
-							multiple={!isReplacing}
-							required
-							onChange={e => setSelectedFiles(e.target.files)}
-							className="cursor-pointer"
-						/>
-						{selectedFiles && (
-							<p className="text-muted-foreground mt-1 text-sm">
-								{selectedFiles.length} file(s) selected
-							</p>
-						)}
-					</div>
-
 					<div>
 						<Label htmlFor="section">
 							Section {isReplacing ? '' : '(optional)'}
@@ -199,6 +153,24 @@ function UploadDialog({
 								</option>
 							))}
 						</select>
+					</div>
+
+					<div>
+						<Label htmlFor="file">Select File</Label>
+						<Input
+							id="file"
+							name="file"
+							type="file"
+							multiple={false}
+							required
+							onChange={e => setSelectedFiles(e.target.files)}
+							className="cursor-pointer"
+						/>
+						{selectedFiles && (
+							<p className="text-muted-foreground mt-1 text-sm">
+								{selectedFiles.length} file(s) selected
+							</p>
+						)}
 					</div>
 
 					<div className="flex justify-end gap-2">
@@ -314,6 +286,7 @@ function MediaItem({
 							mimeType={media.mimeType}
 							loading="lazy"
 							preload="metadata"
+							disableInteraction={true}
 						/>
 					</div>
 				</DialogTrigger>
@@ -331,7 +304,6 @@ function MediaItem({
 							className="h-full w-full rounded object-contain"
 							showPlayButton={false}
 							loading="eager"
-							disableInteraction={true}
 						/>
 					</div>
 				</DialogContent>

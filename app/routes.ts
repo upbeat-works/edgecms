@@ -13,6 +13,7 @@ export default [
 			route('i18n', 'routes/edge-cms/i18n.tsx'),
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media.tsx'),
+			route('media-upload', 'routes/edge-cms/media-upload.ts'),
 			route('sections', 'routes/edge-cms/sections.tsx'),
 		]),
 		route('sign-in', 'routes/edge-cms/sign-in.tsx'),
