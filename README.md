@@ -2,7 +2,8 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/upbeat-works/edgecms)
 
-A lightweight content management system built on Cloudflare Workers, using D1 for data storage, KV for caching, and R2 for media storage.
+A lightweight content management system built on Cloudflare Workers, using D1
+for data storage, KV for caching, and R2 for media storage.
 
 ## Features
 
@@ -145,19 +146,23 @@ Reference media files directly:
 ## Data Model
 
 ### Languages
+
 - `locale` - Language code (e.g., 'en', 'es')
 - `default` - Whether this is the default/fallback language
 
 ### Sections
+
 - `name` - Section identifier for grouping content
 
 ### Translations
+
 - `key` - Translation key
 - `language` - Language code
 - `value` - Translated text
 - `section` - Optional section reference
 
 ### Media
+
 - `filename` - Sanitized filename
 - `mimeType` - File MIME type
 - `sizeBytes` - File size
@@ -165,4 +170,6 @@ Reference media files directly:
 
 ## Integration
 
-This CMS is designed to be deployed alongside your existing Cloudflare Workers application. Simply configure the `/edge-cms` routes in your wrangler configuration to serve this application on your domain. 
+This CMS is designed to be deployed alongside your existing Cloudflare Workers
+application. Simply configure the `/edge-cms` routes in your wrangler
+configuration to serve this application on your domain.

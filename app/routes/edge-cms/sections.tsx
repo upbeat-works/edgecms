@@ -1,238 +1,261 @@
-import { useLoaderData, Form, useFetcher } from "react-router";
-import { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react";
-import { requireAuth } from "~/lib/auth.middleware";
-import { 
-  getSectionsWithCounts, 
-  createSection,
-  updateSection,
-  deleteSection,
-  type SectionWithCounts,
-  getLanguages
-} from "~/lib/db.server";
+import { useLoaderData, Form, useFetcher } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
+import { requireAuth } from '~/lib/auth.middleware';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
-import { Input } from "~/components/ui/input";
-import { Button } from "~/components/ui/button";
-import { Label } from "~/components/ui/label";
-import { Progress } from "~/components/ui/progress";
+	getSectionsWithCounts,
+	createSection,
+	updateSection,
+	deleteSection,
+	type SectionWithCounts,
+	getLanguages,
+} from '~/lib/db.server';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
-import { env } from "cloudflare:workers";
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '~/components/ui/table';
+import { Input } from '~/components/ui/input';
+import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '~/components/ui/dialog';
+import { env } from 'cloudflare:workers';
 
 export async function loader({ request }: { request: Request }) {
-  await requireAuth(request, env);
-  
-  const sections = await getSectionsWithCounts();
-  const languages = await getLanguages();
+	await requireAuth(request, env);
 
-  return { sections, languages };
+	const sections = await getSectionsWithCounts();
+	const languages = await getLanguages();
+
+	return { sections, languages };
 }
 
 export async function action({ request }: { request: Request }) {
-  await requireAuth(request, env);
-  
-  const formData = await request.formData();
-  const intent = formData.get("intent");
+	await requireAuth(request, env);
 
-  switch (intent) {
-    case "add-section": {
-      const name = formData.get("name") as string;
-      await createSection(name);
-      return { success: true };
-    }
+	const formData = await request.formData();
+	const intent = formData.get('intent');
 
-    case "update-section": {
-      const oldName = formData.get("oldName") as string;
-      const newName = formData.get("newName") as string;
-      await updateSection(oldName, newName);
-      return { success: true };
-    }
+	switch (intent) {
+		case 'add-section': {
+			const name = formData.get('name') as string;
+			await createSection(name);
+			return { success: true };
+		}
 
-    case "delete-section": {
-      const name = formData.get("name") as string;
-      await deleteSection(name);
-      return { success: true };
-    }
+		case 'update-section': {
+			const oldName = formData.get('oldName') as string;
+			const newName = formData.get('newName') as string;
+			await updateSection(oldName, newName);
+			return { success: true };
+		}
 
-    default:
-      return { error: "Invalid action" };
-  }
+		case 'delete-section': {
+			const name = formData.get('name') as string;
+			await deleteSection(name);
+			return { success: true };
+		}
+
+		default:
+			return { error: 'Invalid action' };
+	}
 }
 
-function EditableSectionName({ 
-  sectionName
-}: { 
-  sectionName: string;
-}) {
-  const fetcher = useFetcher();
-  const [value, setValue] = useState(sectionName);
-  const [isDirty, setIsDirty] = useState(false);
+function EditableSectionName({ sectionName }: { sectionName: string }) {
+	const fetcher = useFetcher();
+	const [value, setValue] = useState(sectionName);
+	const [isDirty, setIsDirty] = useState(false);
 
-  useEffect(() => {
-    setValue(sectionName);
-    setIsDirty(false);
-  }, [sectionName]);
+	useEffect(() => {
+		setValue(sectionName);
+		setIsDirty(false);
+	}, [sectionName]);
 
-  const handleBlur = () => {
-    if (isDirty && value !== sectionName && value.trim() !== "") {
-      fetcher.submit(
-        {
-          intent: "update-section",
-          oldName: sectionName,
-          newName: value.trim(),
-        },
-        { method: "post" }
-      );
-    } else if (value.trim() === "") {
-      // Reset to original value if empty
-      setValue(sectionName);
-      setIsDirty(false);
-    }
-  };
+	const handleBlur = () => {
+		if (isDirty && value !== sectionName && value.trim() !== '') {
+			fetcher.submit(
+				{
+					intent: 'update-section',
+					oldName: sectionName,
+					newName: value.trim(),
+				},
+				{ method: 'post' },
+			);
+		} else if (value.trim() === '') {
+			// Reset to original value if empty
+			setValue(sectionName);
+			setIsDirty(false);
+		}
+	};
 
-  return (
-    <Input
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
-        setIsDirty(true);
-      }}
-      onBlur={handleBlur}
-      className="border-0 p-1 h-auto focus:ring-1 font-medium"
-      placeholder="Section name..."
-    />
-  );
+	return (
+		<Input
+			value={value}
+			onChange={e => {
+				setValue(e.target.value);
+				setIsDirty(true);
+			}}
+			onBlur={handleBlur}
+			className="h-auto border-0 p-1 font-medium focus:ring-1"
+			placeholder="Section name..."
+		/>
+	);
 }
 
 export default function Sections() {
-  const { sections, languages } = useLoaderData<typeof loader>();
-  const [showAddSection, setShowAddSection] = useState(false);
-  const addSectionFetcher = useFetcher();
+	const { sections, languages } = useLoaderData<typeof loader>();
+	const [showAddSection, setShowAddSection] = useState(false);
+	const addSectionFetcher = useFetcher();
 
-  // Hide the form after successful submission
-  useEffect(() => {
-    if (addSectionFetcher.data?.success) {
-      setShowAddSection(false);
-    }
-  }, [addSectionFetcher.data]);
+	// Hide the form after successful submission
+	useEffect(() => {
+		if (addSectionFetcher.data?.success) {
+			setShowAddSection(false);
+		}
+	}, [addSectionFetcher.data]);
 
-  return (
-    <main>
-      <div className="container mx-auto py-8">
-        <h1 className="text-3xl font-bold mb-8">Sections Management</h1>
+	return (
+		<main>
+			<div className="container mx-auto py-8">
+				<h1 className="mb-8 text-3xl font-bold">Sections Management</h1>
 
-        <div className="mb-6 flex justify-end">
-          <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
-            <DialogTrigger asChild>
-              <Button>Add Section</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Section</DialogTitle>
-              </DialogHeader>
-              <addSectionFetcher.Form method="post" className="space-y-4">
-                <input type="hidden" name="intent" value="add-section" />
-                <div className="space-y-2">
-                  <Label htmlFor="name">Section Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    placeholder="e.g., homepage, dashboard"
-                    required
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowAddSection(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={addSectionFetcher.state === "submitting"}>
-                    {addSectionFetcher.state === "submitting" ? "Adding..." : "Add"}
-                  </Button>
-                </div>
-              </addSectionFetcher.Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+				<div className="mb-6 flex justify-end">
+					<Dialog open={showAddSection} onOpenChange={setShowAddSection}>
+						<DialogTrigger asChild>
+							<Button>Add Section</Button>
+						</DialogTrigger>
+						<DialogContent className="sm:max-w-[425px]">
+							<DialogHeader>
+								<DialogTitle>Add New Section</DialogTitle>
+							</DialogHeader>
+							<addSectionFetcher.Form method="post" className="space-y-4">
+								<input type="hidden" name="intent" value="add-section" />
+								<div className="space-y-2">
+									<Label htmlFor="name">Section Name</Label>
+									<Input
+										id="name"
+										name="name"
+										placeholder="e.g., homepage, dashboard"
+										required
+									/>
+								</div>
+								<div className="flex justify-end space-x-2">
+									<Button
+										type="button"
+										variant="outline"
+										onClick={() => setShowAddSection(false)}
+									>
+										Cancel
+									</Button>
+									<Button
+										type="submit"
+										disabled={addSectionFetcher.state === 'submitting'}
+									>
+										{addSectionFetcher.state === 'submitting'
+											? 'Adding...'
+											: 'Add'}
+									</Button>
+								</div>
+							</addSectionFetcher.Form>
+						</DialogContent>
+					</Dialog>
+				</div>
 
-        {/* Sections Table */}
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Section Name</TableHead>
-                <TableHead className="text-center">Media</TableHead>
-                <TableHead className="text-center">Translations</TableHead>
-                <TableHead className="w-[100px]"/>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sections.map((section) => (
-                <TableRow key={section.name}>
-                  <TableCell className="p-2">
-                    {section.name !== '-' ? <EditableSectionName sectionName={section.name} /> : <span className="text-muted-foreground px-2">{section.name}</span>}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {section.mediaCount}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="space-y-2">
-                      <div>{section.translationCount} / {languages.length}</div>
-                      <div className="w-1/3 mx-auto">
-                        <Progress 
-                          value={(section.translationCount / languages.length) * 100} 
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Form method="post" className="inline">
-                      <input type="hidden" name="intent" value="delete-section" />
-                      <input type="hidden" name="name" value={section.name} />
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          if (!confirm(`Are you sure you want to delete the section "${section.name}"? This will remove the section from all associated media and translations.`)) {
-                            e.preventDefault();
-                          }
-                        }}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </Form>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {sections.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No sections created yet. Click "Add Section" to create your first section.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </main>
-  );
-} 
+				{/* Sections Table */}
+				<div className="overflow-hidden rounded-lg border">
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Section Name</TableHead>
+								<TableHead className="text-center">Media</TableHead>
+								<TableHead className="text-center">Translations</TableHead>
+								<TableHead className="w-[100px]" />
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{sections.map(section => (
+								<TableRow key={section.name}>
+									<TableCell className="p-2">
+										{section.name !== '-' ? (
+											<EditableSectionName sectionName={section.name} />
+										) : (
+											<span className="text-muted-foreground px-2">
+												{section.name}
+											</span>
+										)}
+									</TableCell>
+									<TableCell className="text-center">
+										{section.mediaCount}
+									</TableCell>
+									<TableCell className="text-center">
+										<div className="space-y-2">
+											<div>
+												{section.translationCount} / {languages.length}
+											</div>
+											<div className="mx-auto w-1/3">
+												<Progress
+													value={
+														(section.translationCount / languages.length) * 100
+													}
+													className="w-full"
+												/>
+											</div>
+										</div>
+									</TableCell>
+									<TableCell>
+										<Form method="post" className="inline">
+											<input
+												type="hidden"
+												name="intent"
+												value="delete-section"
+											/>
+											<input type="hidden" name="name" value={section.name} />
+											<Button
+												type="submit"
+												variant="ghost"
+												size="icon"
+												onClick={e => {
+													if (
+														!confirm(
+															`Are you sure you want to delete the section "${section.name}"? This will remove the section from all associated media and translations.`,
+														)
+													) {
+														e.preventDefault();
+													}
+												}}
+												className="text-destructive hover:text-destructive hover:bg-destructive/10"
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										</Form>
+									</TableCell>
+								</TableRow>
+							))}
+							{sections.length === 0 && (
+								<TableRow>
+									<TableCell
+										colSpan={4}
+										className="text-muted-foreground py-8 text-center"
+									>
+										No sections created yet. Click "Add Section" to create your
+										first section.
+									</TableCell>
+								</TableRow>
+							)}
+						</TableBody>
+					</Table>
+				</div>
+			</div>
+		</main>
+	);
+}

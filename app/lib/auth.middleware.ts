@@ -1,29 +1,29 @@
-import { redirect } from "react-router";
-import { createAuth } from "./auth.server";
+import { redirect } from 'react-router';
+import { createAuth } from './auth.server';
 
 export async function requireAuth(request: Request, env: Env) {
-  const auth = createAuth(env, request);
-  
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+	const auth = createAuth(env, request);
 
-  if (!session) {
-    throw redirect("/edge-cms/sign-in");
-  }
+	const session = await auth.api.getSession({
+		headers: request.headers,
+	});
 
-  return session;
+	if (!session) {
+		throw redirect('/edge-cms/sign-in');
+	}
+
+	return session;
 }
 
 export async function requireAnonymous(request: Request, env: Env) {
-  const auth = createAuth(env, request);
+	const auth = createAuth(env, request);
 
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+	const session = await auth.api.getSession({
+		headers: request.headers,
+	});
 
-  if (session) {
-    console.log(session);
-    throw redirect("/edge-cms");
-  }
+	if (session) {
+		console.log(session);
+		throw redirect('/edge-cms');
+	}
 }
