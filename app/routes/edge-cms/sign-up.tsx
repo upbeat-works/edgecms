@@ -11,7 +11,6 @@ import { timingSafeEqual } from 'node:crypto';
 function logFailedSignup(request: Request, reason: string) {
 	const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
 	const userAgent = request.headers.get('User-Agent') || 'unknown';
-	const adminSecret = request.headers.get('Admin-Secret') || 'unknown';
 
 	console.warn('Failed admin signup attempt', {
 		ip: clientIP,
@@ -28,7 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const auth = createAuth(env, request);
+	const auth = createAuth(env);
 	const formData = await request.formData();
 
 	const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';

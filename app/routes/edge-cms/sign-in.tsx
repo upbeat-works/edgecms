@@ -13,7 +13,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const auth = createAuth(env, request);
+	const auth = createAuth(env);
 	const formData = await request.formData();
 
 	const intent = formData.get('intent');

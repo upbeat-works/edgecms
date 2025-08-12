@@ -90,6 +90,12 @@
       },
       "OPENAI_API_KEY": {
         "description": "OpenAI API key for AI-powered translations. Get from https://platform.openai.com/api-keys"
+      },
+      "BASE_URL": {
+        "description": "Base URL for the application. Used for better-auth trusted origins."
+      },
+      "TRUSTED_ORIGINS": {
+        "description": "Trusted origins for better-auth. Used for better-auth trusted origins."
       }
     }
   }

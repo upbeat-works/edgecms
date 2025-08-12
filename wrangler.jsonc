@@ -11,6 +11,10 @@
 	"observability": {
 		"enabled": true
 	},
+	"vars": {
+		"BASE_URL": "http://localhost:5173",
+		"TRUSTED_ORIGINS": "http://localhost:5173"
+	},
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
