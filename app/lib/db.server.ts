@@ -134,6 +134,20 @@ export async function rollbackVersion(versionId: number): Promise<void> {
 	console.log('Created rollback version workflow: ', instance);
 }
 
+export async function runAITranslation(userId?: string): Promise<string> {
+	const instance = await env.AI_TRANSLATE_WORKFLOW.create({
+		params: { userId },
+	});
+	console.log('Created AI translate workflow: ', instance);
+	return instance.id;
+}
+
+export async function getAITranslateInstance(instanceId: string): Promise<WorkflowInstance> {
+	const instance = await env.AI_TRANSLATE_WORKFLOW.get(instanceId);
+	console.log('AI translate workflow instance: ', instance);
+	return instance;
+}
+
 // Language operations
 export async function getLanguages(): Promise<Language[]> {
 	const result = await db.select().from(languages).orderBy(languages.locale);
@@ -278,6 +292,39 @@ export async function getTranslationsByLocale(
 	return result;
 }
 
+export async function getMissingTranslationsForLanguage(
+	defaultLanguage: string,
+	targetLanguage: string,
+): Promise<Translation[]> {
+	// SQL query to find translations that exist in default language but not in target language
+	const result = await db
+		.select({
+			key: translations.key,
+			language: sql<string>`${defaultLanguage}`.as('language'),
+			value: translations.value,
+			section: translations.section,
+		})
+		.from(translations)
+		.where(
+			and(
+				eq(translations.language, defaultLanguage),
+				sql`${translations.key} NOT IN (
+					SELECT t2.key 
+					FROM ${translations} t2 
+					WHERE t2.language = ${targetLanguage}
+				)`
+			)
+		)
+		.orderBy(translations.key);
+	
+	return result.map(row => ({
+		key: row.key,
+		language: row.language,
+		value: row.value,
+		section: row.section,
+	}));
+}
+
 export async function upsertTranslation(
 	key: string,
 	language: string,
@@ -315,10 +362,10 @@ export async function bulkUpsertTranslations(
 
   if (values.length === 0) return;
 
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 25;
   for (let i = 0; i < values.length; i += BATCH_SIZE) {
     const batch = values.slice(i, i + BATCH_SIZE);
-
+		console.log(`Upserting batch ${i / BATCH_SIZE + 1} of ${Math.ceil(values.length / BATCH_SIZE)} for ${language}`);
   await db
     .insert(translations)
     .values(batch)

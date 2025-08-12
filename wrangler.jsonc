@@ -95,6 +95,11 @@
 			"name": "edgecms-rollback-version-workflow",
 			"binding": "ROLLBACK_VERSION_WORKFLOW",
 			"class_name": "RollbackVersionWorkflow"
+		},
+		{
+			"name": "edgecms-ai-translate-workflow",
+			"binding": "AI_TRANSLATE_WORKFLOW",
+			"class_name": "AITranslateWorkflow"
 		}
 	],
 	"unsafe": {

@@ -1,4 +1,4 @@
-import { useLoaderData, useFetcher, Form, Link } from 'react-router';
+import { useLoaderData, useFetcher, Form, Link, redirect, useRevalidator, useSearchParams } from 'react-router';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FixedSizeGrid, type GridChildComponentProps } from 'react-window';
 import { requireAuth } from '~/lib/auth.middleware';
@@ -15,6 +15,8 @@ import {
 	getLatestVersion,
 	createVersion,
 	bulkUpsertTranslations,
+	runAITranslation,
+	getAITranslateInstance,
 } from '~/lib/db.server';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
@@ -26,6 +28,8 @@ import {
 	DialogTitle,
 	DialogFooter,
 } from '~/components/ui/dialog';
+import { Progress } from '~/components/ui/progress';
+import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/i18n';
 
@@ -34,12 +38,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const url = new URL(request.url);
 	const sectionFilter = url.searchParams.get('section');
+	const aiTranslateId = url.searchParams.get('aiTranslateId');
 
-	const [languages, sections, translations, activeVersion] = await Promise.all([
+	const [languages, sections, translations, activeVersion, aiTranslateInstance] = await Promise.all([
 		getLanguages(),
 		getSections(),
 		getTranslations(sectionFilter || undefined),
 		getLatestVersion('live'),
+		aiTranslateId ? getAITranslateInstance(aiTranslateId) : Promise.resolve(null),
 	]);
 
 	// Group translations by key
@@ -53,12 +59,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 			.set(translation.language, translation);
 	}
 
+	let aiTranslateStatus = null;
+	if (aiTranslateInstance != null) {
+		aiTranslateStatus = await aiTranslateInstance.status();
+	}
+
 	return {
 		languages,
 		sections,
 		translations: translationsByKey,
 		sectionFilter,
 		activeVersion,
+		aiTranslateStatus,
 	};
 }
 
@@ -159,6 +171,11 @@ export async function action({ request }: Route.ActionArgs) {
 			} catch (error) {
 				return { error: 'Failed to parse JSON: ' + (error as Error).message };
 			}
+		}
+
+		case 'ai-translate': {
+			const instanceId = await runAITranslation(auth.user.id);
+			return redirect(`/edge-cms/i18n?aiTranslateId=${instanceId}`);
 		}
 
 		default:
@@ -326,20 +343,66 @@ function VirtualizedCell({
 }
 
 export default function I18n() {
-	const { languages, sections, translations, sectionFilter, activeVersion } =
+	const { languages, sections, translations, sectionFilter, activeVersion, aiTranslateStatus } =
 		useLoaderData<typeof loader>();
 	const [showAddLanguage, setShowAddLanguage] = useState(false);
 	const [showAddTranslation, setShowAddTranslation] = useState(false);
 	const [showImportJson, setShowImportJson] = useState(false);
+	const [showAiTranslationProgress, setShowAiTranslationProgress] = useState(false);
 	const addLanguageFetcher = useFetcher();
 	const addTranslationFetcher = useFetcher();
 	const importJsonFetcher = useFetcher();
 	const defaultLanguageFetcher = useFetcher();
+	const aiTranslateFetcher = useFetcher();
+	const revalidator = useRevalidator();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const headerRef = useRef<HTMLDivElement>(null);
 	const gridRef = useRef<any>(null);
 	const keyColumnRef = useRef<HTMLDivElement>(null);
 	const [wrapperBounds, setWrapperBounds] = useState({ width: 0, height: 0 });
+
+	// AI Translation polling logic
+	const aiTranslateId = searchParams.get('aiTranslateId');
+	const terminalStates = ['terminated', 'errored', 'complete'];
+	const shouldPoll = Boolean(aiTranslateId && (aiTranslateStatus && !terminalStates.includes(aiTranslateStatus.status)));
+
+	const aiTranslationPoller = useBackoffCallback(
+		async () => {
+			revalidator.revalidate();
+			
+			// Check if we should stop polling (success) or keep polling (throw error)
+			if (aiTranslateStatus && terminalStates.includes(aiTranslateStatus.status)) {
+				// Terminal state reached - stop polling by returning success
+				return { status: aiTranslateStatus };
+			} else {
+				// Not terminal yet - keep polling by throwing error
+				throw new Error(`Translation still in progress: ${aiTranslateStatus?.status || 'unknown'}`);
+			}
+		},
+		shouldPoll,
+		{
+			numOfAttempts: 30, // Poll for up to 30 attempts
+			startingDelay: 2000, // Start with 2 second delay
+			timeMultiple: 1.5, // Gradually increase delay
+			maxDelay: 10000, // Max 10 seconds delay
+		}
+	);
+
+	// Show/hide AI translation progress dialog
+	useEffect(() => {
+		if (aiTranslateId && aiTranslationPoller.isExecuting) {
+			setShowAiTranslationProgress(true);
+		} else {
+			setShowAiTranslationProgress(false);
+			if (aiTranslateStatus && terminalStates.includes(aiTranslateStatus.status)) {
+				setSearchParams(prev => {
+					prev.delete('aiTranslateId');
+					return prev;
+				});
+			}
+		}
+	}, [aiTranslateId, aiTranslationPoller.isExecuting]);
 
 	// Hide the form after successful submission
 	useEffect(() => {
@@ -409,6 +472,9 @@ export default function I18n() {
 									</span>
 								</div>
 							)}
+							<Button asChild variant="outline">
+								<Link to="/edge-cms/sections">Manage Sections</Link>
+							</Button>
 							<Button asChild variant="outline" size="sm">
 								<Link to="/edge-cms/i18n/versions">Manage Versions</Link>
 							</Button>
@@ -431,6 +497,7 @@ export default function I18n() {
 							</select>
 						</Form>
 
+						<div className="flex items-center gap-2">
 						<defaultLanguageFetcher.Form
 							method="post"
 							className="flex items-center gap-2"
@@ -457,17 +524,25 @@ export default function I18n() {
 								))}
 							</select>
 						</defaultLanguageFetcher.Form>
-
-						<div className="ml-auto flex gap-2">
 							<Button
 								onClick={() => setShowAddLanguage(true)}
 								variant="outline"
 							>
 								Add Language
 							</Button>
-							<Button asChild variant="outline">
-								<Link to="/edge-cms/sections">Manage Sections</Link>
-							</Button>
+						</div>
+
+						<div className="ml-auto flex gap-2">
+							<aiTranslateFetcher.Form method="post">
+								<input type="hidden" name="intent" value="ai-translate" />
+								<Button 
+									type="submit"
+									disabled={aiTranslateFetcher.state === 'submitting'}
+									variant="outline"
+								>
+									{aiTranslateFetcher.state === 'submitting' ? 'Translating...' : 'AI Translate'}
+								</Button>
+							</aiTranslateFetcher.Form>
 							<Button onClick={() => setShowAddTranslation(true)}>
 								Add Translation
 							</Button>
@@ -642,6 +717,52 @@ export default function I18n() {
 								</Button>
 							</DialogFooter>
 						</importJsonFetcher.Form>
+					</DialogContent>
+				</Dialog>
+
+				{/* AI Translation Progress Dialog */}
+				<Dialog open={showAiTranslationProgress} onOpenChange={setShowAiTranslationProgress}>
+					<DialogContent className="sm:max-w-md">
+						<DialogHeader>
+							<DialogTitle>AI Translation in Progress</DialogTitle>
+						</DialogHeader>
+						<div className="space-y-4">
+							<div className="text-sm text-muted-foreground">
+								{aiTranslateStatus && (
+									<span>Status: {aiTranslateStatus.status}</span>
+								)}
+							</div>
+								<Progress 
+									indeterminate={aiTranslationPoller.isExecuting}
+									value={100} 
+									className="w-full"
+								/>
+							{aiTranslateStatus && terminalStates.includes(aiTranslateStatus.status) && (
+								<div className="text-sm">
+									{aiTranslateStatus.status === 'complete' ? (
+										<span className="text-green-600">✅ Translation completed successfully!</span>
+									) : aiTranslateStatus.status === 'errored' ? (
+										<span className="text-red-600">❌ Translation failed</span>
+									) : (
+										<span className="text-yellow-600">⚠️ Translation {aiTranslateStatus.status}</span>
+									)}
+								</div>
+							)}
+						</div>
+						<DialogFooter>
+							{aiTranslateStatus && terminalStates.includes(aiTranslateStatus.status) ? (
+								<Button onClick={() => setShowAiTranslationProgress(false)}>
+									Close
+								</Button>
+							) : (
+								<Button 
+									variant="outline" 
+									onClick={() => setShowAiTranslationProgress(false)}
+								>
+									Hide Progress
+								</Button>
+							)}
+						</DialogFooter>
 					</DialogContent>
 				</Dialog>
 

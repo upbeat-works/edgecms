@@ -15,6 +15,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.10",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-progress": "^1.1.7",
@@ -22,11 +23,13 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@remix-run/form-data-parser": "^0.10.1",
     "@types/react-window": "^1.8.8",
+    "ai": "^5.0.10",
     "better-auth": "1.2.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.2",
+    "exponential-backoff": "^3.1.2",
     "isbot": "^5.1.27",
     "lucide-react": "^0.524.0",
     "react": "^19.1.0",
@@ -34,7 +37,8 @@
     "react-intersection-observer": "^9.16.0",
     "react-router": "^7.5.3",
     "react-window": "^1.8.11",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.0.12",
@@ -75,11 +79,17 @@
       "ROLLBACK_VERSION_WORKFLOW": {
         "description": "Workflow binding for rolling back to previous content versions."
       },
+      "AI_TRANSLATE_WORKFLOW": {
+        "description": "Workflow binding for AI-powered translation of missing content keys."
+      },
       "AUTH_SECRET": {
         "description": "Secret key for better-auth authentication. Generate using `openssl rand -hex 32`."
       },
       "ADMIN_SIGNUP_PASSWORD": {
         "description": "Secret password required for admin user registration to prevent unauthorized access. Generate using `openssl rand -hex 32`."
+      },
+      "OPENAI_API_KEY": {
+        "description": "OpenAI API key for AI-powered translations. Get from https://platform.openai.com/api-keys"
       }
     }
   }
