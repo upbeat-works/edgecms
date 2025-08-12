@@ -28,6 +28,11 @@ import {
 	DialogTitle,
 	DialogFooter,
 } from '~/components/ui/dialog';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { Progress } from '~/components/ui/progress';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
@@ -64,6 +69,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 		aiTranslateStatus = await aiTranslateInstance.status();
 	}
 
+	// Check if OpenAI API key is available
+	const isAiAvailable = Boolean(env.OPENAI_API_KEY);
+
 	return {
 		languages,
 		sections,
@@ -71,6 +79,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sectionFilter,
 		activeVersion,
 		aiTranslateStatus,
+		isAiAvailable,
 	};
 }
 
@@ -174,6 +183,10 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		case 'ai-translate': {
+			// Check if OpenAI API key is available
+			if (!env.OPENAI_API_KEY) {
+				return { error: 'OpenAI API key is not configured' };
+			}
 			const instanceId = await runAITranslation(auth.user.id);
 			return redirect(`/edge-cms/i18n?aiTranslateId=${instanceId}`);
 		}
@@ -343,7 +356,7 @@ function VirtualizedCell({
 }
 
 export default function I18n() {
-	const { languages, sections, translations, sectionFilter, activeVersion, aiTranslateStatus } =
+	const { languages, sections, translations, sectionFilter, activeVersion, aiTranslateStatus, isAiAvailable } =
 		useLoaderData<typeof loader>();
 	const [showAddLanguage, setShowAddLanguage] = useState(false);
 	const [showAddTranslation, setShowAddTranslation] = useState(false);
@@ -535,13 +548,33 @@ export default function I18n() {
 						<div className="ml-auto flex gap-2">
 							<aiTranslateFetcher.Form method="post">
 								<input type="hidden" name="intent" value="ai-translate" />
-								<Button 
-									type="submit"
-									disabled={aiTranslateFetcher.state === 'submitting'}
-									variant="outline"
-								>
-									{aiTranslateFetcher.state === 'submitting' ? 'Translating...' : 'AI Translate'}
-								</Button>
+								{isAiAvailable ? (
+									<Button 
+										type="submit"
+										disabled={aiTranslateFetcher.state === 'submitting'}
+										variant="outline"
+									>
+										{aiTranslateFetcher.state === 'submitting' ? 'Translating...' : 'AI Translate'}
+									</Button>
+								) : (
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<span>
+												<Button 
+													type="button"
+													disabled={true}
+													variant="outline"
+													className="cursor-not-allowed"
+												>
+													AI Translate
+												</Button>
+											</span>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Set up an OpenAI API key to enable AI translations</p>
+										</TooltipContent>
+									</Tooltip>
+								)}
 							</aiTranslateFetcher.Form>
 							<Button onClick={() => setShowAddTranslation(true)}>
 								Add Translation
