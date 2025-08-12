@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc, count, sql, isNull, and } from 'drizzle-orm';
+import { eq, desc, count, sql, isNull, and, or } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import {
 	languages,
@@ -308,11 +308,19 @@ export async function getMissingTranslationsForLanguage(
 		.where(
 			and(
 				eq(translations.language, defaultLanguage),
-				sql`${translations.key} NOT IN (
-					SELECT t2.key 
-					FROM ${translations} t2 
-					WHERE t2.language = ${targetLanguage}
-				)`
+				or(
+					sql`${translations.key} NOT IN (
+						SELECT t2.key 
+						FROM ${translations} t2 
+						WHERE t2.language = ${targetLanguage}
+					)`,
+					sql`${translations.key} IN (
+						SELECT t2.key 
+						FROM ${translations} t2 
+						WHERE t2.language = ${targetLanguage}
+						AND t2.value = ''
+					)`
+				)
 			)
 		)
 		.orderBy(translations.key);
