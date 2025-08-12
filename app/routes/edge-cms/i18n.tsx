@@ -14,6 +14,7 @@ import {
 	type Translation,
 	getLatestVersion,
 	createVersion,
+	bulkUpsertTranslations,
 } from '~/lib/db.server';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
@@ -141,6 +142,23 @@ export async function action({ request }: Route.ActionArgs) {
 				}),
 			);
 			return { success: true };
+		}
+
+		case 'import-json': {
+			const language = formData.get('language') as string;
+			const section = formData.get('section') as string | null;
+			const jsonFile = formData.get('jsonFile');
+			if (!(jsonFile instanceof File)) {
+				return { error: 'Invalid file upload' };
+			}
+			try {
+				const jsonText = await jsonFile.text();
+				const translationsMap = JSON.parse(jsonText) as Record<string, string>;
+				await bulkUpsertTranslations(language, translationsMap, section || undefined);
+				return { success: true };
+			} catch (error) {
+				return { error: 'Failed to parse JSON: ' + (error as Error).message };
+			}
 		}
 
 		default:
@@ -312,8 +330,10 @@ export default function I18n() {
 		useLoaderData<typeof loader>();
 	const [showAddLanguage, setShowAddLanguage] = useState(false);
 	const [showAddTranslation, setShowAddTranslation] = useState(false);
+	const [showImportJson, setShowImportJson] = useState(false);
 	const addLanguageFetcher = useFetcher();
 	const addTranslationFetcher = useFetcher();
+	const importJsonFetcher = useFetcher();
 	const defaultLanguageFetcher = useFetcher();
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const headerRef = useRef<HTMLDivElement>(null);
@@ -333,6 +353,12 @@ export default function I18n() {
 			setShowAddTranslation(false);
 		}
 	}, [addTranslationFetcher.data]);
+
+	useEffect(() => {
+		if (importJsonFetcher.data?.success) {
+			setShowImportJson(false);
+		}
+	}, [importJsonFetcher.data]);
 
 	const translationKeys = Array.from(translations.keys()).sort();
 	const currentDefaultLanguage =
@@ -445,6 +471,9 @@ export default function I18n() {
 							<Button onClick={() => setShowAddTranslation(true)}>
 								Add Translation
 							</Button>
+							<Button onClick={() => setShowImportJson(true)}>
+								Import JSON
+							</Button>
 						</div>
 					</div>
 				</div>
@@ -541,6 +570,78 @@ export default function I18n() {
 								</Button>
 							</DialogFooter>
 						</addTranslationFetcher.Form>
+					</DialogContent>
+				</Dialog>
+
+				{/* Import JSON Dialog */}
+				<Dialog open={showImportJson} onOpenChange={setShowImportJson}>
+					<DialogContent className="sm:max-w-md">
+						<DialogHeader>
+							<DialogTitle>Import JSON Translations</DialogTitle>
+						</DialogHeader>
+						<importJsonFetcher.Form method="post" encType="multipart/form-data">
+							<input type="hidden" name="intent" value="import-json" />
+							<div className="grid gap-4 py-4">
+								<div>
+									<Label htmlFor="language">Language</Label>
+									<select
+										id="language"
+										name="language"
+										className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+										required
+									>
+										<option value="">Select language</option>
+										{languages.map(lang => (
+											<option key={lang.locale} value={lang.locale}>
+												{lang.locale}{lang.default && ' (default)'}
+											</option>
+										))}
+									</select>
+								</div>
+								<div>
+									<Label htmlFor="section">Section (optional)</Label>
+									<select
+										id="section"
+										name="section"
+										className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+									>
+										<option value="">-</option>
+										{sections.map(section => (
+											<option key={section.name} value={section.name}>
+												{section.name}
+											</option>
+										))}
+									</select>
+								</div>
+								<div>
+									<Label htmlFor="jsonFile">JSON File</Label>
+									<Input
+										id="jsonFile"
+										name="jsonFile"
+										type="file"
+										accept=".json"
+										required
+									/>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setShowImportJson(false)}
+								>
+									Cancel
+								</Button>
+								<Button
+									type="submit"
+									disabled={importJsonFetcher.state === 'submitting'}
+								>
+									{importJsonFetcher.state === 'submitting'
+										? 'Importing...'
+										: 'Import'}
+								</Button>
+							</DialogFooter>
+						</importJsonFetcher.Form>
 					</DialogContent>
 				</Dialog>
 

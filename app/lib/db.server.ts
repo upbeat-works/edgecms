@@ -193,6 +193,7 @@ export interface SectionWithCounts {
 	name: string;
 	mediaCount: number;
 	translationCount: number;
+	translationKeysCount: number;
 }
 
 export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
@@ -200,10 +201,14 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 
 	const result: SectionWithCounts[] = [];
 
-	const [noSectionMedia, noSectionTranslations] = await Promise.all([
+	const [noSectionMedia, noSectionTranslations, noSectionTranslationKeys] = await Promise.all([
 		db.select({ count: count() }).from(media).where(isNull(media.section)),
 		db
 			.select({ count: count() })
+			.from(translations)
+			.where(isNull(translations.section)),
+		db
+			.select({ count: sql<number>`COUNT(DISTINCT key)` })
 			.from(translations)
 			.where(isNull(translations.section)),
 	]);
@@ -213,11 +218,12 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 			name: '-',
 			mediaCount: noSectionMedia[0]?.count || 0,
 			translationCount: noSectionTranslations[0]?.count || 0,
+			translationKeysCount: noSectionTranslationKeys[0]?.count || 0,
 		});
 	}
 
 	for (const section of allSections) {
-		const [mediaCountResult, translationCountResult] = await Promise.all([
+		const [mediaCountResult, translationCountResult, translationKeysResult] = await Promise.all([
 			db
 				.select({ count: count() })
 				.from(media)
@@ -226,12 +232,17 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 				.select({ count: count() })
 				.from(translations)
 				.where(eq(translations.section, section.name)),
+			db
+				.select({ count: sql<number>`COUNT(DISTINCT key)` })
+				.from(translations)
+				.where(eq(translations.section, section.name)),
 		]);
 
 		result.push({
 			name: section.name,
 			mediaCount: mediaCountResult[0]?.count || 0,
 			translationCount: translationCountResult[0]?.count || 0,
+			translationKeysCount: translationKeysResult[0]?.count || 0,
 		});
 	}
 
@@ -288,6 +299,40 @@ export async function upsertTranslation(
 				section: section || null,
 			},
 		});
+}
+
+export async function bulkUpsertTranslations(
+  language: string,
+  translationsMap: Record<string, string>,
+  section?: string,
+) {
+  const values = Object.entries(translationsMap).map(([key, value]) => ({
+    key,
+    language,
+    value,
+    section: section ?? null,
+  }));
+
+  if (values.length === 0) return;
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < values.length; i += BATCH_SIZE) {
+    const batch = values.slice(i, i + BATCH_SIZE);
+
+  await db
+    .insert(translations)
+    .values(batch)
+    .onConflictDoUpdate({
+      target: [translations.language, translations.key],
+      set: section !== undefined ? {
+        value: sql`EXCLUDED.value`,
+        section: sql`EXCLUDED.section`,
+      } : {
+        value: sql`EXCLUDED.value`,
+      }
+    });
+
+  }
 }
 
 // Media operations
