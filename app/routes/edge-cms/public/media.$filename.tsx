@@ -3,7 +3,17 @@ import type { Route } from './+types/media.$filename';
 import { env } from 'cloudflare:workers';
 import { buildVersionedFilename } from '~/lib/media.server';
 
+const CORS_HEADERS = {
+	'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
+	'Access-Control-Allow-Methods': 'GET',
+	"Access-Control-Max-Age": "86400", // 24 hours
+};
+
 export async function loader({ params, request }: Route.LoaderArgs) {
+	if (request.method === 'OPTIONS') {
+		return new Response(null, { headers: CORS_HEADERS });
+	}
+
 	const { filename } = params;
 	const url = new URL(request.url);
 	const version = url.searchParams.get('version');
@@ -37,8 +47,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	headers.set('Accept-Ranges', 'bytes');
 	// 48 hour cache in GMT
 	headers.set('Expires', new Date(Date.now() + 172800 * 1000).toUTCString());
-	headers.set('Access-Control-Allow-Origin', env.TRUSTED_ORIGINS || '*');
-	headers.set('Access-Control-Allow-Methods', 'GET');
+	Object.keys(CORS_HEADERS).forEach((key) => {
+		headers.set(key, CORS_HEADERS[key as keyof typeof CORS_HEADERS]);
+	});
 
 	return new Response(object.body, {
 		headers,
