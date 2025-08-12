@@ -37,6 +37,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	headers.set('Accept-Ranges', 'bytes');
 	// 48 hour cache in GMT
 	headers.set('Expires', new Date(Date.now() + 172800 * 1000).toUTCString());
+	headers.set('Access-Control-Allow-Origin', env.TRUSTED_ORIGINS || '*');
+	headers.set('Access-Control-Allow-Methods', 'GET');
 
 	return new Response(object.body, {
 		headers,

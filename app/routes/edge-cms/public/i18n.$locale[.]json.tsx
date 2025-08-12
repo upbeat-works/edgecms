@@ -49,6 +49,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			'Content-Type': 'application/json',
 			'Cache-Control': 'public, max-age=1800', // 30min browser cache
 			ETag: `${version}-${locale}`,
+			'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
+			'Access-Control-Allow-Methods': 'GET',
 		},
 	});
 }
