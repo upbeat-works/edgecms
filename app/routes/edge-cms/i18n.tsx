@@ -330,7 +330,7 @@ function VirtualizedCell({
 		const langIndex = columnIndex - 1;
 		const lang = sortedLanguages[langIndex];
 		return (
-			<div style={style} className="flex items-center border-r border-b p-2">
+			<div style={style} className={`flex items-center border-r border-b p-2 ${lang.default ? 'bg-blue-50' : ''}`}>
 				<TranslationCell
 					translationKey={key}
 					language={lang.locale}
@@ -797,7 +797,7 @@ export default function I18n() {
 								{sortedLanguages.map(lang => (
 									<div
 										key={lang.locale}
-										className="bg-muted/50 w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium"
+										className={`${lang.default ? 'bg-blue-100' : 'bg-muted/50'} w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium`}
 									>
 										{lang.locale}
 										{lang.default && ' (default)'}
