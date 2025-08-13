@@ -23,9 +23,31 @@ const requestHandler = createRequestHandler(
 
 export default {
 	async fetch(request, env, ctx) {
-		return requestHandler(request, {
+		const CORS_HEADERS = {
+			'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
+			'Access-Control-Allow-Methods': 'GET',
+			'Access-Control-Max-Age': '86400', // 24 hours
+		};
+		// Handle OPTIONS preflight requests
+		if (request.method === 'OPTIONS') {
+			return new Response(null, {
+				status: 200,
+				headers: CORS_HEADERS,
+			});
+		}
+
+		// Handle the main request
+		const response = await requestHandler(request, {
 			cloudflare: { env, ctx },
 		});
+
+		// Add CORS headers to the response
+		const newResponse = new Response(response.body, response);
+		Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+			newResponse.headers.set(key, value);
+		});
+
+		return newResponse;
 	},
 } satisfies ExportedHandler<Env>;
 

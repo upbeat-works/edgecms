@@ -2,17 +2,7 @@ import { getLatestVersion } from '~/lib/db.server';
 import type { Route } from './+types/i18n.$locale[.]json';
 import { env } from 'cloudflare:workers';
 
-const CORS_HEADERS = {
-	'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
-	'Access-Control-Allow-Methods': 'GET',
-	'Access-Control-Max-Age': '86400', // 24 hours
-};
-
 export async function loader({ params, request }: Route.LoaderArgs) {
-	if (request.method === 'OPTIONS') {
-		return new Response(null, { headers: CORS_HEADERS });
-	}
-
 	const locale = params.locale;
 	const url = new URL(request.url);
 	const requestedVersion = url.searchParams.get('version');
@@ -59,7 +49,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 			'Content-Type': 'application/json',
 			'Cache-Control': 'public, max-age=1800', // 30min browser cache
 			ETag: `${version}-${locale}`,
-			...CORS_HEADERS,
 		},
 	});
 }
