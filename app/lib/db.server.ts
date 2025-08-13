@@ -554,3 +554,24 @@ export async function markMediaLive(mediaId: number): Promise<void> {
 export async function deleteMediaByFilename(filename: string): Promise<void> {
 	await db.delete(media).where(eq(media.filename, filename));
 }
+
+export async function deleteMediaById(mediaId: number): Promise<void> {
+	const file = await getMediaById(mediaId);
+	if (!file) return;
+	await db.delete(media).where(eq(media.id, mediaId));
+
+	if (file.state === 'live') {
+		const latestVersion = await db
+			.select()
+			.from(media)
+			.where(eq(media.filename, file.filename))
+			.orderBy(desc(media.version))
+			.limit(1);
+		if (latestVersion.length > 0) {
+			await db
+				.update(media)
+				.set({ state: 'live' })
+				.where(eq(media.id, latestVersion[0].id));
+		}
+	}
+}

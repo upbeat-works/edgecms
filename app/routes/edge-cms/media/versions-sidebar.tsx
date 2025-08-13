@@ -1,13 +1,25 @@
 import { useFetcher } from 'react-router';
-import { X, History, MoreHorizontal } from 'lucide-react';
+import { X, History, MoreHorizontal, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { MediaPreview } from '~/components/media-preview';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import type { Media } from '~/lib/db.server';
 
 export function VersionsSidebar({
@@ -22,7 +34,26 @@ export function VersionsSidebar({
 	media: Media[];
 }) {
 	const fetcher = useFetcher();
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [versionToDelete, setVersionToDelete] = useState<Media | null>(null);
+
 	if (!isOpen || !filename) return null;
+
+	const handleDeleteClick = (version: Media) => {
+		setVersionToDelete(version);
+		setDeleteDialogOpen(true);
+	};
+
+	const handleDeleteConfirm = () => {
+		if (versionToDelete) {
+			fetcher.submit(
+				{ intent: 'delete-version', mediaId: versionToDelete.id },
+				{ method: 'post' },
+			);
+		}
+		setDeleteDialogOpen(false);
+		setVersionToDelete(null);
+	};
 
 	const versions = media
 		.filter(media => media.filename === filename)
@@ -119,6 +150,13 @@ export function VersionsSidebar({
 														Unarchive
 													</DropdownMenuItem>
 												)}
+												<DropdownMenuSeparator />
+												<DropdownMenuItem
+													onSelect={() => handleDeleteClick(version)}
+													className="text-red-600 hover:text-red-700"
+												>
+													Delete
+												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
 									</div>
@@ -140,6 +178,31 @@ export function VersionsSidebar({
 					)}
 				</div>
 			</div>
+
+			{/* Delete Confirmation Dialog */}
+			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Version</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete version {versionToDelete?.version}{' '}
+							of "{filename}"? This action cannot be undone and will permanently
+							remove this version from storage.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => setVersionToDelete(null)}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleDeleteConfirm}
+							className="bg-red-600 hover:bg-red-700"
+						>
+							Delete Version
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

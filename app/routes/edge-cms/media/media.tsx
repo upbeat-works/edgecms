@@ -11,7 +11,7 @@ import {
 	updateMediaSection,
 	type Media,
 } from '~/lib/db.server';
-import { deleteDocument } from '~/lib/media.server';
+import { deleteAllVersions, deleteVersion } from '~/lib/media.server';
 import { Button } from '~/components/ui/button';
 import { UploadDialog } from './upload-dialog';
 import { MediaItem } from './media-item';
@@ -40,9 +40,14 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent');
 
 	switch (intent) {
-		case 'delete': {
+		case 'delete-all-versions': {
 			const mediaId = parseInt(formData.get('mediaId') as string);
-			await deleteDocument(mediaId);
+			await deleteAllVersions(mediaId);
+			return { success: true };
+		}
+		case 'delete-version': {
+			const mediaId = parseInt(formData.get('mediaId') as string);
+			await deleteVersion(mediaId);
 			return { success: true };
 		}
 		case 'archive': {

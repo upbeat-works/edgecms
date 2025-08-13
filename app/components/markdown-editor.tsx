@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import MDEditor from '@uiw/react-md-editor';
+import * as commands from '@uiw/react-md-editor/commands';
 import { Button } from '~/components/ui/button';
 import { useFetcher } from 'react-router';
 
@@ -105,14 +106,52 @@ export function MarkdownEditor({
 				</div>
 			)}
 
-			<div data-color-mode="light">
+			<div data-color-mode="light" className="markdown-editor-toolbar-large">
 				<MDEditor
 					value={content}
 					onChange={val => setContent(val || '')}
-					preview="edit"
+					preview="live"
 					hideToolbar={false}
 					visibleDragbar={false}
 					height={600}
+					commands={[
+						commands.bold,
+						commands.italic,
+						commands.strikethrough,
+						commands.hr,
+						commands.group(
+							[
+								commands.heading1,
+								commands.heading2,
+								commands.heading3,
+								commands.heading4,
+								commands.heading5,
+								commands.heading6,
+							],
+							{
+								name: 'heading',
+								groupName: 'heading',
+								buttonProps: { 'aria-label': 'Insert title' },
+							},
+						),
+						commands.divider,
+						commands.link,
+						commands.quote,
+						commands.code,
+						commands.image,
+						commands.divider,
+						commands.unorderedListCommand,
+						commands.orderedListCommand,
+						commands.checkedListCommand,
+						commands.table,
+						commands.divider,
+						commands.help,
+					]}
+					extraCommands={[
+						commands.codeLive,
+						commands.codeEdit,
+						commands.codePreview,
+					]}
 				/>
 			</div>
 		</div>

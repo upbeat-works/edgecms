@@ -223,3 +223,25 @@ body {
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Markdown Editor Large Toolbar Styles */
+.markdown-editor-toolbar-large .w-md-editor-toolbar {
+	padding: 8px 12px;
+}
+
+.markdown-editor-toolbar-large .w-md-editor-toolbar button {
+	width: 32px;
+	height: 32px;
+	padding: 8px;
+	margin: 0 2px;
+}
+
+.markdown-editor-toolbar-large .w-md-editor-toolbar button svg {
+	width: 16px;
+	height: 16px;
+}
+
+.markdown-editor-toolbar-large .w-md-editor-toolbar-divider {
+	height: 24px;
+	margin: 4px 6px;
+}
