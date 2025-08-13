@@ -3,7 +3,8 @@ import * as ProgressPrimitive from '@radix-ui/react-progress';
 
 import { cn } from '~/lib/utils';
 
-interface ProgressProps extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> {
+interface ProgressProps
+	extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> {
 	indeterminate?: boolean;
 }
 
@@ -22,13 +23,14 @@ const Progress = React.forwardRef<
 		<ProgressPrimitive.Indicator
 			className={cn(
 				'bg-primary h-full flex-1 transition-all',
-				indeterminate 
-					? 'w-1/3 animate-[slide_2s_ease-in-out_infinite]' 
-					: 'w-full'
+				indeterminate
+					? 'w-1/3 animate-[slide_2s_ease-in-out_infinite]'
+					: 'w-full',
 			)}
-			style={indeterminate 
-				? undefined 
-				: { transform: `translateX(-${100 - (value || 0)}%)` }
+			style={
+				indeterminate
+					? undefined
+					: { transform: `translateX(-${100 - (value || 0)}%)` }
 			}
 		/>
 	</ProgressPrimitive.Root>

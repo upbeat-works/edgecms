@@ -22,7 +22,11 @@ import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
-import { Tooltip, TooltipTrigger, TooltipContent } from '~/components/ui/tooltip';
+import {
+	Tooltip,
+	TooltipTrigger,
+	TooltipContent,
+} from '~/components/ui/tooltip';
 import {
 	Dialog,
 	DialogContent,
@@ -203,22 +207,32 @@ export default function Sections() {
 											<Tooltip>
 												<TooltipTrigger asChild>
 													<div className="cursor-help">
-														{languages.length * section.translationKeysCount === 0 
-															? '0%' 
-															: Math.round((section.translationCount / (languages.length * section.translationKeysCount)) * 100) + '%'
-														}
+														{languages.length * section.translationKeysCount ===
+														0
+															? '0%'
+															: Math.round(
+																	(section.translationCount /
+																		(languages.length *
+																			section.translationKeysCount)) *
+																		100,
+																) + '%'}
 													</div>
 												</TooltipTrigger>
 												<TooltipContent>
-													{section.translationCount} / {languages.length * section.translationKeysCount}
+													{section.translationCount} /{' '}
+													{languages.length * section.translationKeysCount}
 												</TooltipContent>
 											</Tooltip>
 											<div className="mx-auto w-1/3">
 												<Progress
 													value={
-														languages.length * section.translationKeysCount === 0 
-															? 0 
-															: (section.translationCount / (languages.length * section.translationKeysCount)) * 100
+														languages.length * section.translationKeysCount ===
+														0
+															? 0
+															: (section.translationCount /
+																	(languages.length *
+																		section.translationKeysCount)) *
+																100
 													}
 													className="w-full"
 												/>

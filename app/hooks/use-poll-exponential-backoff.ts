@@ -1,98 +1,100 @@
-import { backOff } from "exponential-backoff";
-import { useRef, useState, useEffect } from "react";
+import { backOff } from 'exponential-backoff';
+import { useRef, useState, useEffect } from 'react';
 
 export function useBackoffCallback<T = any>(
-  callback: () => Promise<T> | T,
-  shouldStart: boolean = false,
-  options: {
-    numOfAttempts?: number;
-    startingDelay?: number;
-    timeMultiple?: number;
-    maxDelay?: number;
-  } = {}
+	callback: () => Promise<T> | T,
+	shouldStart: boolean = false,
+	options: {
+		numOfAttempts?: number;
+		startingDelay?: number;
+		timeMultiple?: number;
+		maxDelay?: number;
+	} = {},
 ) {
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [lastError, setLastError] = useState<any>(null);
-  const [lastResult, setLastResult] = useState<[string, Awaited<T>] | null>(null);
-  
-  // Following Dan Abramov's pattern: use ref to always get fresh callback
-  const savedCallback = useRef(callback);
-  const abortControllerRef = useRef<AbortController | null>(null);
+	const [isExecuting, setIsExecuting] = useState(false);
+	const [lastError, setLastError] = useState<any>(null);
+	const [lastResult, setLastResult] = useState<[string, Awaited<T>] | null>(
+		null,
+	);
 
-  // Always save the latest callback
-  savedCallback.current = callback;
+	// Following Dan Abramov's pattern: use ref to always get fresh callback
+	const savedCallback = useRef(callback);
+	const abortControllerRef = useRef<AbortController | null>(null);
 
-  const {
-    numOfAttempts = 3,
-    startingDelay = 1000,
-    timeMultiple = 2,
-    maxDelay = 10000,
-  } = options;
+	// Always save the latest callback
+	savedCallback.current = callback;
 
-  useEffect(() => {
-    if (!shouldStart || isExecuting) {
-      return;
-    }
+	const {
+		numOfAttempts = 3,
+		startingDelay = 1000,
+		timeMultiple = 2,
+		maxDelay = 10000,
+	} = options;
 
-    const startExecution = async () => {
-      // Cancel any previous execution
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+	useEffect(() => {
+		if (!shouldStart || isExecuting) {
+			return;
+		}
 
-      abortControllerRef.current = new AbortController();
-      setIsExecuting(true);
-      setLastError(null);
+		const startExecution = async () => {
+			// Cancel any previous execution
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+			}
 
-      try {
-        const result = await backOff(
-          async () => {
-            // Check if we should abort
-            if (abortControllerRef.current?.signal.aborted) {
-              return ['aborted', null];
-            }
+			abortControllerRef.current = new AbortController();
+			setIsExecuting(true);
+			setLastError(null);
 
-            // Use the fresh callback from ref
-            const data = await savedCallback.current();
-            return ['success', data];
-          },
-          {
-            numOfAttempts,
-            startingDelay,
-            timeMultiple,
-            maxDelay,
-            retry: (error: any, attemptNumber: number) => {
-              if (abortControllerRef.current?.signal.aborted) {
-                return false;
-              }
-              return true;
-            },
-          }
-        );
+			try {
+				const result = await backOff(
+					async () => {
+						// Check if we should abort
+						if (abortControllerRef.current?.signal.aborted) {
+							return ['aborted', null];
+						}
 
-        setLastResult(result as [string, Awaited<T>]);
-      } catch (error) {
-        console.error('Error in backoff callback', error);
-        setLastError(error);
-      } finally {
-        abortControllerRef.current = null;
-      }
-    };
+						// Use the fresh callback from ref
+						const data = await savedCallback.current();
+						return ['success', data];
+					},
+					{
+						numOfAttempts,
+						startingDelay,
+						timeMultiple,
+						maxDelay,
+						retry: (error: any, attemptNumber: number) => {
+							if (abortControllerRef.current?.signal.aborted) {
+								return false;
+							}
+							return true;
+						},
+					},
+				);
 
-    startExecution();
+				setLastResult(result as [string, Awaited<T>]);
+			} catch (error) {
+				console.error('Error in backoff callback', error);
+				setLastError(error);
+			} finally {
+				abortControllerRef.current = null;
+			}
+		};
 
-    // Cleanup function
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      setIsExecuting(false);
-    };
-  }, [shouldStart, numOfAttempts, startingDelay, timeMultiple, maxDelay]);
+		startExecution();
 
-  return {
-    isExecuting,
-    lastError,
-    lastResult,
-  };
+		// Cleanup function
+		return () => {
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+			}
+			setIsExecuting(false);
+		};
+	}, [shouldStart, numOfAttempts, startingDelay, timeMultiple, maxDelay]);
+
+	return {
+		isExecuting,
+		lastError,
+		lastResult,
+	};
 }

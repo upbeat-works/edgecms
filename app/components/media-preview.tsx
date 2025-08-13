@@ -65,14 +65,14 @@ export function MediaPreview({
 	// Document/PDF preview
 	return (
 		<div ref={ref} className="absolute inset-0 bg-gray-200">
-			<div className="absolute inset-0 z-10" />
-			{inView && !disableInteraction ? (
+			{disableInteraction && <div className="absolute inset-0 z-10" />}
+			{inView ? (
 				<object
 					data={`${mediaUrl}#toolbar=0&navpanes=0&scrollbar=0&scroll=0`}
 					type={mimeType}
 					aria-label={filename}
 					className="h-full w-full object-cover"
-					onScroll={e => e.preventDefault()}
+					onScroll={e => disableInteraction && e.preventDefault()}
 				>
 					<div className="flex h-full w-full items-center justify-center">
 						<FileText className="h-12 w-12 text-gray-400" />

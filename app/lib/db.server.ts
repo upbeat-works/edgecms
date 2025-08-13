@@ -142,7 +142,9 @@ export async function runAITranslation(userId?: string): Promise<string> {
 	return instance.id;
 }
 
-export async function getAITranslateInstance(instanceId: string): Promise<WorkflowInstance> {
+export async function getAITranslateInstance(
+	instanceId: string,
+): Promise<WorkflowInstance> {
 	const instance = await env.AI_TRANSLATE_WORKFLOW.get(instanceId);
 	console.log('AI translate workflow instance: ', instance);
 	return instance;
@@ -215,17 +217,18 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 
 	const result: SectionWithCounts[] = [];
 
-	const [noSectionMedia, noSectionTranslations, noSectionTranslationKeys] = await Promise.all([
-		db.select({ count: count() }).from(media).where(isNull(media.section)),
-		db
-			.select({ count: count() })
-			.from(translations)
-			.where(isNull(translations.section)),
-		db
-			.select({ count: sql<number>`COUNT(DISTINCT key)` })
-			.from(translations)
-			.where(isNull(translations.section)),
-	]);
+	const [noSectionMedia, noSectionTranslations, noSectionTranslationKeys] =
+		await Promise.all([
+			db.select({ count: count() }).from(media).where(isNull(media.section)),
+			db
+				.select({ count: count() })
+				.from(translations)
+				.where(isNull(translations.section)),
+			db
+				.select({ count: sql<number>`COUNT(DISTINCT key)` })
+				.from(translations)
+				.where(isNull(translations.section)),
+		]);
 
 	if (noSectionMedia[0]?.count > 0 || noSectionTranslations[0]?.count > 0) {
 		result.push({
@@ -237,20 +240,21 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 	}
 
 	for (const section of allSections) {
-		const [mediaCountResult, translationCountResult, translationKeysResult] = await Promise.all([
-			db
-				.select({ count: count() })
-				.from(media)
-				.where(eq(media.section, section.name)),
-			db
-				.select({ count: count() })
-				.from(translations)
-				.where(eq(translations.section, section.name)),
-			db
-				.select({ count: sql<number>`COUNT(DISTINCT key)` })
-				.from(translations)
-				.where(eq(translations.section, section.name)),
-		]);
+		const [mediaCountResult, translationCountResult, translationKeysResult] =
+			await Promise.all([
+				db
+					.select({ count: count() })
+					.from(media)
+					.where(eq(media.section, section.name)),
+				db
+					.select({ count: count() })
+					.from(translations)
+					.where(eq(translations.section, section.name)),
+				db
+					.select({ count: sql<number>`COUNT(DISTINCT key)` })
+					.from(translations)
+					.where(eq(translations.section, section.name)),
+			]);
 
 		result.push({
 			name: section.name,
@@ -319,12 +323,12 @@ export async function getMissingTranslationsForLanguage(
 						FROM ${translations} t2 
 						WHERE t2.language = ${targetLanguage}
 						AND t2.value = ''
-					)`
-				)
-			)
+					)`,
+				),
+			),
 		)
 		.orderBy(translations.key);
-	
+
 	return result.map(row => ({
 		key: row.key,
 		language: row.language,
@@ -357,37 +361,41 @@ export async function upsertTranslation(
 }
 
 export async function bulkUpsertTranslations(
-  language: string,
-  translationsMap: Record<string, string>,
-  section?: string,
+	language: string,
+	translationsMap: Record<string, string>,
+	section?: string,
 ) {
-  const values = Object.entries(translationsMap).map(([key, value]) => ({
-    key,
-    language,
-    value,
-    section: section ?? null,
-  }));
+	const values = Object.entries(translationsMap).map(([key, value]) => ({
+		key,
+		language,
+		value,
+		section: section ?? null,
+	}));
 
-  if (values.length === 0) return;
+	if (values.length === 0) return;
 
-  const BATCH_SIZE = 25;
-  for (let i = 0; i < values.length; i += BATCH_SIZE) {
-    const batch = values.slice(i, i + BATCH_SIZE);
-		console.log(`Upserting batch ${i / BATCH_SIZE + 1} of ${Math.ceil(values.length / BATCH_SIZE)} for ${language}`);
-  await db
-    .insert(translations)
-    .values(batch)
-    .onConflictDoUpdate({
-      target: [translations.language, translations.key],
-      set: section !== undefined ? {
-        value: sql`EXCLUDED.value`,
-        section: sql`EXCLUDED.section`,
-      } : {
-        value: sql`EXCLUDED.value`,
-      }
-    });
-
-  }
+	const BATCH_SIZE = 25;
+	for (let i = 0; i < values.length; i += BATCH_SIZE) {
+		const batch = values.slice(i, i + BATCH_SIZE);
+		console.log(
+			`Upserting batch ${i / BATCH_SIZE + 1} of ${Math.ceil(values.length / BATCH_SIZE)} for ${language}`,
+		);
+		await db
+			.insert(translations)
+			.values(batch)
+			.onConflictDoUpdate({
+				target: [translations.language, translations.key],
+				set:
+					section !== undefined
+						? {
+								value: sql`EXCLUDED.value`,
+								section: sql`EXCLUDED.section`,
+							}
+						: {
+								value: sql`EXCLUDED.value`,
+							},
+			});
+	}
 }
 
 // Media operations
@@ -543,6 +551,6 @@ export async function markMediaLive(mediaId: number): Promise<void> {
 		.where(eq(media.id, mediaId));
 }
 
-export async function deleteMediaById(mediaId: number): Promise<void> {
-	await db.delete(media).where(eq(media.id, mediaId));
+export async function deleteMediaByFilename(filename: string): Promise<void> {
+	await db.delete(media).where(eq(media.filename, filename));
 }

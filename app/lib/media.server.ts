@@ -1,4 +1,4 @@
-import { deleteMediaById, getMediaById } from '~/lib/db.server';
+import { deleteMediaByFilename, getMediaById } from '~/lib/db.server';
 import { env } from 'cloudflare:workers';
 
 export function buildVersionedFilename(
@@ -32,5 +32,5 @@ export async function deleteDocument(mediaId: number): Promise<void> {
 	if (!existing) return;
 
 	await env.MEDIA_BUCKET.delete(existing.filename);
-	await deleteMediaById(existing.id);
+	await deleteMediaByFilename(existing.filename);
 }

@@ -5,7 +5,7 @@ import { authSchema } from './schema.server';
 
 let auth: ReturnType<typeof betterAuth> | null = null;
 
-export function createAuth(env: Env) {	
+export function createAuth(env: Env) {
 	if (auth) {
 		return auth;
 	}
@@ -18,7 +18,10 @@ export function createAuth(env: Env) {
 			schema: authSchema,
 		}),
 		baseURL: env.BASE_URL || 'undefined',
-		trustedOrigins: typeof env.TRUSTED_ORIGINS !== 'undefined' ? env.TRUSTED_ORIGINS.split(',') : undefined,
+		trustedOrigins:
+			typeof env.TRUSTED_ORIGINS !== 'undefined'
+				? env.TRUSTED_ORIGINS.split(',')
+				: undefined,
 		secret: env.AUTH_SECRET,
 		emailAndPassword: {
 			enabled: true,
@@ -32,10 +35,10 @@ export function createAuth(env: Env) {
 			},
 		},
 	});
-	
+
 	// Cache the instance for future requests
 	auth = authInstance;
-	
+
 	return auth;
 }
 

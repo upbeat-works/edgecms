@@ -6,7 +6,7 @@ import { buildVersionedFilename } from '~/lib/media.server';
 const CORS_HEADERS = {
 	'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
 	'Access-Control-Allow-Methods': 'GET',
-	"Access-Control-Max-Age": "86400", // 24 hours
+	'Access-Control-Max-Age': '86400', // 24 hours
 };
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -47,7 +47,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	headers.set('Accept-Ranges', 'bytes');
 	// 48 hour cache in GMT
 	headers.set('Expires', new Date(Date.now() + 172800 * 1000).toUTCString());
-	Object.keys(CORS_HEADERS).forEach((key) => {
+	Object.keys(CORS_HEADERS).forEach(key => {
 		headers.set(key, CORS_HEADERS[key as keyof typeof CORS_HEADERS]);
 	});
 

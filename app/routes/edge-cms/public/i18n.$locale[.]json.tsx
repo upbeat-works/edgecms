@@ -5,7 +5,7 @@ import { env } from 'cloudflare:workers';
 const CORS_HEADERS = {
 	'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
 	'Access-Control-Allow-Methods': 'GET',
-	"Access-Control-Max-Age": "86400", // 24 hours
+	'Access-Control-Max-Age': '86400', // 24 hours
 };
 
 export async function loader({ params, request }: Route.LoaderArgs) {
