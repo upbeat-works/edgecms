@@ -73,7 +73,7 @@ export function MarkdownEditor({
 		// Submit using the media upload endpoint with replace intent
 		saveFetcher.submit(formData, {
 			method: 'post',
-			action: `/edge-cms/media-upload?intent=replace&mediaId=${mediaId}`,
+			action: `/edge-cms/media/upload?intent=replace&mediaId=${mediaId}`,
 			encType: 'multipart/form-data',
 		});
 	};
