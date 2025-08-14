@@ -36,6 +36,15 @@ export default {
 			});
 		}
 
+		const url = new URL(request.url);
+		if (
+			import.meta.env.MODE === 'production' &&
+			url.pathname.startsWith('/edge-cms/assets')
+		) {
+			// pass through to the asset server
+			return fetch(request);
+		}
+
 		// Handle the main request
 		const response = await requestHandler(request, {
 			cloudflare: { env, ctx },

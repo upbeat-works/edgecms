@@ -43,7 +43,7 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.0.12",
+    "@cloudflare/vite-plugin": "^1.11.4",
     "@react-router/dev": "^7.5.3",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^20.19.9",
