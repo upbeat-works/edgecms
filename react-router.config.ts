@@ -5,4 +5,8 @@ export default {
 	future: {
 		unstable_viteEnvironmentApi: true,
 	},
+	routeDiscovery: {
+		mode: 'lazy',
+		manifestPath: 'edge-cms/__manifest'
+	},
 } satisfies Config;
