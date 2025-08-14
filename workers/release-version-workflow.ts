@@ -6,7 +6,7 @@ import {
 import {
 	getLanguages,
 	getLatestVersion,
-	getTranslationsByLocale,
+	getTranslations,
 	promoteVersion,
 } from '~/lib/db.server';
 import { gzipString } from '~/lib/gzip';
@@ -79,9 +79,9 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log('[ReleaseVersionWorkflow] Getting default translations');
-				const defaultTranslations = await getTranslationsByLocale(
-					defaultLanguage.locale,
-				);
+				const defaultTranslations = await getTranslations({
+					language: defaultLanguage.locale,
+				});
 				return defaultTranslations;
 			},
 		);
@@ -102,7 +102,9 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				);
 				const restTranslations = await Promise.all(
 					restLanguages.map(async language => {
-						const translations = await getTranslationsByLocale(language.locale);
+						const translations = await getTranslations({
+							language: language.locale,
+						});
 						return translations;
 					}),
 				);

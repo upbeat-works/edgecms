@@ -205,7 +205,10 @@ export function MediaItem({
 							className="bg-red-600 hover:bg-red-700"
 							onClick={() =>
 								fetcher.submit(
-									{ intent: 'delete-all-versions', mediaId: media.id.toString() },
+									{
+										intent: 'delete-all-versions',
+										mediaId: media.id.toString(),
+									},
 									{ method: 'post' },
 								)
 							}

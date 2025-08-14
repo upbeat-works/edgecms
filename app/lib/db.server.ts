@@ -268,32 +268,25 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 }
 
 // Translation operations
-export async function getTranslations(
-	section?: string,
-): Promise<Translation[]> {
-	if (section) {
-		return await db
-			.select()
-			.from(translations)
-			.where(eq(translations.section, section))
-			.orderBy(translations.key, translations.language);
-	}
+export async function getTranslations({
+	section,
+	key,
+	language,
+}: {
+	section?: string;
+	key?: string;
+	language?: string;
+}): Promise<Translation[]> {
+	const filters = [];
+	if (section) filters.push(eq(translations.section, section));
+	if (key) filters.push(eq(translations.key, key));
+	if (language) filters.push(eq(translations.language, language));
 
 	return await db
 		.select()
 		.from(translations)
+		.where(and(...filters))
 		.orderBy(translations.key, translations.language);
-}
-
-export async function getTranslationsByLocale(
-	locale: string,
-): Promise<Translation[]> {
-	const result = await db
-		.select()
-		.from(translations)
-		.where(eq(translations.language, locale))
-		.orderBy(translations.key);
-	return result;
 }
 
 export async function getMissingTranslationsForLanguage(

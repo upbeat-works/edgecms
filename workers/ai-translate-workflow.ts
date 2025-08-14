@@ -6,7 +6,7 @@ import {
 import {
 	getLanguages,
 	getLatestVersion,
-	getTranslationsByLocale,
+	getTranslations,
 	getMissingTranslationsForLanguage,
 	createVersion,
 	bulkUpsertTranslations,

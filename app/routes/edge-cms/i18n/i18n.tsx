@@ -56,7 +56,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	] = await Promise.all([
 		getLanguages(),
 		getSections(),
-		getTranslations(sectionFilter || undefined),
+		getTranslations({
+			section: sectionFilter || undefined,
+		}),
 		getLatestVersion('live'),
 		aiTranslateId
 			? getAITranslateInstance(aiTranslateId)
@@ -159,18 +161,19 @@ export async function action({ request }: Route.ActionArgs) {
 			const newSection = formData.get('section') as string | null;
 
 			// Update section for all translations of this key
-			const keyTranslations = await getTranslations();
-			const translationsForKey = keyTranslations.filter(t => t.key === key);
+			const keyTranslations = await getTranslations({
+				key,
+			});
 
 			await Promise.all(
-				translationsForKey.map(async translation => {
+				keyTranslations.map(async translation =>
 					upsertTranslation(
 						translation.key,
 						translation.language,
 						translation.value,
 						newSection || undefined,
-					);
-				}),
+					),
+				),
 			);
 			return { success: true };
 		}
