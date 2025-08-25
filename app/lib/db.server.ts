@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc, count, sql, isNull, and, or } from 'drizzle-orm';
+import { eq, desc, count, sql, isNull, and, or, inArray } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import {
 	languages,
@@ -399,6 +399,14 @@ export async function updateTranslationKey(
 		.update(translations)
 		.set({ key: newKey })
 		.where(eq(translations.key, oldKey));
+}
+
+export async function deleteTranslationsByKeys(keys: string[]): Promise<void> {
+	if (keys.length === 0) return;
+	
+	await db
+		.delete(translations)
+		.where(inArray(translations.key, keys));
 }
 
 // Media operations

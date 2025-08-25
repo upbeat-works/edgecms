@@ -26,10 +26,12 @@ import {
 	runAITranslation,
 	getAITranslateInstance,
 	updateTranslationKey,
+	deleteTranslationsByKeys,
 } from '~/lib/db.server';
 
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
+import { Checkbox } from '~/components/ui/checkbox';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
 import { VirtualizedCell } from './virtualized-cell';
@@ -236,6 +238,36 @@ export async function action({ request }: Route.ActionArgs) {
 			return Response.json({ success: true });
 		}
 
+		case 'delete-translations': {
+			const keysJson = formData.get('keys') as string;
+			
+			if (!keysJson) {
+				return Response.json({ 
+					success: false, 
+					error: 'No keys provided for deletion' 
+				}, { status: 400 });
+			}
+
+			try {
+				const keys = JSON.parse(keysJson) as string[];
+				
+				if (!Array.isArray(keys) || keys.length === 0) {
+					return Response.json({ 
+						success: false, 
+						error: 'Invalid keys format' 
+					}, { status: 400 });
+				}
+
+				await deleteTranslationsByKeys(keys);
+				return Response.json({ success: true });
+			} catch (error) {
+				return Response.json({ 
+					success: false, 
+					error: 'Failed to parse keys' 
+				}, { status: 400 });
+			}
+		}
+
 		default:
 			return { error: 'Invalid action' };
 	}
@@ -256,7 +288,9 @@ export default function I18n() {
 	const [showImportJson, setShowImportJson] = useState(false);
 	const [showAiTranslationProgress, setShowAiTranslationProgress] =
 		useState(false);
+	const [selectedKeys, setSelectedKeys] = useState<Array<string>>([]);
 	const defaultLanguageFetcher = useFetcher();
+	const deleteFetcher = useFetcher();
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const wrapperRef = useRef<HTMLDivElement>(null);
@@ -322,6 +356,43 @@ export default function I18n() {
 	const translationKeys = Array.from(translations.keys()).sort();
 	const currentDefaultLanguage =
 		languages.find(lang => lang.default)?.locale || '';
+	
+	// Selection helper functions
+	const toggleKeySelection = (key: string) => {
+		setSelectedKeys(prev => {
+			if (prev.includes(key)) {
+				return prev.filter(k => k !== key);
+			}
+			return [...prev, key];
+		});
+	};
+
+	const toggleSelectAll = () => {
+		if (selectedKeys.length === translationKeys.length) {
+			setSelectedKeys([]);
+		} else {
+			setSelectedKeys(translationKeys);
+		}
+	};
+
+	const handleDeleteSelected = () => {
+		if (selectedKeys.length === 0) return;
+		
+		deleteFetcher.submit(
+			{
+				intent: 'delete-translations',
+				keys: JSON.stringify(Array.from(selectedKeys)),
+			},
+			{ method: 'post' }
+		);
+	};
+
+	// Clear selection after successful deletion
+	useEffect(() => {
+		if (deleteFetcher.state === 'idle' && deleteFetcher.data?.success) {
+			setSelectedKeys([]);
+		}
+	}, [deleteFetcher.state, deleteFetcher.data]);
 
 	// Sort languages to show default first, then others alphabetically
 	const sortedLanguages = [...languages].sort((a, b) => {
@@ -433,6 +504,15 @@ export default function I18n() {
 						</div>
 
 						<div className="ml-auto flex gap-2">
+							{selectedKeys.length > 0 && (
+								<Button
+									onClick={handleDeleteSelected}
+									variant="destructive"
+									disabled={deleteFetcher.state !== 'idle'}
+								>
+									{deleteFetcher.state !== 'idle' ? 'Deleting...' : `Delete selected (${selectedKeys.length})`}
+								</Button>
+							)}
 							<AiTranslateButton isAiAvailable={isAiAvailable} />
 							<Button onClick={() => setShowAddTranslation(true)}>
 								Add Translation
@@ -472,9 +552,14 @@ export default function I18n() {
 				<div className="flex flex-1 flex-col overflow-hidden rounded-lg border">
 					{/* Sticky header */}
 					<div className="bg-background sticky top-0 z-20 flex border-b">
-						{/* Top-left corner cell */}
-						<div className="bg-muted/50 z-30 w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium">
-							Key
+						{/* Top-left corner cell with checkbox */}
+						<div className="bg-muted/50 z-30 w-[250px] min-w-[250px] flex-shrink-0 border-r p-4 font-medium flex items-center gap-3">
+							<Checkbox
+								checked={selectedKeys.length === translationKeys.length && translationKeys.length > 0}
+								onCheckedChange={toggleSelectAll}
+								aria-label="Select all translation keys"
+							/>
+							<span>Key</span>
 						</div>
 
 						{/* Scrollable header */}
@@ -517,7 +602,7 @@ export default function I18n() {
 						style={{ overscrollBehavior: 'contain' }}
 					>
 						{/* Sticky key column */}
-						<div className="bg-background w-[200px] flex-shrink-0 border-r">
+						<div className="bg-background w-[250px] flex-shrink-0 border-r">
 							<div
 								ref={keyColumnRef}
 								className="overflow-x-hidden overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -531,14 +616,19 @@ export default function I18n() {
 									}
 								}}
 							>
-								{translationKeys.map(key => (
-									<div
-										key={key}
-										className="flex h-[60px] w-[200px] items-center border-b p-4 font-mono text-sm"
-									>
-										<KeyCell translationKey={key} />
-									</div>
-								))}
+															{translationKeys.map(key => (
+								<div
+									key={key}
+									className="flex h-[60px] w-[250px] items-center border-b p-4 font-mono text-sm gap-3"
+								>
+									<Checkbox
+										checked={selectedKeys.includes(key)}
+										onCheckedChange={() => toggleKeySelection(key)}
+										aria-label={`Select key ${key}`}
+									/>
+									<KeyCell translationKey={key} />
+								</div>
+							))}
 							</div>
 						</div>
 
@@ -552,7 +642,7 @@ export default function I18n() {
 									rowCount={translationKeys.length} // No header row
 									columnWidth={200}
 									rowHeight={60}
-									width={wrapperBounds.width - 200} // Subtract key column width
+									width={wrapperBounds.width - 250} // Subtract key column width
 									onScroll={handleGridScroll}
 									itemData={{
 										translationKeys,
