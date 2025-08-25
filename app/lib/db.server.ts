@@ -391,6 +391,16 @@ export async function bulkUpsertTranslations(
 	}
 }
 
+export async function updateTranslationKey(
+	oldKey: string,
+	newKey: string,
+): Promise<void> {
+	await db
+		.update(translations)
+		.set({ key: newKey })
+		.where(eq(translations.key, oldKey));
+}
+
 // Media operations
 export async function getMedia(options?: {
 	section?: string;

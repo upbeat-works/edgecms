@@ -25,12 +25,15 @@ import {
 	bulkUpsertTranslations,
 	runAITranslation,
 	getAITranslateInstance,
+	updateTranslationKey,
 } from '~/lib/db.server';
+
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
 import { VirtualizedCell } from './virtualized-cell';
+import { KeyCell } from './key-cell';
 import {
 	AddLanguageDialog,
 	AddTranslationDialog,
@@ -122,7 +125,7 @@ export async function action({ request }: Route.ActionArgs) {
 			const section = formData.get('section') as string | null;
 
 			await upsertTranslation(key, language, value, section || undefined);
-			return { success: true };
+			return Response.json({ success: true });
 		}
 
 		case 'add-language': {
@@ -206,6 +209,31 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 			const instanceId = await runAITranslation(auth.user.id);
 			return redirect(`/edge-cms/i18n?aiTranslateId=${instanceId}`);
+		}
+
+		case 'update-key': {
+			const oldKey = formData.get('oldKey') as string;
+			const newKey = formData.get('newKey') as string;
+
+			// Validate that the new key is different and not empty
+			if (!newKey || newKey.trim() === '' || oldKey === newKey) {
+				return Response.json({ 
+					success: false, 
+					error: 'Key cannot be empty and must be different from the current key' 
+				}, { status: 400 });
+			}
+
+			// Check if the new key already exists
+			const existingTranslations = await getTranslations({ key: newKey });
+			if (existingTranslations.length > 0) {
+				return Response.json({ 
+					success: false, 
+					error: 'A translation with this key already exists' 
+				}, { status: 400 });
+			}
+
+			await updateTranslationKey(oldKey, newKey);
+			return Response.json({ success: true });
 		}
 
 		default:
@@ -508,7 +536,7 @@ export default function I18n() {
 										key={key}
 										className="flex h-[60px] w-[200px] items-center border-b p-4 font-mono text-sm"
 									>
-										{key}
+										<KeyCell translationKey={key} />
 									</div>
 								))}
 							</div>

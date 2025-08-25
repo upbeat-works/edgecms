@@ -1,21 +1,14 @@
 import { useFetcher } from 'react-router';
 import { useEffect, useState } from 'react';
-import type { Translation } from '~/lib/db.server';
 import { SmartTextarea } from './smart-textarea';
 import { toast } from 'sonner';
 
-export function TranslationCell({
+export function KeyCell({
 	translationKey,
-	language,
-	translation,
-	section,
 }: {
 	translationKey: string;
-	language: string;
-	translation?: Translation;
-	section?: string | null;
 }) {
-	const fetcher = useFetcher({ key: `update-translation-${translationKey}-${language}` });
+	const fetcher = useFetcher({ key: `update-key-${translationKey}` });
 	const [resetKey, setResetKey] = useState(0); // Force reset by changing key
 
 	// Handle fetcher response - reset cell on error
@@ -27,14 +20,13 @@ export function TranslationCell({
 	}, [fetcher.state, fetcher.data]);
 
 	const handleSubmit = (value: string) => {
-		if (value !== translation?.value) {
+		const trimmedValue = value.trim();
+		if (trimmedValue !== translationKey && trimmedValue !== '') {
 			fetcher.submit(
 				{
-					intent: 'update-translation',
-					key: translationKey,
-					language,
-					value,
-					section: section || '',
+					intent: 'update-key',
+					oldKey: translationKey,
+					newKey: trimmedValue,
 				},
 				{ method: 'post' },
 			);
@@ -43,11 +35,12 @@ export function TranslationCell({
 
 	return (
 		<SmartTextarea
-			key={resetKey} // Force reset when resetKey changes
-			value={translation?.value || ''}
+			key={`${translationKey}-${resetKey}`} // Force reset when resetKey changes
+			value={translationKey}
 			onValueChange={() => {}} // No need to track changes locally
 			onSubmit={handleSubmit}
-			placeholder="Enter translation..."
+			placeholder="Enter key..."
+			className="font-mono"
 			disabled={fetcher.state === 'submitting'}
 		/>
 	);

@@ -28,7 +28,7 @@ export default function EdgeCMSIndex() {
 
 				<div className="space-y-4">
 					<Button asChild className="w-full" size="lg" variant="outline">
-						<Link to="/edge-cms/i18n">i18n</Link>
+						<Link to="/edge-cms/i18n">Translations</Link>
 					</Button>
 
 					<Button asChild className="w-full" size="lg" variant="outline">
