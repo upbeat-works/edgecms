@@ -404,9 +404,19 @@ export async function updateTranslationKey(
 export async function deleteTranslationsByKeys(keys: string[]): Promise<void> {
 	if (keys.length === 0) return;
 	
-	await db
-		.delete(translations)
-		.where(inArray(translations.key, keys));
+	const BATCH_SIZE = 25;
+	
+	for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+		const batch = keys.slice(i, i + BATCH_SIZE);
+		
+		await db
+			.delete(translations)
+			.where(
+				batch.length === 1 
+					? eq(translations.key, batch[0])
+					: inArray(translations.key, batch)
+			);
+	}
 }
 
 // Media operations

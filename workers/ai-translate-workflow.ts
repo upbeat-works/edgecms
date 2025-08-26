@@ -301,8 +301,8 @@ Return the translations with the same keys but translated values.`,
 
 				if (!draftVersion) {
 					const description = liveVersion
-						? `AI Translation v${liveVersion.id + 1}`
-						: `AI Translation ${new Date().toLocaleDateString()}`;
+						? `AI Translation (fork from ${liveVersion.id})`
+						: `AI Translation (${new Date().toISOString().split('T')[0]})`;
 
 					const newVersion = await createVersion(description, userId);
 					console.log(

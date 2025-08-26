@@ -30,14 +30,19 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log('[RollbackVersionWorkflow] Checking if version exists');
-				const [version] = await db
-					.select()
-					.from(versions)
-					.where(eq(versions.id, versionId));
-				if (!version || version.status !== 'archived') {
-					throw new Error('Version not found');
+				try {
+					const [version] = await db
+						.select()
+						.from(versions)
+						.where(eq(versions.id, versionId));
+					if (!version || version.status !== 'archived') {
+						throw new Error('Version not found');
+					}
+					return version;
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to check if version exists');
 				}
-				return version;
 			},
 		);
 
@@ -53,17 +58,22 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log('[RollbackVersionWorkflow] Getting backup data');
-				const file = await this.env.BACKUPS_BUCKET.get(
-					`${versionId}/backup.gz`,
-				);
-				if (!file) {
-					throw new Error('Backup file not found');
-				}
+				try {
+					const file = await this.env.BACKUPS_BUCKET.get(
+						`${versionId}/backup.gz`,
+					);
+					if (!file) {
+						throw new Error('Backup file not found');
+					}
 
-				const data = await file.bytes();
-				const backup = await gunzipString(data);
-				const backupData = JSON.parse(backup);
-				return backupData;
+					const data = await file.bytes();
+					const backup = await gunzipString(data);
+					const backupData = JSON.parse(backup);
+					return backupData;
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to get backup data');
+				}
 			},
 		);
 
@@ -81,8 +91,13 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				console.log(
 					'[RollbackVersionWorkflow] Deleting translations and languages',
 				);
-				await db.delete(translations);
-				await db.delete(languages);
+				try {
+					await db.delete(translations);
+					await db.delete(languages);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to delete translations and languages');
+				}
 			},
 		);
 
@@ -100,16 +115,28 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				console.log(
 					'[RollbackVersionWorkflow] Inserting languages from backup data',
 				);
-				const availableLanguages = backupData.map(
-					(item: any) => item[0].language,
-				);
+				try {
+					const availableLanguages = backupData.map(
+						(item: any) => item[0],
+					)
+					// backwards compatibility with old backup format
+					.filter((item: any) => item != null)
+					.map((item: any) => item.language);
 
-				await db.insert(languages).values(
-					availableLanguages.map((language: string, index: number) => ({
-						locale: language,
-						default: index === 0,
-					})),
-				);
+					if (availableLanguages.length === 0) {
+						return;
+					}
+	
+					await db.insert(languages).values(
+						availableLanguages.map((language: string, index: number) => ({
+							locale: language,
+							default: index === 0,
+						})),
+					);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to insert languages');
+				}
 			},
 		);
 
@@ -127,11 +154,25 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				console.log(
 					'[RollbackVersionWorkflow] Inserting translations from backup data',
 				);
-				await Promise.all(
-					backupData.map((values: any) => {
-						return db.insert(translations).values(values);
-					}),
-				);
+				try {
+					await Promise.all(
+						backupData
+						// backwards compatibility with old backup format
+						.filter((values: any) => values.length > 0)
+						.flatMap((values: any) => {
+							const BATCH_SIZE = 25;
+							const batches = [];
+
+							for (let i = 0; i < values.length; i += BATCH_SIZE) {
+								batches.push(values.slice(i, i + BATCH_SIZE));
+							}
+							return batches.map((batch: any) => db.insert(translations).values(batch));
+						})
+					);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to insert translations from backup data');
+				}
 			},
 		);
 
@@ -147,7 +188,12 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log('[RollbackVersionWorkflow] Promoting archived version');
-				await promoteVersion(versionId);
+				try {
+					await promoteVersion(versionId);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to promote archived version');
+				}
 			},
 		);
 	}

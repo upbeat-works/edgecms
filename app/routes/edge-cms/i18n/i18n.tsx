@@ -17,8 +17,6 @@ import {
 	upsertTranslation,
 	createLanguage,
 	setDefaultLanguage,
-	type Language,
-	type Section,
 	type Translation,
 	getLatestVersion,
 	createVersion,
@@ -27,6 +25,7 @@ import {
 	getAITranslateInstance,
 	updateTranslationKey,
 	deleteTranslationsByKeys,
+	releaseDraft,
 } from '~/lib/db.server';
 
 import { Button } from '~/components/ui/button';
@@ -57,6 +56,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sections,
 		translations,
 		activeVersion,
+		draftVersion,
 		aiTranslateInstance,
 	] = await Promise.all([
 		getLanguages(),
@@ -65,6 +65,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			section: sectionFilter || undefined,
 		}),
 		getLatestVersion('live'),
+		getLatestVersion('draft'),
 		aiTranslateId
 			? getAITranslateInstance(aiTranslateId)
 			: Promise.resolve(null),
@@ -95,6 +96,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		translations: translationsByKey,
 		sectionFilter,
 		activeVersion,
+		draftVersion,
 		aiTranslateStatus,
 		isAiAvailable,
 	};
@@ -114,8 +116,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (draftVersion == null) {
 		const description = liveVersion
-			? `v${liveVersion.id + 1}`
-			: new Date().toLocaleDateString();
+			? `fork from v${liveVersion.id}`
+			: new Date().toISOString().split('T')[0];
 		await createVersion(description, auth.user.id);
 	}
 
@@ -239,9 +241,9 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		case 'delete-translations': {
-			const keysJson = formData.get('keys') as string;
+			const keys = formData.get('keys') as string;
 			
-			if (!keysJson) {
+			if (!keys) {
 				return Response.json({ 
 					success: false, 
 					error: 'No keys provided for deletion' 
@@ -249,23 +251,28 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 
 			try {
-				const keys = JSON.parse(keysJson) as string[];
-				
-				if (!Array.isArray(keys) || keys.length === 0) {
+				const json = JSON.parse(keys) as string[];
+				if (!Array.isArray(json) || json.length === 0) {
 					return Response.json({ 
 						success: false, 
 						error: 'Invalid keys format' 
 					}, { status: 400 });
 				}
 
-				await deleteTranslationsByKeys(keys);
+				await deleteTranslationsByKeys(json);
 				return Response.json({ success: true });
 			} catch (error) {
+				console.error(error);
 				return Response.json({ 
 					success: false, 
-					error: 'Failed to parse keys' 
+					error: 'Failed to delete keys' 
 				}, { status: 400 });
 			}
+		}
+
+		case 'publish-version': {
+			await releaseDraft();
+			return { success: true };
 		}
 
 		default:
@@ -280,6 +287,7 @@ export default function I18n() {
 		translations,
 		sectionFilter,
 		activeVersion,
+		draftVersion,
 		aiTranslateStatus,
 		isAiAvailable,
 	} = useLoaderData<typeof loader>();
@@ -291,6 +299,7 @@ export default function I18n() {
 	const [selectedKeys, setSelectedKeys] = useState<Array<string>>([]);
 	const defaultLanguageFetcher = useFetcher();
 	const deleteFetcher = useFetcher();
+	const publishFetcher = useFetcher();
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const wrapperRef = useRef<HTMLDivElement>(null);
@@ -381,8 +390,15 @@ export default function I18n() {
 		deleteFetcher.submit(
 			{
 				intent: 'delete-translations',
-				keys: JSON.stringify(Array.from(selectedKeys)),
+				keys: JSON.stringify(selectedKeys),
 			},
+			{ method: 'post' }
+		);
+	};
+
+	const handlePublishVersion = () => {
+		publishFetcher.submit(
+			{ intent: 'publish-version' },
 			{ method: 'post' }
 		);
 	};
@@ -433,11 +449,23 @@ export default function I18n() {
 						<div className="flex items-center gap-4">
 							{activeVersion && (
 								<div className="text-muted-foreground text-sm">
-									Active Version:
+									Version:
 									<span className="ml-2 text-xs">
 										{activeVersion.description ?? `v${activeVersion.id}`}
 									</span>
 								</div>
+							)}
+							{draftVersion && (
+								<Button
+									onClick={handlePublishVersion}
+									disabled={publishFetcher.state !== 'idle'}
+									className="bg-green-600 hover:bg-green-700"
+								>
+									{publishFetcher.state !== 'idle' 
+										? 'Publishing...' 
+										: `Publish ${draftVersion.description}`
+									}
+								</Button>
 							)}
 							<Button asChild variant="outline">
 								<Link to="/edge-cms/sections">Manage Sections</Link>

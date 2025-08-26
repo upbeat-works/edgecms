@@ -109,7 +109,7 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 					}),
 				);
 
-				return restTranslations;
+				return restTranslations.filter(translations => translations.length > 0);
 			},
 		);
 
