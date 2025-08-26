@@ -75,7 +75,7 @@ export function SmartTextarea({
 		}
 	};
 
-	const baseClassName = "focus:ring-ring focus:bg-background relative w-full resize-none overflow-hidden rounded-md border-0 bg-transparent p-1 text-sm focus:z-50 focus:ring-1";
+	const baseClassName = "cursor-pointer focus:ring-ring focus:bg-background relative w-full resize-none overflow-hidden rounded-md border-0 bg-transparent p-1 text-sm focus:z-50 focus:ring-1 focus:cursor-text";
 	const combinedClassName = `${baseClassName} ${className}`.trim();
 
 	return (

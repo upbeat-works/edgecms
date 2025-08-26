@@ -134,6 +134,13 @@ export async function rollbackVersion(versionId: number): Promise<void> {
 	console.log('Created rollback version workflow: ', instance);
 }
 
+export async function updateVersionDescription(versionId: number, description: string): Promise<void> {
+	await db
+		.update(versions)
+		.set({ description })
+		.where(eq(versions.id, versionId));
+}
+
 export async function runAITranslation(userId?: string): Promise<string> {
 	const instance = await env.AI_TRANSLATE_WORKFLOW.create({
 		params: { userId },

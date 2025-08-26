@@ -1,5 +1,5 @@
-import { useLoaderData, useSubmit } from 'react-router';
-import { getVersions, releaseDraft, rollbackVersion } from '~/lib/db.server';
+import { useLoaderData, useSubmit, useFetcher } from 'react-router';
+import { getVersions, releaseDraft, rollbackVersion, updateVersionDescription } from '~/lib/db.server';
 import { Button } from '~/components/ui/button';
 import {
 	Table,
@@ -11,6 +11,35 @@ import {
 } from '~/components/ui/table';
 import { requireAuth } from '~/lib/auth.middleware';
 import { env } from 'cloudflare:workers';
+import { SmartTextarea } from './i18n/smart-textarea';
+
+function DescriptionCell({ versionId, description }: { versionId: number; description: string | null }) {
+	const fetcher = useFetcher({ key: `update-description-${versionId}` });
+
+	const handleSubmit = (value: string) => {
+		if (value !== description) {
+			fetcher.submit(
+				{
+					intent: 'update-description',
+					versionId: versionId.toString(),
+					description: value,
+				},
+				{ method: 'post' },
+			);
+		}
+	};
+
+	return (
+		<SmartTextarea
+			value={description || ''}
+			onValueChange={() => {}} // No need to track changes locally
+			onSubmit={handleSubmit}
+			placeholder="Enter description..."
+			disabled={fetcher.state === 'submitting'}
+			minHeight={32}
+		/>
+	);
+}
 
 export async function loader({ request }: { request: Request }) {
 	await requireAuth(request, env);
@@ -32,6 +61,13 @@ export async function action({ request }: { request: Request }) {
 	if (intent === 'rollback-version') {
 		const versionId = parseInt(formData.get('versionId') as string);
 		await rollbackVersion(versionId);
+		return { success: true };
+	}
+
+	if (intent === 'update-description') {
+		const versionId = parseInt(formData.get('versionId') as string);
+		const description = formData.get('description') as string;
+		await updateVersionDescription(versionId, description);
 		return { success: true };
 	}
 
@@ -92,9 +128,7 @@ export default function VersionsPage() {
 									</span>
 								</TableCell>
 								<TableCell>
-									{version.description || (
-										<span className="text-gray-400 italic">No description</span>
-									)}
+									<DescriptionCell versionId={version.id} description={version.description} />
 								</TableCell>
 								<TableCell>
 									{new Date(version.createdAt).toLocaleDateString()}
