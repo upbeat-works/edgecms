@@ -116,17 +116,16 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 					'[RollbackVersionWorkflow] Inserting languages from backup data',
 				);
 				try {
-					const availableLanguages = backupData.map(
-						(item: any) => item[0],
-					)
-					// backwards compatibility with old backup format
-					.filter((item: any) => item != null)
-					.map((item: any) => item.language);
+					const availableLanguages = backupData
+						.map((item: any) => item[0])
+						// backwards compatibility with old backup format
+						.filter((item: any) => item != null)
+						.map((item: any) => item.language);
 
 					if (availableLanguages.length === 0) {
 						return;
 					}
-	
+
 					await db.insert(languages).values(
 						availableLanguages.map((language: string, index: number) => ({
 							locale: language,
@@ -157,17 +156,19 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				try {
 					await Promise.all(
 						backupData
-						// backwards compatibility with old backup format
-						.filter((values: any) => values.length > 0)
-						.flatMap((values: any) => {
-							const BATCH_SIZE = 25;
-							const batches = [];
+							// backwards compatibility with old backup format
+							.filter((values: any) => values.length > 0)
+							.flatMap((values: any) => {
+								const BATCH_SIZE = 25;
+								const batches = [];
 
-							for (let i = 0; i < values.length; i += BATCH_SIZE) {
-								batches.push(values.slice(i, i + BATCH_SIZE));
-							}
-							return batches.map((batch: any) => db.insert(translations).values(batch));
-						})
+								for (let i = 0; i < values.length; i += BATCH_SIZE) {
+									batches.push(values.slice(i, i + BATCH_SIZE));
+								}
+								return batches.map((batch: any) =>
+									db.insert(translations).values(batch),
+								);
+							}),
 					);
 				} catch (error) {
 					console.error(error);

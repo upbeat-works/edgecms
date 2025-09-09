@@ -3,11 +3,7 @@ import { useEffect, useState } from 'react';
 import { SmartTextarea } from './smart-textarea';
 import { toast } from 'sonner';
 
-export function KeyCell({
-	translationKey,
-}: {
-	translationKey: string;
-}) {
+export function KeyCell({ translationKey }: { translationKey: string }) {
 	const fetcher = useFetcher({ key: `update-key-${translationKey}` });
 	const [resetKey, setResetKey] = useState(0); // Force reset by changing key
 

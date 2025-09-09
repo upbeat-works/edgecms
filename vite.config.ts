@@ -6,16 +6,16 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 function wranglerAssetsDir() {
 	return {
-		name: "ssr-wrangler-assets-dir",
-		apply: "build" as const,
+		name: 'ssr-wrangler-assets-dir',
+		apply: 'build' as const,
 		applyToEnvironment(environment: any) {
-			return environment.name === "ssr";
+			return environment.name === 'ssr';
 		},
 		async generateBundle(_opts: any, bundle: any) {
-			let asset = bundle["wrangler.json"];
+			let asset = bundle['wrangler.json'];
 			let wrangler = JSON.parse(asset.source) as { assets?: {} };
 			if (wrangler.assets) {
-				wrangler.assets = { ...wrangler.assets, directory: "../client" };
+				wrangler.assets = { ...wrangler.assets, directory: '../client' };
 				asset.source = JSON.stringify(wrangler);
 			}
 		},

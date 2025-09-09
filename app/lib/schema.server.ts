@@ -69,16 +69,30 @@ export const sections = sqliteTable('sections', {
 	name: text('name').primaryKey(),
 });
 
+export const translationKeys = sqliteTable('translation_keys', {
+	key: text('key').primaryKey(),
+	section: text('section').references(() => sections.name, {
+		onDelete: 'set null',
+		onUpdate: 'cascade',
+	}),
+});
+
 export const translations = sqliteTable(
 	'translations',
 	{
-		key: text('key').notNull(),
-		language: text('language').notNull(),
+		key: text('key')
+			.notNull()
+			.references(() => translationKeys.key, {
+				onDelete: 'cascade',
+				onUpdate: 'cascade',
+			}),
+		language: text('language')
+			.notNull()
+			.references(() => languages.locale, {
+				onDelete: 'cascade',
+				onUpdate: 'cascade',
+			}),
 		value: text('value').notNull(),
-		section: text('section').references(() => sections.name, {
-			onDelete: 'set null',
-			onUpdate: 'cascade',
-		}),
 	},
 	table => [primaryKey({ columns: [table.language, table.key] })],
 );

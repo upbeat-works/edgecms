@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import {
 	languages,
 	sections,
+	translationKeys,
 	translations,
 	media,
 	versions,
@@ -134,7 +135,10 @@ export async function rollbackVersion(versionId: number): Promise<void> {
 	console.log('Created rollback version workflow: ', instance);
 }
 
-export async function updateVersionDescription(versionId: number, description: string): Promise<void> {
+export async function updateVersionDescription(
+	versionId: number,
+	description: string,
+): Promise<void> {
 	await db
 		.update(versions)
 		.set({ description })
@@ -230,11 +234,12 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 			db
 				.select({ count: count() })
 				.from(translations)
-				.where(isNull(translations.section)),
+				.innerJoin(translationKeys, eq(translations.key, translationKeys.key))
+				.where(isNull(translationKeys.section)),
 			db
-				.select({ count: sql<number>`COUNT(DISTINCT key)` })
-				.from(translations)
-				.where(isNull(translations.section)),
+				.select({ count: count() })
+				.from(translationKeys)
+				.where(isNull(translationKeys.section)),
 		]);
 
 	if (noSectionMedia[0]?.count > 0 || noSectionTranslations[0]?.count > 0) {
@@ -256,11 +261,12 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 				db
 					.select({ count: count() })
 					.from(translations)
-					.where(eq(translations.section, section.name)),
+					.innerJoin(translationKeys, eq(translations.key, translationKeys.key))
+					.where(eq(translationKeys.section, section.name)),
 				db
-					.select({ count: sql<number>`COUNT(DISTINCT key)` })
-					.from(translations)
-					.where(eq(translations.section, section.name)),
+					.select({ count: count() })
+					.from(translationKeys)
+					.where(eq(translationKeys.section, section.name)),
 			]);
 
 		result.push({
@@ -285,15 +291,23 @@ export async function getTranslations({
 	language?: string;
 }): Promise<Translation[]> {
 	const filters = [];
-	if (section) filters.push(eq(translations.section, section));
+	if (section) filters.push(eq(translationKeys.section, section));
 	if (key) filters.push(eq(translations.key, key));
 	if (language) filters.push(eq(translations.language, language));
 
-	return await db
-		.select()
+	const result = await db
+		.select({
+			key: translations.key,
+			language: translations.language,
+			value: translations.value,
+			section: translationKeys.section,
+		})
 		.from(translations)
+		.innerJoin(translationKeys, eq(translations.key, translationKeys.key))
 		.where(and(...filters))
 		.orderBy(translations.key, translations.language);
+
+	return result;
 }
 
 export async function getMissingTranslationsForLanguage(
@@ -306,9 +320,10 @@ export async function getMissingTranslationsForLanguage(
 			key: translations.key,
 			language: sql<string>`${defaultLanguage}`.as('language'),
 			value: translations.value,
-			section: translations.section,
+			section: translationKeys.section,
 		})
 		.from(translations)
+		.innerJoin(translationKeys, eq(translations.key, translationKeys.key))
 		.where(
 			and(
 				eq(translations.language, defaultLanguage),
@@ -343,19 +358,32 @@ export async function upsertTranslation(
 	value: string,
 	section?: string,
 ) {
+	// First, ensure the translation key exists with the correct section
+	await db
+		.insert(translationKeys)
+		.values({
+			key,
+			section: section || null,
+		})
+		.onConflictDoUpdate({
+			target: [translationKeys.key],
+			set: {
+				section: section || null,
+			},
+		});
+
+	// Then, upsert the translation
 	await db
 		.insert(translations)
 		.values({
 			key,
 			language,
 			value,
-			section: section || null,
 		})
 		.onConflictDoUpdate({
 			target: [translations.language, translations.key],
 			set: {
 				value,
-				section: section || null,
 			},
 		});
 }
@@ -365,35 +393,43 @@ export async function bulkUpsertTranslations(
 	translationsMap: Record<string, string>,
 	section?: string,
 ) {
-	const values = Object.entries(translationsMap).map(([key, value]) => ({
+	const translationValues = Object.entries(translationsMap).map(
+		([key, value]) => ({
+			key,
+			language,
+			value,
+		}),
+	);
+
+	const keyValues = Object.keys(translationsMap).map(key => ({
 		key,
-		language,
-		value,
 		section: section ?? null,
 	}));
 
-	if (values.length === 0) return;
+	if (translationValues.length === 0) return;
 
 	const BATCH_SIZE = 25;
-	for (let i = 0; i < values.length; i += BATCH_SIZE) {
-		const batch = values.slice(i, i + BATCH_SIZE);
+
+	// First, upsert all translation keys with their sections
+	for (let i = 0; i < keyValues.length; i += BATCH_SIZE) {
+		const batch = keyValues.slice(i, i + BATCH_SIZE);
+		await db.insert(translationKeys).values(batch).onConflictDoNothing();
+	}
+
+	// Then, upsert all translations
+	for (let i = 0; i < translationValues.length; i += BATCH_SIZE) {
+		const batch = translationValues.slice(i, i + BATCH_SIZE);
 		console.log(
-			`Upserting batch ${i / BATCH_SIZE + 1} of ${Math.ceil(values.length / BATCH_SIZE)} for ${language}`,
+			`Upserting batch ${i / BATCH_SIZE + 1} of ${Math.ceil(translationValues.length / BATCH_SIZE)} for ${language}`,
 		);
 		await db
 			.insert(translations)
 			.values(batch)
 			.onConflictDoUpdate({
 				target: [translations.language, translations.key],
-				set:
-					section !== undefined
-						? {
-								value: sql`EXCLUDED.value`,
-								section: sql`EXCLUDED.section`,
-							}
-						: {
-								value: sql`EXCLUDED.value`,
-							},
+				set: {
+					value: sql`EXCLUDED.value`,
+				},
 			});
 	}
 }
@@ -403,27 +439,33 @@ export async function updateTranslationKey(
 	newKey: string,
 ): Promise<void> {
 	await db
-		.update(translations)
+		.update(translationKeys)
 		.set({ key: newKey })
-		.where(eq(translations.key, oldKey));
+		.where(eq(translationKeys.key, oldKey));
 }
 
 export async function deleteTranslationsByKeys(keys: string[]): Promise<void> {
 	if (keys.length === 0) return;
-	
+
 	const BATCH_SIZE = 25;
-	
+
 	for (let i = 0; i < keys.length; i += BATCH_SIZE) {
 		const batch = keys.slice(i, i + BATCH_SIZE);
-		
-		await db
-			.delete(translations)
-			.where(
-				batch.length === 1 
-					? eq(translations.key, batch[0])
-					: inArray(translations.key, batch)
-			);
+
+		// Delete from translation_keys table (CASCADE will handle translations)
+		await db.delete(translationKeys).where(inArray(translationKeys.key, batch));
 	}
+}
+
+// Helper function to update a translation key's section
+export async function updateTranslationKeySection(
+	key: string,
+	section?: string,
+): Promise<void> {
+	await db
+		.update(translationKeys)
+		.set({ section: section || null })
+		.where(eq(translationKeys.key, key));
 }
 
 // Media operations

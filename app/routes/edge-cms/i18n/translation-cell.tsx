@@ -15,7 +15,9 @@ export function TranslationCell({
 	translation?: Translation;
 	section?: string | null;
 }) {
-	const fetcher = useFetcher({ key: `update-translation-${translationKey}-${language}` });
+	const fetcher = useFetcher({
+		key: `update-translation-${translationKey}-${language}`,
+	});
 	const [resetKey, setResetKey] = useState(0); // Force reset by changing key
 
 	// Handle fetcher response - reset cell on error

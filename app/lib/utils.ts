@@ -11,14 +11,14 @@ export function cn(...inputs: ClassValue[]) {
 export function mergeHeaders(
 	...headers: Array<ResponseInit['headers'] | null | undefined>
 ) {
-	const merged = new Headers()
+	const merged = new Headers();
 	for (const header of headers) {
-		if (!header) continue
+		if (!header) continue;
 		for (const [key, value] of new Headers(header).entries()) {
-			merged.set(key, value)
+			merged.set(key, value);
 		}
 	}
-	return merged
+	return merged;
 }
 
 /**
@@ -27,12 +27,12 @@ export function mergeHeaders(
 export function combineHeaders(
 	...headers: Array<ResponseInit['headers'] | null | undefined>
 ) {
-	const combined = new Headers()
+	const combined = new Headers();
 	for (const header of headers) {
-		if (!header) continue
+		if (!header) continue;
 		for (const [key, value] of new Headers(header).entries()) {
-			combined.append(key, value)
+			combined.append(key, value);
 		}
 	}
-	return combined
+	return combined;
 }

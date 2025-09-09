@@ -25,6 +25,7 @@ import {
 	getAITranslateInstance,
 	updateTranslationKey,
 	deleteTranslationsByKeys,
+	updateTranslationKeySection,
 	releaseDraft,
 } from '~/lib/db.server';
 
@@ -167,21 +168,8 @@ export async function action({ request }: Route.ActionArgs) {
 			const key = formData.get('key') as string;
 			const newSection = formData.get('section') as string | null;
 
-			// Update section for all translations of this key
-			const keyTranslations = await getTranslations({
-				key,
-			});
-
-			await Promise.all(
-				keyTranslations.map(async translation =>
-					upsertTranslation(
-						translation.key,
-						translation.language,
-						translation.value,
-						newSection || undefined,
-					),
-				),
-			);
+			// Update section for the translation key (affects all translations with this key)
+			await updateTranslationKeySection(key, newSection || undefined);
 			return { success: true };
 		}
 
@@ -221,19 +209,26 @@ export async function action({ request }: Route.ActionArgs) {
 
 			// Validate that the new key is different and not empty
 			if (!newKey || newKey.trim() === '' || oldKey === newKey) {
-				return Response.json({ 
-					success: false, 
-					error: 'Key cannot be empty and must be different from the current key' 
-				}, { status: 400 });
+				return Response.json(
+					{
+						success: false,
+						error:
+							'Key cannot be empty and must be different from the current key',
+					},
+					{ status: 400 },
+				);
 			}
 
 			// Check if the new key already exists
 			const existingTranslations = await getTranslations({ key: newKey });
 			if (existingTranslations.length > 0) {
-				return Response.json({ 
-					success: false, 
-					error: 'A translation with this key already exists' 
-				}, { status: 400 });
+				return Response.json(
+					{
+						success: false,
+						error: 'A translation with this key already exists',
+					},
+					{ status: 400 },
+				);
 			}
 
 			await updateTranslationKey(oldKey, newKey);
@@ -242,31 +237,40 @@ export async function action({ request }: Route.ActionArgs) {
 
 		case 'delete-translations': {
 			const keys = formData.get('keys') as string;
-			
+
 			if (!keys) {
-				return Response.json({ 
-					success: false, 
-					error: 'No keys provided for deletion' 
-				}, { status: 400 });
+				return Response.json(
+					{
+						success: false,
+						error: 'No keys provided for deletion',
+					},
+					{ status: 400 },
+				);
 			}
 
 			try {
 				const json = JSON.parse(keys) as string[];
 				if (!Array.isArray(json) || json.length === 0) {
-					return Response.json({ 
-						success: false, 
-						error: 'Invalid keys format' 
-					}, { status: 400 });
+					return Response.json(
+						{
+							success: false,
+							error: 'Invalid keys format',
+						},
+						{ status: 400 },
+					);
 				}
 
 				await deleteTranslationsByKeys(json);
 				return Response.json({ success: true });
 			} catch (error) {
 				console.error(error);
-				return Response.json({ 
-					success: false, 
-					error: 'Failed to delete keys' 
-				}, { status: 400 });
+				return Response.json(
+					{
+						success: false,
+						error: 'Failed to delete keys',
+					},
+					{ status: 400 },
+				);
 			}
 		}
 
@@ -365,7 +369,7 @@ export default function I18n() {
 	const translationKeys = Array.from(translations.keys()).sort();
 	const currentDefaultLanguage =
 		languages.find(lang => lang.default)?.locale || '';
-	
+
 	// Selection helper functions
 	const toggleKeySelection = (key: string) => {
 		setSelectedKeys(prev => {
@@ -386,21 +390,18 @@ export default function I18n() {
 
 	const handleDeleteSelected = () => {
 		if (selectedKeys.length === 0) return;
-		
+
 		deleteFetcher.submit(
 			{
 				intent: 'delete-translations',
 				keys: JSON.stringify(selectedKeys),
 			},
-			{ method: 'post' }
+			{ method: 'post' },
 		);
 	};
 
 	const handlePublishVersion = () => {
-		publishFetcher.submit(
-			{ intent: 'publish-version' },
-			{ method: 'post' }
-		);
+		publishFetcher.submit({ intent: 'publish-version' }, { method: 'post' });
 	};
 
 	// Clear selection after successful deletion
@@ -461,10 +462,9 @@ export default function I18n() {
 									disabled={publishFetcher.state !== 'idle'}
 									className="bg-green-600 hover:bg-green-700"
 								>
-									{publishFetcher.state !== 'idle' 
-										? 'Publishing...' 
-										: `Publish ${draftVersion.description}`
-									}
+									{publishFetcher.state !== 'idle'
+										? 'Publishing...'
+										: `Publish ${draftVersion.description}`}
 								</Button>
 							)}
 							<Button asChild variant="outline">
@@ -538,7 +538,9 @@ export default function I18n() {
 									variant="destructive"
 									disabled={deleteFetcher.state !== 'idle'}
 								>
-									{deleteFetcher.state !== 'idle' ? 'Deleting...' : `Delete selected (${selectedKeys.length})`}
+									{deleteFetcher.state !== 'idle'
+										? 'Deleting...'
+										: `Delete selected (${selectedKeys.length})`}
 								</Button>
 							)}
 							<AiTranslateButton isAiAvailable={isAiAvailable} />
@@ -581,9 +583,12 @@ export default function I18n() {
 					{/* Sticky header */}
 					<div className="bg-background sticky top-0 z-20 flex border-b">
 						{/* Top-left corner cell with checkbox */}
-						<div className="bg-muted/50 z-30 w-[250px] min-w-[250px] flex-shrink-0 border-r p-4 font-medium flex items-center gap-3">
+						<div className="bg-muted/50 z-30 flex w-[250px] min-w-[250px] flex-shrink-0 items-center gap-3 border-r p-4 font-medium">
 							<Checkbox
-								checked={selectedKeys.length === translationKeys.length && translationKeys.length > 0}
+								checked={
+									selectedKeys.length === translationKeys.length &&
+									translationKeys.length > 0
+								}
 								onCheckedChange={toggleSelectAll}
 								aria-label="Select all translation keys"
 							/>
@@ -644,19 +649,19 @@ export default function I18n() {
 									}
 								}}
 							>
-															{translationKeys.map(key => (
-								<div
-									key={key}
-									className="flex h-[60px] w-[250px] items-center border-b p-4 font-mono text-sm gap-3"
-								>
-									<Checkbox
-										checked={selectedKeys.includes(key)}
-										onCheckedChange={() => toggleKeySelection(key)}
-										aria-label={`Select key ${key}`}
-									/>
-									<KeyCell translationKey={key} />
-								</div>
-							))}
+								{translationKeys.map(key => (
+									<div
+										key={key}
+										className="flex h-[60px] w-[250px] items-center gap-3 border-b p-4 font-mono text-sm"
+									>
+										<Checkbox
+											checked={selectedKeys.includes(key)}
+											onCheckedChange={() => toggleKeySelection(key)}
+											aria-label={`Select key ${key}`}
+										/>
+										<KeyCell translationKey={key} />
+									</div>
+								))}
 							</div>
 						</div>
 

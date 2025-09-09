@@ -1,5 +1,10 @@
 import { useLoaderData, useSubmit, useFetcher } from 'react-router';
-import { getVersions, releaseDraft, rollbackVersion, updateVersionDescription } from '~/lib/db.server';
+import {
+	getVersions,
+	releaseDraft,
+	rollbackVersion,
+	updateVersionDescription,
+} from '~/lib/db.server';
 import { Button } from '~/components/ui/button';
 import {
 	Table,
@@ -13,7 +18,13 @@ import { requireAuth } from '~/lib/auth.middleware';
 import { env } from 'cloudflare:workers';
 import { SmartTextarea } from './i18n/smart-textarea';
 
-function DescriptionCell({ versionId, description }: { versionId: number; description: string | null }) {
+function DescriptionCell({
+	versionId,
+	description,
+}: {
+	versionId: number;
+	description: string | null;
+}) {
 	const fetcher = useFetcher({ key: `update-description-${versionId}` });
 
 	const handleSubmit = (value: string) => {
@@ -128,7 +139,10 @@ export default function VersionsPage() {
 									</span>
 								</TableCell>
 								<TableCell>
-									<DescriptionCell versionId={version.id} description={version.description} />
+									<DescriptionCell
+										versionId={version.id}
+										description={version.description}
+									/>
 								</TableCell>
 								<TableCell>
 									{new Date(version.createdAt).toLocaleDateString()}

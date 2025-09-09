@@ -7,6 +7,6 @@ export default {
 	},
 	routeDiscovery: {
 		mode: 'lazy',
-		manifestPath: '/edge-cms/__manifest'
+		manifestPath: '/edge-cms/__manifest',
 	},
 } satisfies Config;

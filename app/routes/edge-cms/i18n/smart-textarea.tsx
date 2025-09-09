@@ -17,8 +17,8 @@ export function SmartTextarea({
 	onValueChange,
 	onSubmit,
 	onCancel,
-	placeholder = "Enter text...",
-	className = "",
+	placeholder = 'Enter text...',
+	className = '',
 	disabled = false,
 	rows = 1,
 	minHeight = 40,
@@ -75,7 +75,8 @@ export function SmartTextarea({
 		}
 	};
 
-	const baseClassName = "cursor-pointer focus:ring-ring focus:bg-background relative w-full resize-none overflow-hidden rounded-md border-0 bg-transparent p-1 text-sm focus:z-50 focus:ring-1 focus:cursor-text";
+	const baseClassName =
+		'cursor-pointer focus:ring-ring focus:bg-background relative w-full resize-none overflow-hidden rounded-md border-0 bg-transparent p-1 text-sm focus:z-50 focus:ring-1 focus:cursor-text';
 	const combinedClassName = `${baseClassName} ${className}`.trim();
 
 	return (
