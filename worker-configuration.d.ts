@@ -4,8 +4,8 @@
 declare namespace Cloudflare {
 	interface Env {
 		CACHE: KVNamespace;
-		BASE_URL: 'http://localhost:5173';
-		TRUSTED_ORIGINS: 'http://localhost:5173';
+		BASE_URL: "http://localhost:5173";
+		TRUSTED_ORIGINS: "http://localhost:5173";
 		AUTH_SECRET: string;
 		ADMIN_SIGNUP_PASSWORD: string;
 		OPENAI_API_KEY: string;
@@ -20,22 +20,10 @@ declare namespace Cloudflare {
 }
 interface Env extends Cloudflare.Env {}
 type StringifyValues<EnvType extends Record<string, unknown>> = {
-	[Binding in keyof EnvType]: EnvType[Binding] extends string
-		? EnvType[Binding]
-		: string;
+	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv
-		extends StringifyValues<
-			Pick<
-				Cloudflare.Env,
-				| 'BASE_URL'
-				| 'TRUSTED_ORIGINS'
-				| 'AUTH_SECRET'
-				| 'ADMIN_SIGNUP_PASSWORD'
-				| 'OPENAI_API_KEY'
-			>
-		> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "BASE_URL" | "TRUSTED_ORIGINS" | "AUTH_SECRET" | "ADMIN_SIGNUP_PASSWORD" | "OPENAI_API_KEY">> {}
 }
 
 // Begin runtime types

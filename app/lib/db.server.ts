@@ -1,5 +1,15 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc, count, sql, isNull, and, or, inArray } from 'drizzle-orm';
+import {
+	eq,
+	desc,
+	count,
+	sql,
+	isNull,
+	and,
+	or,
+	inArray,
+	like,
+} from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import {
 	languages,
@@ -285,15 +295,29 @@ export async function getTranslations({
 	section,
 	key,
 	language,
+	query,
 }: {
 	section?: string;
 	key?: string;
 	language?: string;
+	query?: string;
 }): Promise<Translation[]> {
 	const filters = [];
 	if (section) filters.push(eq(translationKeys.section, section));
 	if (key) filters.push(eq(translations.key, key));
 	if (language) filters.push(eq(translations.language, language));
+
+	// If query is provided, filter by translation keys whose translations contain the query text
+	if (query) {
+		// Create a subquery to find keys that have translations containing the query
+		const keysWithMatchingTranslations = db
+			.select({ key: translations.key })
+			.from(translations)
+			.where(like(translations.value, `%${query}%`))
+			.groupBy(translations.key);
+
+		filters.push(inArray(translations.key, keysWithMatchingTranslations));
+	}
 
 	const result = await db
 		.select({

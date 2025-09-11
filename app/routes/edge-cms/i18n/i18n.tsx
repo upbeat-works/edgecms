@@ -7,7 +7,8 @@ import {
 	useRevalidator,
 	useSearchParams,
 } from 'react-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { debounce } from 'lodash-es';
 import { FixedSizeGrid } from 'react-window';
 import { requireAuth } from '~/lib/auth.middleware';
 import {
@@ -32,6 +33,7 @@ import {
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
+import { Input } from '~/components/ui/input';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
 import { VirtualizedCell } from './virtualized-cell';
@@ -50,6 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 	const url = new URL(request.url);
 	const sectionFilter = url.searchParams.get('section');
+	const queryFilter = url.searchParams.get('query');
 	const aiTranslateId = url.searchParams.get('aiTranslateId');
 
 	const [
@@ -64,6 +67,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		getSections(),
 		getTranslations({
 			section: sectionFilter || undefined,
+			query: queryFilter || undefined,
 		}),
 		getLatestVersion('live'),
 		getLatestVersion('draft'),
@@ -96,6 +100,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sections,
 		translations: translationsByKey,
 		sectionFilter,
+		queryFilter,
 		activeVersion,
 		draftVersion,
 		aiTranslateStatus,
@@ -290,6 +295,7 @@ export default function I18n() {
 		sections,
 		translations,
 		sectionFilter,
+		queryFilter,
 		activeVersion,
 		draftVersion,
 		aiTranslateStatus,
@@ -311,6 +317,21 @@ export default function I18n() {
 	const gridRef = useRef<any>(null);
 	const keyColumnRef = useRef<HTMLDivElement>(null);
 	const [wrapperBounds, setWrapperBounds] = useState({ width: 0, height: 0 });
+
+	// Debounced search handler
+	const debouncedSearch = useCallback(
+		debounce((query: string) => {
+			setSearchParams(prev => {
+				if (query.trim()) {
+					prev.set('query', query.trim());
+				} else {
+					prev.delete('query');
+				}
+				return prev;
+			});
+		}, 300),
+		[setSearchParams],
+	);
 
 	// AI Translation polling logic
 	const aiTranslateId = searchParams.get('aiTranslateId');
@@ -467,6 +488,18 @@ export default function I18n() {
 										: `Publish ${draftVersion.description}`}
 								</Button>
 							)}
+						</div>
+					</div>
+
+					{/* Search Input Row */}
+					<div className="mb-4 flex items-center gap-4">
+						<Input
+							placeholder="Search translations..."
+							defaultValue={queryFilter || ''}
+							className="max-w-md"
+							onChange={e => debouncedSearch(e.target.value)}
+						/>
+						<div className="ml-auto flex gap-2">
 							<Button asChild variant="outline">
 								<Link to="/edge-cms/sections">Manage Sections</Link>
 							</Button>
@@ -475,6 +508,7 @@ export default function I18n() {
 							</Button>
 						</div>
 					</div>
+
 					<div className="mb-6 flex flex-wrap gap-4">
 						<Form method="get" className="flex gap-2">
 							<select
@@ -490,6 +524,7 @@ export default function I18n() {
 									</option>
 								))}
 							</select>
+							<input type="hidden" name="query" value={queryFilter || ''} />
 						</Form>
 
 						<div className="flex items-center gap-2">
