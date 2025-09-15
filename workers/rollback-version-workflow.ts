@@ -4,10 +4,10 @@ import {
 	type WorkflowEvent,
 } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
-import { languages, translations, versions } from '~/lib/schema.server';
-import { promoteVersion } from '~/lib/db.server';
+import { languages, translations, versions } from '~/utils/schema.server';
+import { promoteVersion } from '~/utils/db.server';
 import { drizzle } from 'drizzle-orm/d1';
-import { gunzipString } from '~/lib/gzip';
+import { gunzipString } from '~/utils/gzip';
 
 type Params = {
 	versionId: number;

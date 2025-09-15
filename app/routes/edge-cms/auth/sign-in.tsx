@@ -1,10 +1,11 @@
 import { Form, useActionData, redirect } from 'react-router';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
-import { createAuth } from '~/lib/auth.server';
+import { createAuth } from '~/utils/auth.server';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/sign-in';
-import { requireAnonymous } from '~/lib/auth.middleware';
+import { requireAnonymous } from '~/utils/auth.middleware';
+import { APIError } from 'better-auth/api';
 
 export async function loader({ request }: Route.LoaderArgs) {
 	await requireAnonymous(request, env);
@@ -16,17 +17,6 @@ export async function action({ request }: Route.ActionArgs) {
 	const auth = createAuth(env);
 	const formData = await request.formData();
 
-	const intent = formData.get('intent');
-
-	// Handle sign out
-	if (intent === 'signout') {
-		return await auth.api.signOut({
-			headers: request.headers,
-			asResponse: true,
-		});
-	}
-
-	// Handle sign in
 	const email = formData.get('email') as string;
 	const password = formData.get('password') as string;
 
@@ -35,24 +25,24 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	try {
-		// Try to sign in without asResponse to get the actual result
-		const response = await auth.api.signInEmail({
+		const { headers } = await auth.api.signInEmail({
+			headers: request.headers,
 			body: {
 				email,
 				password,
+				callbackURL: '/edge-cms',
 			},
-			asResponse: true,
+			returnHeaders: true,
 		});
-
-		// If sign in was successful, redirect to dashboard
-		if (response.ok) {
-			return redirect('/edge-cms', response);
-		}
-
-		const { message } = (await response.json()) as { message: string };
-		throw new Error(message);
+		return redirect('/edge-cms', { headers });
 	} catch (error) {
-		return { error: (error as Error).message };
+		if (error instanceof APIError) {
+			return Response.json(
+				{ error: (error as Error).message },
+				{ status: error.statusCode },
+			);
+		}
+		return Response.json({ error: 'Unknown error' }, { status: 500 });
 	}
 }
 

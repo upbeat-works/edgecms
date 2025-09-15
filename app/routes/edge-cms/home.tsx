@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { Button } from '~/components/ui/button';
-import type { Route } from './+types/index';
-import { requireAuth } from '~/lib/auth.middleware';
+import type { Route } from './+types/home';
+import { requireAuth } from '~/utils/auth.middleware';
 import { env } from 'cloudflare:workers';
 
 export function meta({}: Route.MetaArgs) {
@@ -17,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return new Response('ok');
 }
 
-export default function EdgeCMSIndex() {
+export default function Home() {
 	return (
 		<div className="flex min-h-screen items-center justify-center">
 			<div className="w-full max-w-md space-y-8 text-center">

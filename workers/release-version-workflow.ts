@@ -8,8 +8,8 @@ import {
 	getLatestVersion,
 	getTranslations,
 	promoteVersion,
-} from '~/lib/db.server';
-import { gzipString } from '~/lib/gzip';
+} from '~/utils/db.server';
+import { gzipString } from '~/utils/gzip';
 
 type Params = {};
 

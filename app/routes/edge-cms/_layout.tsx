@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router';
 import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
-import { cn } from '~/lib/utils';
+import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
 
 export default function Layout() {
@@ -85,8 +85,7 @@ export default function Layout() {
 								/>
 							</Button>
 
-							<form action="/edge-cms/sign-in" method="post">
-								<input type="hidden" name="intent" value="signout" />
+							<form action="/edge-cms/sign-out" method="post">
 								<button
 									type="submit"
 									className="text-muted-foreground hover:text-foreground text-sm"

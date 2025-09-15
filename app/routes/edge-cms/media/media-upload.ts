@@ -1,8 +1,12 @@
 import { env } from 'cloudflare:workers';
-import { requireAuth } from '~/lib/auth.middleware';
+import { requireAuth } from '~/utils/auth.middleware';
 import { parseFormData } from '@remix-run/form-data-parser';
-import { getMediaById, markMediaArchived, createMedia } from '~/lib/db.server';
-import { sanitizeFilename, buildVersionedFilename } from '~/lib/media.server';
+import {
+	getMediaById,
+	markMediaArchived,
+	createMedia,
+} from '~/utils/db.server';
+import { sanitizeFilename, buildVersionedFilename } from '~/utils/media.server';
 import type { Route } from './+types/media-upload';
 
 export async function action({ request }: Route.ActionArgs) {

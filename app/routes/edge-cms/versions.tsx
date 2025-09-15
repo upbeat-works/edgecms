@@ -4,7 +4,7 @@ import {
 	releaseDraft,
 	rollbackVersion,
 	updateVersionDescription,
-} from '~/lib/db.server';
+} from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
 import {
 	Table,
@@ -14,7 +14,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '~/components/ui/table';
-import { requireAuth } from '~/lib/auth.middleware';
+import { requireAuth } from '~/utils/auth.middleware';
 import { env } from 'cloudflare:workers';
 import { SmartTextarea } from './i18n/smart-textarea';
 

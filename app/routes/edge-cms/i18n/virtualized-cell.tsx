@@ -1,7 +1,7 @@
 import type { GridChildComponentProps } from 'react-window';
 import { SectionCell } from './section-cell';
 import { TranslationCell } from './translation-cell';
-import type { Language, Section, Translation } from '~/lib/db.server';
+import type { Language, Section, Translation } from '~/utils/db.server';
 
 export function VirtualizedCell({
 	columnIndex,

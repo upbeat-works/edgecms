@@ -669,3 +669,8 @@ export async function deleteMediaById(mediaId: number): Promise<void> {
 		}
 	}
 }
+
+export async function getExistingUsersCount(): Promise<number> {
+	const result = await db.select({ count: count() }).from(user);
+	return result[0].count;
+}

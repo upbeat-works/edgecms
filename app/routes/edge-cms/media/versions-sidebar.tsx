@@ -20,7 +20,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '~/components/ui/alert-dialog';
-import type { Media } from '~/lib/db.server';
+import type { Media } from '~/utils/db.server';
 
 export function VersionsSidebar({
 	filename,

@@ -1,7 +1,7 @@
 import { useLoaderData, useSearchParams } from 'react-router';
 import { useState, useMemo } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { requireAuth } from '~/lib/auth.middleware';
+import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getLatestMediaVersions,
 	getMedia,
@@ -10,8 +10,8 @@ import {
 	markMediaLive,
 	updateMediaSection,
 	type Media,
-} from '~/lib/db.server';
-import { deleteAllVersions, deleteVersion } from '~/lib/media.server';
+} from '~/utils/db.server';
+import { deleteAllVersions, deleteVersion } from '~/utils/media.server';
 import { Button } from '~/components/ui/button';
 import { UploadDialog } from './upload-dialog';
 import { MediaItem } from './media-item';

@@ -10,7 +10,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { debounce } from 'lodash-es';
 import { FixedSizeGrid } from 'react-window';
-import { requireAuth } from '~/lib/auth.middleware';
+import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getLanguages,
 	getSections,
@@ -28,7 +28,7 @@ import {
 	deleteTranslationsByKeys,
 	updateTranslationKeySection,
 	releaseDraft,
-} from '~/lib/db.server';
+} from '~/utils/db.server';
 
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';

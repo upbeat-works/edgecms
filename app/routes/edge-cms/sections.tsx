@@ -1,7 +1,7 @@
 import { useLoaderData, Form, useFetcher } from 'react-router';
 import { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
-import { requireAuth } from '~/lib/auth.middleware';
+import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getSectionsWithCounts,
 	createSection,
@@ -9,7 +9,7 @@ import {
 	deleteSection,
 	type SectionWithCounts,
 	getLanguages,
-} from '~/lib/db.server';
+} from '~/utils/db.server';
 import {
 	Table,
 	TableBody,

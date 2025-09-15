@@ -8,7 +8,7 @@ import {
 
 export default [
 	...prefix('edge-cms', [
-		index('routes/edge-cms/index.tsx'),
+		index('routes/edge-cms/home.tsx'),
 		layout('routes/edge-cms/_layout.tsx', [
 			route('i18n', 'routes/edge-cms/i18n/i18n.tsx'),
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
@@ -16,8 +16,9 @@ export default [
 			route('media/upload', 'routes/edge-cms/media/media-upload.ts'),
 			route('sections', 'routes/edge-cms/sections.tsx'),
 		]),
-		route('sign-in', 'routes/edge-cms/sign-in.tsx'),
-		route('_a/sign-up', 'routes/edge-cms/sign-up.tsx'),
+		route('sign-in', 'routes/edge-cms/auth/sign-in.tsx'),
+		route('sign-out', 'routes/edge-cms/auth/sign-out.tsx'),
+		route('_a/sign-up', 'routes/edge-cms/auth/sign-up.tsx'),
 		route(
 			'public/i18n/:locale.json',
 			'routes/edge-cms/public/i18n.$locale[.]json.tsx',
