@@ -1,11 +1,11 @@
 import { type Session, type User } from 'better-auth';
 import { redirect } from 'react-router';
-import { createAuth } from './auth.server';
+import { createAuth, type Auth } from './auth.server';
 
 export async function requireAuth(
 	request: Request,
 	env: Env,
-): Promise<{ session: Session; user: User }> {
+): Promise<{ session: Session; user: User; auth: Auth }> {
 	const auth = createAuth(env);
 
 	const result = await auth.api.getSession({
@@ -16,7 +16,10 @@ export async function requireAuth(
 		throw redirect('/edge-cms/sign-in');
 	}
 
-	return result;
+	return {
+		...result,
+		auth,
+	};
 }
 
 export async function requireAnonymous(request: Request, env: Env) {

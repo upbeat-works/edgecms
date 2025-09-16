@@ -6,14 +6,14 @@ import { createAuth } from '~/utils/auth.server';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/sign-up';
 import { requireAnonymous } from '~/utils/auth.middleware';
-import { getExistingUsersCount } from '~/utils/db.server';
+import { getHasAdmin } from '~/utils/db.server';
 import { redirectWithToast } from '~/utils/toast/toast.server';
 
 export async function loader({ request }: Route.LoaderArgs) {
 	await requireAnonymous(request, env);
 
-	const accountsCount = await getExistingUsersCount();
-	if (accountsCount > 0) {
+	const hasAdmin = await getHasAdmin();
+	if (hasAdmin) {
 		return redirectWithToast(
 			'/edge-cms/sign-in',
 			{
@@ -29,7 +29,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const auth = createAuth(env);
+	const adminAuth = createAuth(env, 'admin');
 	const formData = await request.formData();
 	const email = formData.get('email') as string;
 	const password = formData.get('password') as string;
@@ -40,7 +40,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	try {
-		const result = await auth.api.signUpEmail({
+		const { headers } = await adminAuth.api.signUpEmail({
 			headers: request.headers,
 			body: {
 				email,
@@ -50,7 +50,7 @@ export async function action({ request }: Route.ActionArgs) {
 			returnHeaders: true,
 		});
 
-		return redirect('/edge-cms/sign-in', { headers: result.headers });
+		return redirect('/edge-cms/sign-in', { headers });
 	} catch (error) {
 		console.error('/edge-cms/sign-up error', error);
 		if (error instanceof APIError) {
@@ -76,18 +76,6 @@ export default function SignUp() {
 				</div>
 				<Form method="post" className="mt-8 space-y-6">
 					<div className="space-y-4 rounded-md">
-						<div>
-							<label htmlFor="adminSecret" className="sr-only">
-								Admin Secret
-							</label>
-							<Input
-								id="adminSecret"
-								name="adminSecret"
-								type="password"
-								required
-								placeholder="Admin Secret"
-							/>
-						</div>
 						<div>
 							<label htmlFor="name" className="sr-only">
 								Full name

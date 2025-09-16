@@ -15,6 +15,8 @@ export default [
 			route('media', 'routes/edge-cms/media/media.tsx'),
 			route('media/upload', 'routes/edge-cms/media/media-upload.ts'),
 			route('sections', 'routes/edge-cms/sections.tsx'),
+			route('users', 'routes/edge-cms/users/users.tsx'),
+			route('users/:id', 'routes/edge-cms/users/users.$id.tsx'),
 		]),
 		route('sign-in', 'routes/edge-cms/auth/sign-in.tsx'),
 		route('sign-out', 'routes/edge-cms/auth/sign-out.tsx'),

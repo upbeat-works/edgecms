@@ -1,18 +1,24 @@
 import { betterAuth } from 'better-auth';
+import { admin } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { authSchema } from './schema.server';
 
 let auth: ReturnType<typeof betterAuth> | null = null;
 
-export function createAuth(env: Env) {
-	if (auth) {
+export function createAuth(env: Env, defaultRole?: string) {
+	if (auth && !defaultRole) {
 		return auth;
 	}
 
 	const db = drizzle(env.DB);
 
 	const authInstance = betterAuth({
+		plugins: [
+			admin({
+				defaultRole,
+			}),
+		],
 		database: drizzleAdapter(db, {
 			provider: 'sqlite',
 			schema: authSchema,
@@ -36,6 +42,9 @@ export function createAuth(env: Env) {
 		},
 	});
 
+	if (defaultRole) {
+		return authInstance;
+	}
 	// Cache the instance for future requests
 	auth = authInstance;
 

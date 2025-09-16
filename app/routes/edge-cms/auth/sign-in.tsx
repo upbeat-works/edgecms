@@ -6,9 +6,15 @@ import { env } from 'cloudflare:workers';
 import type { Route } from './+types/sign-in';
 import { requireAnonymous } from '~/utils/auth.middleware';
 import { APIError } from 'better-auth/api';
+import { getHasAdmin } from '~/utils/db.server';
 
 export async function loader({ request }: Route.LoaderArgs) {
 	await requireAnonymous(request, env);
+
+	const hasAdmin = await getHasAdmin();
+	if (!hasAdmin) {
+		return redirect('/edge-cms/_a/sign-up');
+	}
 
 	return {};
 }
