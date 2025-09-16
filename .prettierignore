@@ -16,3 +16,5 @@ node_modules
 package-lock.json
 
 *.jsonc
+
+worker-configuration.d.ts
