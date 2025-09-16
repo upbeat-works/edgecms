@@ -68,7 +68,7 @@ export default function Layout() {
 						</div>
 
 						<div className="ml-auto flex items-center space-x-4">
-							{(user as any).role === 'admin' && (
+							{user.role === 'admin' && (
 								<Link
 									to="/edge-cms/users"
 									className={cn(
