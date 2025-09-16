@@ -1,18 +1,20 @@
 import { betterAuth } from 'better-auth';
+import { admin } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { authSchema } from './schema.server';
 
-let auth: ReturnType<typeof betterAuth> | null = null;
+let auth: ReturnType<typeof _createAuth> | null = null;
 
-export function createAuth(env: Env) {
-	if (auth) {
-		return auth;
-	}
-
+function _createAuth(env: Env, defaultRole?: string) {
 	const db = drizzle(env.DB);
 
 	const authInstance = betterAuth({
+		plugins: [
+			admin({
+				defaultRole,
+			}),
+		],
 		database: drizzleAdapter(db, {
 			provider: 'sqlite',
 			schema: authSchema,
@@ -36,10 +38,19 @@ export function createAuth(env: Env) {
 		},
 	});
 
-	// Cache the instance for future requests
-	auth = authInstance;
-
-	return auth;
+	return authInstance;
 }
+
+export const createAuth = (env: Env, defaultRole?: string) => {
+	if (auth && !defaultRole) {
+		return auth;
+	}
+
+	if (defaultRole) {
+		return _createAuth(env, defaultRole);
+	}
+
+	return _createAuth(env, defaultRole);
+};
 
 export type Auth = ReturnType<typeof createAuth>;

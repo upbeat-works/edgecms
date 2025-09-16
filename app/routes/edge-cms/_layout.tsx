@@ -1,10 +1,18 @@
-import { Link, Outlet, useLocation } from 'react-router';
+import { Link, Outlet, useLocation, useLoaderData } from 'react-router';
 import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
-import { cn } from '~/lib/utils';
+import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
+import { requireAuth } from '~/utils/auth.middleware';
+import type { Route } from './+types/_layout';
+
+export async function loader({ request, context }: Route.LoaderArgs) {
+	const { user } = await requireAuth(request, context.cloudflare.env);
+	return { user };
+}
 
 export default function Layout() {
+	const { user } = useLoaderData<typeof loader>();
 	const location = useLocation();
 	const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -60,6 +68,20 @@ export default function Layout() {
 						</div>
 
 						<div className="ml-auto flex items-center space-x-4">
+							{user.role === 'admin' && (
+								<Link
+									to="/edge-cms/users"
+									className={cn(
+										'hover:text-primary text-sm font-medium transition-colors',
+										location.pathname === '/edge-cms/users'
+											? 'text-foreground'
+											: 'text-muted-foreground',
+									)}
+								>
+									Users
+								</Link>
+							)}
+
 							<Button
 								variant="ghost"
 								size="icon"
@@ -85,8 +107,7 @@ export default function Layout() {
 								/>
 							</Button>
 
-							<form action="/edge-cms/sign-in" method="post">
-								<input type="hidden" name="intent" value="signout" />
+							<form action="/edge-cms/sign-out" method="post">
 								<button
 									type="submit"
 									className="text-muted-foreground hover:text-foreground text-sm"

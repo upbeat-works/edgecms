@@ -1,5 +1,5 @@
 import { useFetcher } from 'react-router';
-import type { Section } from '~/lib/db.server';
+import type { Section } from '~/utils/db.server';
 
 export function SectionCell({
 	translationKey,

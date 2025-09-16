@@ -1,7 +1,7 @@
-import { getMediaByFilename } from '~/lib/db.server';
+import { getMediaByFilename } from '~/utils/db.server';
 import type { Route } from './+types/media.$filename';
 import { env } from 'cloudflare:workers';
-import { buildVersionedFilename } from '~/lib/media.server';
+import { buildVersionedFilename } from '~/utils/media.server';
 
 export async function loader({ params, request }: Route.LoaderArgs) {
 	const { filename } = params;

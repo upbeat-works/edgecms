@@ -12,7 +12,7 @@ import {
 	bulkUpsertTranslations,
 	type Language,
 	type Translation,
-} from '~/lib/db.server';
+} from '~/utils/db.server';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';

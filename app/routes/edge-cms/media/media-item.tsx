@@ -29,7 +29,7 @@ import {
 	AlertDialogTitle,
 } from '~/components/ui/alert-dialog';
 import { UploadDialog } from './upload-dialog';
-import type { Media, Section } from '~/lib/db.server';
+import type { Media, Section } from '~/utils/db.server';
 
 export function MediaItem({
 	media,

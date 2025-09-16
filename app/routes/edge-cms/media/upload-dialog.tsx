@@ -9,7 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '~/components/ui/dialog';
-import type { Section } from '~/lib/db.server';
+import type { Section } from '~/utils/db.server';
 
 export function UploadDialog({
 	open,

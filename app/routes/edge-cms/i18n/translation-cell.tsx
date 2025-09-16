@@ -1,6 +1,6 @@
 import { useFetcher } from 'react-router';
 import { useEffect, useState } from 'react';
-import type { Translation } from '~/lib/db.server';
+import type { Translation } from '~/utils/db.server';
 import { SmartTextarea } from './smart-textarea';
 import { toast } from 'sonner';
 

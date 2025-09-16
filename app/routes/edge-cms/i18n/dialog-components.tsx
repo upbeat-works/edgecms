@@ -17,7 +17,7 @@ import {
 } from '~/components/ui/tooltip';
 import { Progress } from '~/components/ui/progress';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
-import type { Language, Section } from '~/lib/db.server';
+import type { Language, Section } from '~/utils/db.server';
 
 export function AddLanguageDialog({
 	open,

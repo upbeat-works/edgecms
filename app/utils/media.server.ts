@@ -3,7 +3,7 @@ import {
 	deleteMediaById,
 	getMediaById,
 	getMedia,
-} from '~/lib/db.server';
+} from '~/utils/db.server';
 import { env } from 'cloudflare:workers';
 
 export function buildVersionedFilename(

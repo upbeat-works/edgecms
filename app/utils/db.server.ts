@@ -19,7 +19,10 @@ import {
 	media,
 	versions,
 	user,
+	account,
+	session,
 } from './schema.server';
+import type { User } from 'better-auth';
 
 const db = drizzle(env.DB);
 
@@ -668,4 +671,9 @@ export async function deleteMediaById(mediaId: number): Promise<void> {
 				.where(eq(media.id, latestVersion[0].id));
 		}
 	}
+}
+
+export async function getHasAdmin(): Promise<boolean> {
+	const result = await db.select().from(user).where(eq(user.role, 'admin'));
+	return result.length > 0;
 }

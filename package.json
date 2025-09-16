@@ -28,7 +28,7 @@
     "@types/react-window": "^1.8.8",
     "@uiw/react-md-editor": "^4.0.8",
     "ai": "^5.0.10",
-    "better-auth": "1.2.10",
+    "better-auth": "1.3.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.4",
@@ -91,9 +91,6 @@
       },
       "AUTH_SECRET": {
         "description": "Secret key for better-auth authentication. Generate using `openssl rand -hex 32`."
-      },
-      "ADMIN_SIGNUP_PASSWORD": {
-        "description": "Secret password required for admin user registration to prevent unauthorized access. Generate using `openssl rand -hex 32`."
       },
       "OPENAI_API_KEY": {
         "description": "OpenAI API key for AI-powered translations. Get from https://platform.openai.com/api-keys"
