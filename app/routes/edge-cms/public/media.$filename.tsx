@@ -32,11 +32,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	headers.set('etag', object.httpEtag);
 	headers.set(
 		'Cache-Control',
-		'public, max-age=172800, stale-while-revalidate=604800',
-	); // 48 hour cache, 7 day stale
+		// 1 month cache, 1 week stale
+		'public, max-age=2592000, stale-while-revalidate=604800',
+	); // 1 month cache, 1 week stale
 	headers.set('Accept-Ranges', 'bytes');
-	// 48 hour cache in GMT
-	headers.set('Expires', new Date(Date.now() + 172800 * 1000).toUTCString());
+	// 1 month cache in GMT
+	headers.set('Expires', new Date(Date.now() + 2592000 * 1000).toUTCString());
 
 	return new Response(object.body, {
 		headers,

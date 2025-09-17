@@ -23,7 +23,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 		return new Response(cached, {
 			headers: {
 				'Content-Type': 'application/json',
-				'Cache-Control': 'public, max-age=3600', // 1 hour browser cache
+				// 1 week browser cache, 72 hour stale
+				'Cache-Control':
+					'public, max-age=604800, stale-while-revalidate=259200',
+				ETag: `${version}-${locale}`,
 			},
 		});
 	}
@@ -42,12 +45,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 	// Cache the result
 	const jsonResponse = JSON.stringify(translations);
-	await env.CACHE.put(cacheKey, jsonResponse);
+	await env.CACHE.put(cacheKey, jsonResponse, {
+		expirationTtl: 60 * 60 * 24 * 90, // 90 days
+	});
 
 	return new Response(jsonResponse, {
 		headers: {
 			'Content-Type': 'application/json',
-			'Cache-Control': 'public, max-age=1800', // 30min browser cache
+			// 1 week browser cache, 72 hour stale
+			'Cache-Control': 'public, max-age=604800, stale-while-revalidate=259200',
 			ETag: `${version}-${locale}`,
 		},
 	});
