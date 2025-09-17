@@ -35,6 +35,19 @@ export async function action({ request }: Route.ActionArgs) {
 	const password = formData.get('password') as string;
 	const name = formData.get('name') as string;
 
+	const hasAdmin = await getHasAdmin();
+	if (hasAdmin) {
+		return redirectWithToast(
+			'/edge-cms/sign-in',
+			{
+				title: 'Sign up',
+				description: 'Please use admin UI to create new users.',
+				type: 'error',
+			},
+			{ headers: request.headers, status: 403 },
+		);
+	}
+
 	if (!email || !password || !name) {
 		return { error: 'Email and password are required' };
 	}
