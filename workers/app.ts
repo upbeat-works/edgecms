@@ -24,10 +24,17 @@ const requestHandler = createRequestHandler(
 export default {
 	async fetch(request, env, ctx) {
 		const CORS_HEADERS = {
-			'Access-Control-Allow-Origin': env.TRUSTED_ORIGINS || '*',
+			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET',
 			'Access-Control-Max-Age': '86400', // 24 hours
 		};
+
+		const trustedOrigins = env.TRUSTED_ORIGINS.split(',');
+		const origin = request.headers.get('Origin');
+		if (origin && trustedOrigins.includes(origin)) {
+			CORS_HEADERS['Access-Control-Allow-Origin'] = origin;
+		}
+
 		// Handle OPTIONS preflight requests
 		if (request.method === 'OPTIONS') {
 			return new Response(null, {
