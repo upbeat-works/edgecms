@@ -89,6 +89,23 @@ interface LoaderData {
 	blocks: (BlockCollection & {
 		schemaName: string;
 		instanceCount: number;
+		instance?: BlockInstance & {
+			values: Record<
+				number,
+				{
+					stringValue: string | null;
+					booleanValue: number | null;
+					mediaId: number | null;
+					media: {
+						id: number;
+						filename: string;
+						mimeType: string;
+						version: number;
+					} | null;
+				}
+			>;
+			translations: Record<string, Record<string, string>>;
+		};
 	})[];
 	languages: Language[];
 	sections: { name: string }[];
@@ -142,15 +159,88 @@ export async function loader({ request }: { request: Request }) {
 		})),
 	);
 
-	// Get instance counts for each block
+	// Get instance counts and data for each block
 	const blocksWithCounts = await Promise.all(
 		blocks.map(async block => {
 			const instances = await getBlockInstances(block.id);
 			const schema = schemas.find(s => s.id === block.schemaId);
+
+			// For non-collection blocks, fetch the instance values
+			let instanceData = undefined;
+			if (!block.isCollection && instances.length > 0) {
+				const instance = instances[0];
+				const properties = await getBlockSchemaProperties(block.schemaId);
+				const values = await getBlockInstanceValues(instance.id);
+				const blockSchema = await getBlockSchemaById(block.schemaId);
+
+				const valuesMap: Record<
+					number,
+					{
+						stringValue: string | null;
+						booleanValue: number | null;
+						mediaId: number | null;
+						media: {
+							id: number;
+							filename: string;
+							mimeType: string;
+							version: number;
+						} | null;
+					}
+				> = {};
+
+				// Build values map with media info
+				await Promise.all(
+					values.map(async v => {
+						let mediaInfo = null;
+						if (v.mediaId) {
+							const mediaFile = await getMediaById(v.mediaId);
+							if (mediaFile) {
+								mediaInfo = {
+									id: mediaFile.id,
+									filename: mediaFile.filename,
+									mimeType: mediaFile.mimeType,
+									version: mediaFile.version,
+								};
+							}
+						}
+						valuesMap[v.propertyId] = {
+							stringValue: v.stringValue,
+							booleanValue: v.booleanValue,
+							mediaId: v.mediaId,
+							media: mediaInfo,
+						};
+					}),
+				);
+
+				// Get translations for translation-type properties
+				const translations: Record<string, Record<string, string>> = {};
+				for (const prop of properties) {
+					if (prop.type === 'translation' && blockSchema) {
+						const key = buildTranslationKey(
+							blockSchema.name,
+							instance.id,
+							prop.name,
+						);
+						const trans = await getTranslations({ key });
+						translations[prop.name] = {};
+						trans.forEach(t => {
+							translations[prop.name][t.language] = t.value;
+						});
+					}
+				}
+
+				instanceData = {
+					...instance,
+					values: valuesMap,
+					translations,
+				};
+			}
+
 			return {
 				...block,
 				schemaName: schema?.name || 'unknown',
 				instanceCount: instances.length,
+				instance: instanceData,
 			};
 		}),
 	);
@@ -652,10 +742,75 @@ function NewBlockSheet({
 // Block Card Component
 function BlockCard({
 	block,
+	schemas,
+	languages,
 }: {
-	block: BlockCollection & { schemaName: string; instanceCount: number };
+	block: BlockCollection & {
+		schemaName: string;
+		instanceCount: number;
+		instance?: BlockInstance & {
+			values: Record<
+				number,
+				{
+					stringValue: string | null;
+					booleanValue: number | null;
+					mediaId: number | null;
+					media: {
+						id: number;
+						filename: string;
+						mimeType: string;
+						version: number;
+					} | null;
+				}
+			>;
+			translations: Record<string, Record<string, string>>;
+		};
+	};
+	schemas: (BlockSchema & { properties: BlockSchemaProperty[] })[];
+	languages: Language[];
 }) {
 	const fetcher = useFetcher();
+	const schema = schemas.find(s => s.id === block.schemaId);
+	const defaultLang = languages.find(l => l.default) || languages[0];
+
+	const getPropertyValue = (prop: BlockSchemaProperty) => {
+		if (!block.instance) return <span className="italic">empty</span>;
+
+		switch (prop.type) {
+			case 'string':
+				return (
+					block.instance.values[prop.id]?.stringValue || (
+						<span className="italic">empty</span>
+					)
+				);
+			case 'translation': {
+				const value =
+					block.instance.translations[prop.name]?.[
+						defaultLang?.locale || ''
+					];
+				return value ? (
+					<>
+						{value}{' '}
+						<span className="text-muted-foreground/60">
+							({defaultLang?.locale})
+						</span>
+					</>
+				) : (
+					<span className="italic">empty</span>
+				);
+			}
+			case 'boolean':
+				return block.instance.values[prop.id]?.booleanValue === 1
+					? 'true'
+					: 'false';
+			case 'media': {
+				const filename = block.instance.values[prop.id]?.media?.filename;
+				return filename || <span className="italic">empty</span>;
+			}
+			default:
+				return prop.type;
+		}
+	};
 
 	return (
 		<div className="group hover:border-primary relative rounded-lg border p-4 transition-colors">
@@ -663,9 +818,13 @@ function BlockCard({
 				<div className="mb-1 flex items-start justify-between">
 					<div className="flex items-center gap-2">
 						<h3 className="font-semibold">{block.name}</h3>
-						{block.isCollection && (
+						{block.isCollection ? (
 							<Badge variant="secondary" className="text-xs">
 								collection
+							</Badge>
+						) : (
+							<Badge variant="outline" className="text-xs">
+								{block.schemaName}
 							</Badge>
 						)}
 					</div>
@@ -705,16 +864,40 @@ function BlockCard({
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
-				<div className="space-y-0 text-sm">
-					<p className="text-muted-foreground">
-						<span className="font-medium">schema:</span> {block.schemaName}
-					</p>
-					{block.isCollection && (
+				{block.isCollection ? (
+					<div className="space-y-0 text-sm">
+						<p className="text-muted-foreground">
+							<span className="font-medium">schema:</span> {block.schemaName}
+						</p>
 						<p className="text-muted-foreground">
 							<span className="font-medium">items:</span> {block.instanceCount}
 						</p>
-					)}
-				</div>
+					</div>
+				) : (
+					<div className="space-y-0 text-sm">
+						{schema?.properties
+							.filter(p => p.type !== 'block' && p.type !== 'collection')
+							.slice(0, 3)
+							.map(prop => (
+								<p key={prop.id} className="text-muted-foreground truncate">
+									<span className="font-medium">{prop.name}:</span>{' '}
+									{getPropertyValue(prop)}
+								</p>
+							))}
+						{schema &&
+							schema.properties.filter(
+								p => p.type !== 'block' && p.type !== 'collection',
+							).length > 3 && (
+								<p className="text-muted-foreground">
+									+
+									{schema.properties.filter(
+										p => p.type !== 'block' && p.type !== 'collection',
+									).length - 3}{' '}
+									more...
+								</p>
+							)}
+					</div>
+				)}
 			</Link>
 		</div>
 	);
@@ -1496,37 +1679,41 @@ function BlockInstanceForm({
 					return (
 						<div key={prop.id} className="space-y-2">
 							<Label className="text-base font-semibold">{prop.name}</Label>
-							<Link
-								to={`/edge-cms/i18n?query=${encodeURIComponent(translationKey)}`}
-								target="_blank"
-								className="hover:bg-muted block rounded-lg border p-3 transition-colors"
-							>
-								<div className="text-sm">
-									{defaultValue || (
-										<span className="text-muted-foreground italic">
-											No translation
-										</span>
-									)}
-								</div>
-								<div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-									<span>Edit translations for {prop.name}</span>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="12"
-										height="12"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-									>
-										<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-										<polyline points="15 3 21 3 21 9" />
-										<line x1="10" x2="21" y1="14" y2="3" />
-									</svg>
-								</div>
-							</Link>
+							{defaultValue ? (
+								<Link
+									to={`/edge-cms/i18n?query=${encodeURIComponent(translationKey)}`}
+									target="_blank"
+									className="hover:bg-muted block rounded-lg border p-3 transition-colors"
+								>
+									<div className="text-sm">{defaultValue}</div>
+									<div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+										<span>Edit translations for {prop.name}</span>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+											<polyline points="15 3 21 3 21 9" />
+											<line x1="10" x2="21" y1="14" y2="3" />
+										</svg>
+									</div>
+								</Link>
+							) : (
+								<InlineTranslationEditor
+									translationKey={translationKey}
+									language={defaultLang?.locale || ''}
+									value=""
+									section={block.section}
+									placeholder={`Enter ${prop.name} (${defaultLang?.locale})...`}
+								/>
+							)}
 						</div>
 					);
 				})}
@@ -2262,7 +2449,12 @@ export default function Blocks() {
 				) : (
 					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 						{blocks.map(block => (
-							<BlockCard key={block.id} block={block} />
+							<BlockCard
+								key={block.id}
+								block={block}
+								schemas={schemas}
+								languages={languages}
+							/>
 						))}
 					</div>
 				)}
