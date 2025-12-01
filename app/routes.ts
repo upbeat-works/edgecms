@@ -14,6 +14,7 @@ export default [
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media/media.tsx'),
 			route('media/upload', 'routes/edge-cms/media/media-upload.ts'),
+			route('blocks', 'routes/edge-cms/blocks/blocks.tsx'),
 			route('sections', 'routes/edge-cms/sections.tsx'),
 			route('users', 'routes/edge-cms/users/users.tsx'),
 			route('users/:id', 'routes/edge-cms/users/users.$id.tsx'),
@@ -28,6 +29,10 @@ export default [
 		route(
 			'public/media/:filename',
 			'routes/edge-cms/public/media.$filename.tsx',
+		),
+		route(
+			'public/blocks/:collection.json',
+			'routes/edge-cms/public/blocks.$collection[.]json.tsx',
 		),
 	]),
 ] satisfies RouteConfig;

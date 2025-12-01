@@ -344,7 +344,7 @@ export default function I18n() {
 
 	const aiTranslationPoller = useBackoffCallback(
 		async () => {
-			revalidator.revalidate();
+			await revalidator.revalidate();
 
 			// Check if we should stop polling (success) or keep polling (throw error)
 			if (

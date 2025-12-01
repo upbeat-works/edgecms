@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(tree:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(cat:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run db:migrations:local:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
