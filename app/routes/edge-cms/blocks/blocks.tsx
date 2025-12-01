@@ -1656,7 +1656,7 @@ function BlockInstanceForm({
 				{/* String properties (non-translatable) */}
 				{stringProps.map(prop => (
 					<div key={prop.id} className="space-y-2">
-						<Label className="text-base font-semibold">{prop.name}</Label>
+						<Label>{prop.name}</Label>
 						<StringEditor
 							instanceId={instance.id}
 							propertyId={prop.id}
@@ -1678,7 +1678,7 @@ function BlockInstanceForm({
 
 					return (
 						<div key={prop.id} className="space-y-2">
-							<Label className="text-base font-semibold">{prop.name}</Label>
+							<Label>{prop.name}</Label>
 							{defaultValue ? (
 								<Link
 									to={`/edge-cms/i18n?query=${encodeURIComponent(translationKey)}`}
@@ -2362,7 +2362,7 @@ function PropertyForm({
 			<input type="hidden" name="intent" value="add-property" />
 			<input type="hidden" name="schemaId" value={schemaId} />
 			<div className="space-y-2">
-				<Label htmlFor="prop-name">Property Name</Label>
+				<Label htmlFor="prop-name">name</Label>
 				<Input
 					id="prop-name"
 					name="name"
@@ -2372,7 +2372,7 @@ function PropertyForm({
 				/>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="prop-type">Type</Label>
+				<Label htmlFor="prop-type">type</Label>
 				<Select name="type" value={type} onValueChange={setType}>
 					<SelectTrigger>
 						<SelectValue />
@@ -2389,7 +2389,7 @@ function PropertyForm({
 			</div>
 			{(type === 'block' || type === 'collection') && (
 				<div className="space-y-2">
-					<Label htmlFor="ref-schema">Reference Schema</Label>
+					<Label htmlFor="ref-schema">reference schema</Label>
 					<Select name="refSchemaId">
 						<SelectTrigger>
 							<SelectValue placeholder="Select schema..." />
