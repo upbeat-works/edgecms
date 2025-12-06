@@ -14,7 +14,22 @@ export default [
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media/media.tsx'),
 			route('media/upload', 'routes/edge-cms/media/media-upload.ts'),
-			route('blocks', 'routes/edge-cms/blocks/blocks.tsx'),
+			route('blocks', 'routes/edge-cms/blocks/blocks.tsx', [
+				route('new', 'routes/edge-cms/blocks/blocks.new.tsx'),
+				route('schemas', 'routes/edge-cms/blocks/blocks.schemas.tsx'),
+				route('schemas/new', 'routes/edge-cms/blocks/blocks.schemas.new.tsx'),
+				route('schemas/:id', 'routes/edge-cms/blocks/blocks.schemas.$id.tsx'),
+				route(
+					'schemas/:id/properties/new',
+					'routes/edge-cms/blocks/blocks.schemas.$id.properties.new.tsx',
+				),
+				route(':id', 'routes/edge-cms/blocks/blocks.$id.tsx', [
+					route(
+						'instances/:action',
+						'routes/edge-cms/blocks/blocks.$id.instances.$action.tsx',
+					),
+				]),
+			]),
 			route('sections', 'routes/edge-cms/sections.tsx'),
 			route('users', 'routes/edge-cms/users/users.tsx'),
 			route('users/:id', 'routes/edge-cms/users/users.$id.tsx'),
