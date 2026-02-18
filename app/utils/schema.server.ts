@@ -139,6 +139,96 @@ export const versions = sqliteTable('versions', {
 	createdBy: text('createdBy').references(() => user.id),
 });
 
+// Block schema definitions (templates)
+export const blockSchemas = sqliteTable('block_schemas', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull().unique(),
+	createdAt: text('createdAt')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Property definitions for each schema
+export const blockSchemaProperties = sqliteTable(
+	'block_schema_properties',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		schemaId: integer('schemaId')
+			.notNull()
+			.references(() => blockSchemas.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		type: text('type', {
+			enum: ['string', 'translation', 'media', 'boolean', 'block', 'collection'],
+		}).notNull(),
+		refSchemaId: integer('refSchemaId').references(() => blockSchemas.id, {
+			onDelete: 'restrict',
+		}),
+		position: integer('position').notNull().default(0),
+	},
+	table => [uniqueIndex('idx_schema_property_name').on(table.schemaId, table.name)],
+);
+
+// Collections (root-level containers for block instances)
+export const blockCollections = sqliteTable('block_collections', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull().unique(),
+	schemaId: integer('schemaId')
+		.notNull()
+		.references(() => blockSchemas.id, { onDelete: 'restrict' }),
+	section: text('section').references(() => sections.name, {
+		onDelete: 'set null',
+		onUpdate: 'cascade',
+	}),
+	isCollection: integer('isCollection', { mode: 'boolean' })
+		.notNull()
+		.default(true),
+	createdAt: text('createdAt')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Block instances (actual data)
+export const blockInstances = sqliteTable('block_instances', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	schemaId: integer('schemaId')
+		.notNull()
+		.references(() => blockSchemas.id, { onDelete: 'cascade' }),
+	collectionId: integer('collectionId').references(() => blockCollections.id, {
+		onDelete: 'cascade',
+	}),
+	parentInstanceId: integer('parentInstanceId'),
+	parentPropertyId: integer('parentPropertyId').references(
+		() => blockSchemaProperties.id,
+		{ onDelete: 'cascade' },
+	),
+	position: integer('position').notNull().default(0),
+	createdAt: text('createdAt')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Property values for instances (string, boolean and media - translations use translations table)
+export const blockInstanceValues = sqliteTable(
+	'block_instance_values',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		instanceId: integer('instanceId')
+			.notNull()
+			.references(() => blockInstances.id, { onDelete: 'cascade' }),
+		propertyId: integer('propertyId')
+			.notNull()
+			.references(() => blockSchemaProperties.id, { onDelete: 'cascade' }),
+		stringValue: text('stringValue'),
+		booleanValue: integer('booleanValue'),
+		mediaId: integer('mediaId').references(() => media.id, {
+			onDelete: 'set null',
+		}),
+	},
+	table => [
+		uniqueIndex('idx_instance_property_value').on(table.instanceId, table.propertyId),
+	],
+);
+
 // Export schema for better-auth
 export const authSchema = {
 	user,

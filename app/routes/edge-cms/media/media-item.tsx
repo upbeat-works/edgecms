@@ -1,23 +1,5 @@
 import { useState } from 'react';
 import { useFetcher } from 'react-router';
-import { MoreHorizontal } from 'lucide-react';
-import { Button } from '~/components/ui/button';
-import { MediaPreview } from '~/components/media-preview';
-import { MarkdownEditor } from '~/components/markdown-editor';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-	DropdownMenuSeparator,
-} from '~/components/ui/dropdown-menu';
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '~/components/ui/dialog';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -28,6 +10,8 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '~/components/ui/alert-dialog';
+import { MediaCard, type MediaCardAction } from '~/components/media-card';
+import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 import { UploadDialog } from './upload-dialog';
 import type { Media, Section } from '~/utils/db.server';
 
@@ -57,128 +41,67 @@ export function MediaItem({
 		);
 	};
 
+	const actions: MediaCardAction[] = [
+		{
+			label: 'Replace with new file',
+			onClick: () => setShowReplace(true),
+		},
+		{
+			label: media.state === 'archived' ? 'Unarchive' : 'Archive',
+			onClick: () =>
+				fetcher.submit(
+					{
+						intent: media.state === 'archived' ? 'unarchive' : 'archive',
+						mediaId: media.id.toString(),
+					},
+					{ method: 'post' },
+				),
+		},
+		{
+			label: 'Delete',
+			onClick: () => setShowDeleteConfirm(true),
+			variant: 'destructive' as const,
+		},
+		...(media.count != null && media.count > 1
+			? [
+					{
+						label: 'See Versions',
+						onClick: () => onViewVersions(media.filename),
+						separator: true,
+					},
+				]
+			: []),
+	];
+
 	return (
-		<div className="space-y-2 rounded-lg border p-4">
-			<div className="flex justify-end">
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="ghost"
-							size="icon"
-							aria-label="Open media menu"
-							className="h-4 w-4 p-0 hover:bg-transparent"
+		<>
+			<MediaCard
+				preview={<MediaPreviewDialog media={media} mediaId={media.id} />}
+				actions={actions}
+				footer={
+					<div className="space-y-1">
+						<p className="truncate text-sm font-medium" title={media.filename}>
+							{media.filename}
+						</p>
+						<p className="text-muted-foreground text-xs">
+							{(media.sizeBytes / 1024).toFixed(1)} KB • {media.mimeType}
+						</p>
+
+						<select
+							value={selectedSection}
+							onChange={e => handleSectionChange(e.target.value)}
+							className="border-input bg-background mt-2 w-full rounded-md border px-3 py-1 text-sm"
 						>
-							<MoreHorizontal className="h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onSelect={() => setShowReplace(true)}>
-							Replace with new file
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() =>
-								fetcher.submit(
-									{
-										intent:
-											media.state === 'archived' ? 'unarchive' : 'archive',
-										mediaId: media.id.toString(),
-									},
-									{ method: 'post' },
-								)
-							}
-						>
-							{media.state === 'archived' ? 'Unarchive' : 'Archive'}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							className="text-red-500"
-							onSelect={() => setShowDeleteConfirm(true)}
-						>
-							Delete
-						</DropdownMenuItem>
-						{media.count != null && media.count > 1 && (
-							<>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									onSelect={() => onViewVersions(media.filename)}
-								>
-									See Versions
-								</DropdownMenuItem>
-							</>
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-			<Dialog>
-				<DialogTrigger asChild>
-					<div className="group border-border relative flex aspect-video cursor-pointer items-center justify-center overflow-hidden rounded border bg-gray-100 transition-colors hover:bg-gray-200">
-						<MediaPreview
-							version={media.version}
-							filename={media.filename}
-							mimeType={media.mimeType}
-							loading="lazy"
-							preload="metadata"
-							disableInteraction={true}
-						/>
+							<option value="">No section</option>
+							{sections.map(section => (
+								<option key={section.name} value={section.name}>
+									{section.name}
+								</option>
+							))}
+						</select>
 					</div>
-				</DialogTrigger>
-				<DialogContent
-					dismissible={false}
-					className="min-w-[90vw] border-0 p-0 outline-none"
-				>
-					<DialogHeader className="sr-only">
-						<DialogTitle>{media.filename}</DialogTitle>
-					</DialogHeader>
-					{/* Check if file is markdown based on mimeType or file extension */}
-					{media.mimeType === 'text/markdown' ||
-					media.mimeType === 'text/x-markdown' ||
-					media.filename.toLowerCase().endsWith('.md') ||
-					media.filename.toLowerCase().endsWith('.markdown') ? (
-						<div className="max-h-[90vh] overflow-auto p-6">
-							<MarkdownEditor
-								filename={media.filename}
-								version={media.version}
-								mediaId={media.id}
-								onSave={() => {
-									// Close dialog and refresh page
-									window.location.reload();
-								}}
-							/>
-						</div>
-					) : (
-						<div className="aspect-video">
-							<MediaPreview
-								filename={media.filename}
-								mimeType={media.mimeType}
-								className="h-full w-full rounded object-contain"
-								showPlayButton={false}
-								loading="eager"
-							/>
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>
-
-			<div className="space-y-1">
-				<p className="truncate text-sm font-medium" title={media.filename}>
-					{media.filename}
-				</p>
-				<p className="text-muted-foreground text-xs">
-					{(media.sizeBytes / 1024).toFixed(1)} KB • {media.mimeType}
-				</p>
-
-				<select
-					value={selectedSection}
-					onChange={e => handleSectionChange(e.target.value)}
-					className="border-input bg-background mt-2 w-full rounded-md border px-3 py-1 text-sm"
-				>
-					<option value="">No section</option>
-					{sections.map(section => (
-						<option key={section.name} value={section.name}>
-							{section.name}
-						</option>
-					))}
-				</select>
-			</div>
+				}
+			/>
 
 			<UploadDialog
 				open={showReplace}
@@ -218,6 +141,6 @@ export function MediaItem({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</div>
+		</>
 	);
 }

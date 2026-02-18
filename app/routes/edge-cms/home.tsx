@@ -36,6 +36,10 @@ export default function Home() {
 					</Button>
 
 					<Button asChild className="w-full" size="lg" variant="outline">
+						<Link to="/edge-cms/blocks">Blocks</Link>
+					</Button>
+
+					<Button asChild className="w-full" size="lg" variant="outline">
 						<Link to="/edge-cms/sections">Sections</Link>
 					</Button>
 				</div>
