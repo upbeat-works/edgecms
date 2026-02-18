@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { admin } from 'better-auth/plugins';
+import { admin, apiKey } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { authSchema } from './schema.server';
@@ -17,6 +17,15 @@ function _createAuth(env: Env, defaultRole?: string) {
 		plugins: [
 			admin({
 				defaultRole,
+			}),
+			apiKey({
+				defaultPrefix: 'ecms_',
+				enableMetadata: true,
+				rateLimit: {
+					enabled: true,
+					timeWindow: 1000 * 60 * 60, // 1 hour
+					maxRequests: 1000, // 1000 requests per hour
+				},
 			}),
 		],
 		database: drizzleAdapter(db, {
