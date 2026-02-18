@@ -1,4 +1,5 @@
-import { useLoaderData, useFetcher, Link, Outlet, useParams, useNavigate } from 'react-router';
+import { useLoaderData, useFetcher, Link, Outlet, useNavigate, useOutlet } from 'react-router';
+import { useState } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockSchemas,
@@ -6,7 +7,8 @@ import {
 	deleteBlockSchema,
 } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from './components/confirm-dialog';
 import {
 	Sheet,
 	SheetContent,
@@ -50,27 +52,27 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function SchemasPage() {
 	const { schemas } = useLoaderData<typeof loader>();
-	const params = useParams();
 	const fetcher = useFetcher();
 	const navigate = useNavigate();
+	const outlet = useOutlet();
 
-	// Check if we're viewing a specific schema (nested route is active)
-	const isViewingSchema = params.id !== undefined || params['*']?.includes('new');
+	// Check if we're viewing a specific schema or creating a new one (nested route is active)
+	const isViewingSchema = outlet !== null;
+	const [deleteSchema, setDeleteSchema] = useState<{ id: number; name: string } | null>(null);
 
-	const handleDelete = (schemaId: number, schemaName: string) => {
-		if (confirm(`Delete schema "${schemaName}"? This cannot be undone.`)) {
-			fetcher.submit(
-				{
-					intent: 'delete-schema',
-					id: schemaId.toString(),
-				},
-				{ method: 'post' },
-			);
-		}
+	const handleDelete = (schemaId: number) => {
+		fetcher.submit(
+			{
+				intent: 'delete-schema',
+				id: schemaId.toString(),
+			},
+			{ method: 'post' },
+		);
 	};
 
 	return (
-		<Sheet open={true} onOpenChange={open => !open && navigate(-1)}>
+		<>
+		<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks', { replace: true })}>
 			<SheetContent side="right" className="w-[800px] overflow-y-auto">
 				{isViewingSchema ? (
 					// Show schema detail when viewing a specific schema
@@ -78,22 +80,12 @@ export default function SchemasPage() {
 				) : (
 					// Show schemas list
 					<>
-						<div className="flex items-center gap-3 mb-6">
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={() => navigate(-1)}
-								className="h-8 w-8 shrink-0"
-							>
-								<ArrowLeft className="h-4 w-4" />
-							</Button>
-							<SheetHeader className="space-y-1 flex-1">
-								<SheetTitle>Schemas</SheetTitle>
-								<SheetDescription>
-									Define the structure of your blocks
-								</SheetDescription>
-							</SheetHeader>
-						</div>
+						<SheetHeader className="space-y-1 mb-6">
+							<SheetTitle>Schemas</SheetTitle>
+							<SheetDescription>
+								Define the structure of your blocks
+							</SheetDescription>
+						</SheetHeader>
 
 						<div className="mt-6">
 							<div className="mb-6 flex items-center justify-end">
@@ -132,16 +124,16 @@ export default function SchemasPage() {
 													</div>
 													<div
 														className="opacity-0 group-hover:opacity-100"
-														onClick={e => e.preventDefault()}
+														onClick={e => {
+															e.preventDefault();
+															e.stopPropagation();
+														}}
 													>
 														<Button
 															variant="ghost"
 															size="icon"
 															className="text-destructive hover:text-destructive h-7 w-7"
-															onClick={e => {
-																e.stopPropagation();
-																handleDelete(schema.id, schema.name);
-															}}
+															onClick={() => setDeleteSchema({ id: schema.id, name: schema.name })}
 														>
 															<Trash2 className="h-4 w-4" />
 														</Button>
@@ -175,5 +167,18 @@ export default function SchemasPage() {
 				)}
 			</SheetContent>
 		</Sheet>
+		<ConfirmDialog
+			open={deleteSchema !== null}
+			onOpenChange={open => !open && setDeleteSchema(null)}
+			onConfirm={() => {
+				if (deleteSchema !== null) {
+					handleDelete(deleteSchema.id);
+					setDeleteSchema(null);
+				}
+			}}
+			title="Delete schema"
+			description={`Delete schema "${deleteSchema?.name}"? This cannot be undone.`}
+		/>
+		</>
 	);
 }

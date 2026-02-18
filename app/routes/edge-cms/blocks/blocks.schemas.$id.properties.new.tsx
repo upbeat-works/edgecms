@@ -16,6 +16,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '~/components/ui/select';
+import { ArrowLeft } from 'lucide-react';
+import {
+	SheetHeader,
+	SheetTitle,
+	SheetDescription,
+} from '~/components/ui/sheet';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.$id.properties.new';
 
@@ -61,17 +67,26 @@ export default function AddPropertyPage() {
 	const [type, setType] = useState<string>('string');
 
 	return (
-		<div className="fixed inset-y-0 right-0 w-[500px] border-l bg-background overflow-y-auto">
-			<div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
-				<h2 className="text-lg font-semibold">Add Property</h2>
+		<>
+			<div className="flex items-center gap-3 mb-6">
 				<Link to={`/edge-cms/blocks/schemas/${schemaId}`}>
-					<Button variant="ghost" size="sm">
-						Close
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0"
+					>
+						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				</Link>
+				<SheetHeader className="space-y-1 flex-1">
+					<SheetTitle>Add Property</SheetTitle>
+					<SheetDescription>
+						Add a new property to the schema
+					</SheetDescription>
+				</SheetHeader>
 			</div>
 
-			<div className="p-6">
+			<div className="mt-6">
 				<fetcher.Form method="post" className="space-y-6">
 					<div className="space-y-2">
 						<Label htmlFor="prop-name">Property Name</Label>
@@ -128,18 +143,11 @@ export default function AddPropertyPage() {
 						<p className="text-destructive text-sm">{fetcher.data.error}</p>
 					)}
 
-					<div className="flex gap-2">
-						<Button type="submit" disabled={fetcher.state === 'submitting'}>
-							{fetcher.state === 'submitting' ? 'Adding...' : 'Add Property'}
-						</Button>
-						<Link to={`/edge-cms/blocks/schemas/${schemaId}`}>
-							<Button type="button" variant="outline">
-								Cancel
-							</Button>
-						</Link>
-					</div>
+					<Button type="submit" disabled={fetcher.state === 'submitting'}>
+						{fetcher.state === 'submitting' ? 'Adding...' : 'Add Property'}
+					</Button>
 				</fetcher.Form>
 			</div>
-		</div>
+		</>
 	);
 }

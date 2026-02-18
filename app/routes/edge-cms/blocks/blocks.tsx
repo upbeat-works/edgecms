@@ -24,6 +24,8 @@ import {
 	DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { MoreVertical, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { ConfirmDialog } from './components/confirm-dialog';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks';
 
@@ -182,6 +184,7 @@ function BlockCard({
 	languages: Language[];
 }) {
 	const fetcher = useFetcher();
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const schema = schemas.find(s => s.id === block.schemaId);
 	const defaultLang = languages.find(l => l.default) || languages[0];
 
@@ -269,19 +272,7 @@ function BlockCard({
 							<DropdownMenuItem
 								onClick={e => {
 									e.preventDefault();
-									if (
-										confirm(
-											`Delete block "${block.name}"? All items and their translations will be deleted.`,
-										)
-									) {
-										fetcher.submit(
-											{
-												intent: 'delete-block',
-												id: block.id.toString(),
-											},
-											{ method: 'post' },
-										);
-									}
+									setShowDeleteConfirm(true);
 								}}
 								className="text-destructive"
 							>
@@ -311,6 +302,21 @@ function BlockCard({
 					</div>
 				)}
 			</Link>
+			<ConfirmDialog
+				open={showDeleteConfirm}
+				onOpenChange={setShowDeleteConfirm}
+				onConfirm={() => {
+					fetcher.submit(
+						{
+							intent: 'delete-block',
+							id: block.id.toString(),
+						},
+						{ method: 'post' },
+					);
+				}}
+				title="Delete block"
+				description={`Delete block "${block.name}"? All items and their translations will be deleted.`}
+			/>
 		</div>
 	);
 }

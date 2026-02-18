@@ -4,6 +4,12 @@ import { createBlockSchema } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ArrowLeft } from 'lucide-react';
+import {
+	SheetHeader,
+	SheetTitle,
+	SheetDescription,
+} from '~/components/ui/sheet';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.new';
 
@@ -29,17 +35,26 @@ export default function NewSchemaPage() {
 	const fetcher = useFetcher<typeof action>();
 
 	return (
-		<div className="fixed inset-y-0 right-0 w-[500px] border-l bg-background overflow-y-auto">
-			<div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
-				<h2 className="text-lg font-semibold">New Schema</h2>
+		<>
+			<div className="flex items-center gap-3 mb-6">
 				<Link to="/edge-cms/blocks/schemas">
-					<Button variant="ghost" size="sm">
-						Close
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0"
+					>
+						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				</Link>
+				<SheetHeader className="space-y-1 flex-1">
+					<SheetTitle>New Schema</SheetTitle>
+					<SheetDescription>
+						Define a new block structure
+					</SheetDescription>
+				</SheetHeader>
 			</div>
 
-			<div className="p-6">
+			<div className="mt-6">
 				<fetcher.Form method="post" className="space-y-6">
 					<div className="space-y-2">
 						<Label htmlFor="schema-name">Schema Name</Label>
@@ -71,6 +86,6 @@ export default function NewSchemaPage() {
 					</div>
 				</fetcher.Form>
 			</div>
-		</div>
+		</>
 	);
 }

@@ -69,7 +69,7 @@ export default function NewBlockPage() {
 	const [isCollection, setIsCollection] = useState(false);
 
 	return (
-		<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks')}>
+		<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks', { replace: true })}>
 			<SheetContent side="right" className="w-[500px] overflow-y-auto">
 				<SheetHeader>
 					<SheetTitle>Create Block</SheetTitle>

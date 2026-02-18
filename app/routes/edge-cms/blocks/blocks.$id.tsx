@@ -1,4 +1,5 @@
-import { useLoaderData, useFetcher, Link, Outlet, useParams, useNavigate, redirect } from 'react-router';
+import { useLoaderData, useFetcher, Link, Outlet, useNavigate, useOutlet, redirect } from 'react-router';
+import { useState } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockCollectionById,
@@ -11,7 +12,8 @@ import {
 } from '~/utils/db.server';
 import { enrichInstances } from './block-queries';
 import { Button } from '~/components/ui/button';
-import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical } from 'lucide-react';
+import { ConfirmDialog } from './components/confirm-dialog';
 import {
 	Sheet,
 	SheetContent,
@@ -82,13 +84,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 export default function BlockDetailPage() {
 	const { block, instances, properties, schema, languages } =
 		useLoaderData<typeof loader>();
-	const params = useParams();
 	const fetcher = useFetcher();
 	const navigate = useNavigate();
+	const outlet = useOutlet();
 	const defaultLang = languages.find(l => l.default) || languages[0];
 
+	const [deleteInstanceId, setDeleteInstanceId] = useState<number | null>(null);
+
 	// Check if we're viewing an instance detail (nested route)
-	const isViewingInstance = params.action !== undefined;
+	const isViewingInstance = outlet !== null;
 
 	const handleMoveUp = (index: number) => {
 		if (index === 0) return;
@@ -123,19 +127,13 @@ export default function BlockDetailPage() {
 	};
 
 	const handleDelete = (instanceId: number) => {
-		if (
-			confirm(
-				'Delete this item? All associated translations will be deleted.',
-			)
-		) {
-			fetcher.submit(
-				{
-					intent: 'delete-instance',
-					instanceId: instanceId.toString(),
-				},
-				{ method: 'post' },
-			);
-		}
+		fetcher.submit(
+			{
+				intent: 'delete-instance',
+				instanceId: instanceId.toString(),
+			},
+			{ method: 'post' },
+		);
 	};
 
 	const stringProps = properties.filter(p => p.type === 'string');
@@ -143,7 +141,7 @@ export default function BlockDetailPage() {
 
 	return (
 		<>
-			<Sheet open={true} onOpenChange={open => !open && navigate(-1)}>
+			<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks', { replace: true })}>
 				<SheetContent side="right" className="w-[600px] overflow-y-auto">
 					{isViewingInstance ? (
 						// Show instance detail when viewing a specific instance
@@ -151,22 +149,12 @@ export default function BlockDetailPage() {
 					) : (
 						// Show instances list when viewing the block
 						<>
-							<div className="flex items-center gap-3 mb-6">
-								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => navigate(-1)}
-									className="h-8 w-8 shrink-0"
-								>
-									<ArrowLeft className="h-4 w-4" />
-								</Button>
-								<SheetHeader className="space-y-1 flex-1">
-									<SheetTitle>{block.name}</SheetTitle>
-									<SheetDescription>
-										{schema?.name} collection • {instances.length} items
-									</SheetDescription>
-								</SheetHeader>
-							</div>
+							<SheetHeader className="space-y-1 mb-6">
+								<SheetTitle>{block.name}</SheetTitle>
+								<SheetDescription>
+									{schema?.name} collection • {instances.length} items
+								</SheetDescription>
+							</SheetHeader>
 
 							<div className="mt-6">
 								<Link to={`/edge-cms/blocks/${block.id}/instances/new`}>
@@ -236,7 +224,8 @@ export default function BlockDetailPage() {
 																className="text-destructive hover:text-destructive h-7 w-7"
 																onClick={e => {
 																	e.stopPropagation();
-																	handleDelete(instance.id);
+																	e.preventDefault();
+																	setDeleteInstanceId(instance.id);
 																}}
 															>
 																<Trash2 className="h-3 w-3" />
@@ -277,6 +266,18 @@ export default function BlockDetailPage() {
 					)}
 				</SheetContent>
 			</Sheet>
+			<ConfirmDialog
+				open={deleteInstanceId !== null}
+				onOpenChange={open => !open && setDeleteInstanceId(null)}
+				onConfirm={() => {
+					if (deleteInstanceId !== null) {
+						handleDelete(deleteInstanceId);
+						setDeleteInstanceId(null);
+					}
+				}}
+				title="Delete item"
+				description="Delete this item? All associated translations will be deleted."
+			/>
 	</>
 	);
 }

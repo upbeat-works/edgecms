@@ -16,13 +16,15 @@ export default [
 			route('media/upload', 'routes/edge-cms/media/media-upload.ts'),
 			route('blocks', 'routes/edge-cms/blocks/blocks.tsx', [
 				route('new', 'routes/edge-cms/blocks/blocks.new.tsx'),
-				route('schemas', 'routes/edge-cms/blocks/blocks.schemas.tsx'),
-				route('schemas/new', 'routes/edge-cms/blocks/blocks.schemas.new.tsx'),
-				route('schemas/:id', 'routes/edge-cms/blocks/blocks.schemas.$id.tsx'),
-				route(
-					'schemas/:id/properties/new',
-					'routes/edge-cms/blocks/blocks.schemas.$id.properties.new.tsx',
-				),
+				route('schemas', 'routes/edge-cms/blocks/blocks.schemas.tsx', [
+					route('new', 'routes/edge-cms/blocks/blocks.schemas.new.tsx'),
+					route(':id', 'routes/edge-cms/blocks/blocks.schemas.$id.tsx', [
+						route(
+							'properties/new',
+							'routes/edge-cms/blocks/blocks.schemas.$id.properties.new.tsx',
+						),
+					]),
+				]),
 				route(':id', 'routes/edge-cms/blocks/blocks.$id.tsx', [
 					route(
 						'instances/:action',

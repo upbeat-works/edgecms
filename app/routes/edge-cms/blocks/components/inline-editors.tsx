@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/button';
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 import { buildTranslationKey } from '~/utils/blocks';
+import { ConfirmDialog } from './confirm-dialog';
 
 /**
  * Inline editor for translation-type properties
@@ -174,6 +175,7 @@ export function InlineMediaEditor({
 	const updateFetcher = useFetcher();
 	const uploadFetcher = useFetcher();
 	const [showReplace, setShowReplace] = useState(false);
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	// After successful upload/replace, update the block instance value with the new media ID
 	useEffect(() => {
@@ -236,10 +238,7 @@ export function InlineMediaEditor({
 	};
 
 	const handleDelete = () => {
-		if (
-			media?.id &&
-			confirm('Delete all versions of this media? This cannot be undone.')
-		) {
+		if (media?.id) {
 			const deleteFetcher = new FormData();
 			deleteFetcher.append('intent', 'delete-all-versions');
 			deleteFetcher.append('mediaId', media.id.toString());
@@ -266,7 +265,7 @@ export function InlineMediaEditor({
 		},
 		{
 			label: 'Delete',
-			onClick: handleDelete,
+			onClick: () => setShowDeleteConfirm(true),
 			variant: 'destructive' as const,
 		},
 		{
@@ -318,6 +317,13 @@ export function InlineMediaEditor({
 					<p className="text-destructive text-sm">{uploadFetcher.data.error}</p>
 				)}
 			</div>
+			<ConfirmDialog
+				open={showDeleteConfirm}
+				onOpenChange={setShowDeleteConfirm}
+				onConfirm={handleDelete}
+				title="Delete media"
+				description="Delete all versions of this media? This cannot be undone."
+			/>
 		</>
 	);
 }

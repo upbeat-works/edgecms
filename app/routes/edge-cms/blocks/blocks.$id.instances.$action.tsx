@@ -1,5 +1,5 @@
 import { useLoaderData, useFetcher, Link, redirect, useNavigate } from 'react-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockCollectionById,
@@ -27,6 +27,7 @@ import {
 	SelectValue,
 } from '~/components/ui/select';
 import { Trash2, ArrowLeft } from 'lucide-react';
+import { ConfirmDialog } from './components/confirm-dialog';
 import { env } from 'cloudflare:workers';
 import {
 	StringEditor,
@@ -35,8 +36,6 @@ import {
 	TranslationEditorWithLink,
 } from './components/inline-editors';
 import {
-	Sheet,
-	SheetContent,
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
@@ -287,30 +286,28 @@ export default function BlockInstancePage() {
 		);
 	}
 
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
 	const handleDelete = () => {
-		if (
-			confirm(
-				'Delete this item? All associated translations will be deleted.',
-			)
-		) {
-			fetcher.submit(
-				{ intent: 'delete-instance' },
-				{ method: 'post' },
-			);
-		}
+		fetcher.submit(
+			{ intent: 'delete-instance' },
+			{ method: 'post' },
+		);
 	};
 
 	return (
 		<>
 			<div className="flex items-center gap-3 mb-6">
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => navigate(-1)}
-					className="h-8 w-8 shrink-0"
-				>
-					<ArrowLeft className="h-4 w-4" />
-				</Button>
+				{block.isCollection && (
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => navigate(`/edge-cms/blocks/${block.id}`, { replace: true })}
+						className="h-8 w-8 shrink-0"
+					>
+						<ArrowLeft className="h-4 w-4" />
+					</Button>
+				)}
 				<SheetHeader className="space-y-1 flex-1">
 					<SheetTitle>
 						{mode === 'create' ? 'New Item' : block.name}
@@ -324,19 +321,6 @@ export default function BlockInstancePage() {
 				</SheetHeader>
 			</div>
 
-			<div className="mt-6 flex items-center justify-end gap-2 mb-4">
-				{mode === 'edit' && (
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleDelete}
-						className="text-destructive hover:text-destructive"
-					>
-						<Trash2 className="h-4 w-4" />
-					</Button>
-				)}
-			</div>
-
 			<BlockInstanceForm
 				block={block}
 				instance={instance}
@@ -348,6 +332,26 @@ export default function BlockInstancePage() {
 				mode={mode}
 				defaultLang={defaultLang}
 			/>
+
+			{mode === 'edit' && (
+				<>
+					<Button
+						variant="destructive"
+						className="w-full mt-8"
+						onClick={() => setShowDeleteConfirm(true)}
+					>
+						<Trash2 className="mr-2 h-4 w-4" />
+						Delete
+					</Button>
+					<ConfirmDialog
+						open={showDeleteConfirm}
+						onOpenChange={setShowDeleteConfirm}
+						onConfirm={handleDelete}
+						title="Delete item"
+						description="Delete this item? All associated translations will be deleted."
+					/>
+				</>
+			)}
 		</>
 	);
 }
