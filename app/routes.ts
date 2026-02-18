@@ -48,8 +48,8 @@ export default [
 			'routes/edge-cms/public/media.$filename.tsx',
 		),
 		route(
-			'public/blocks/:collection.json',
-			'routes/edge-cms/public/blocks.$collection[.]json.tsx',
+			'public/blocks/:collection',
+			'routes/edge-cms/public/blocks.$collection.tsx',
 		),
 	]),
 ] satisfies RouteConfig;
