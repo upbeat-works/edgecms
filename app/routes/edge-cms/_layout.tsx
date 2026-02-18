@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation, useLoaderData } from 'react-router';
 import { useState, useEffect } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Key } from 'lucide-react';
 import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
 import { requireAuth } from '~/utils/auth.middleware';
@@ -69,6 +69,18 @@ export default function Layout() {
 						</div>
 
 						<div className="ml-auto flex items-center space-x-4">
+							<Link
+								to="/edge-cms/settings/api-keys"
+								className={cn(
+									'hover:text-primary flex items-center gap-1 text-sm font-medium transition-colors',
+									location.pathname === '/edge-cms/settings/api-keys'
+										? 'text-foreground'
+										: 'text-muted-foreground',
+								)}
+							>
+								<Key className="h-4 w-4" />
+								API Keys
+							</Link>
 							{user.role === 'admin' && (
 								<Link
 									to="/edge-cms/users"

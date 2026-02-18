@@ -64,6 +64,35 @@ export const verification = sqliteTable('verification', {
 	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
 });
 
+// API Key table (better-auth apiKey plugin)
+export const apikey = sqliteTable('apikey', {
+	id: text('id').primaryKey(),
+	name: text('name'),
+	start: text('start'),
+	prefix: text('prefix'),
+	key: text('key').notNull(),
+	userId: text('userId')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	refillInterval: integer('refillInterval'),
+	refillAmount: integer('refillAmount'),
+	lastRefillAt: integer('lastRefillAt', { mode: 'timestamp' }),
+	enabled: integer('enabled', { mode: 'boolean' }).default(true).notNull(),
+	rateLimitEnabled: integer('rateLimitEnabled', { mode: 'boolean' })
+		.default(true)
+		.notNull(),
+	rateLimitTimeWindow: integer('rateLimitTimeWindow'),
+	rateLimitMax: integer('rateLimitMax'),
+	requestCount: integer('requestCount').default(0).notNull(),
+	remaining: integer('remaining'),
+	lastRequest: integer('lastRequest', { mode: 'timestamp' }),
+	expiresAt: integer('expiresAt', { mode: 'timestamp' }),
+	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
+	permissions: text('permissions'),
+	metadata: text('metadata'),
+});
+
 // Application tables
 export const languages = sqliteTable('languages', {
 	locale: text('locale').primaryKey(),
@@ -158,14 +187,23 @@ export const blockSchemaProperties = sqliteTable(
 			.references(() => blockSchemas.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
 		type: text('type', {
-			enum: ['string', 'translation', 'media', 'boolean', 'block', 'collection'],
+			enum: [
+				'string',
+				'translation',
+				'media',
+				'boolean',
+				'block',
+				'collection',
+			],
 		}).notNull(),
 		refSchemaId: integer('refSchemaId').references(() => blockSchemas.id, {
 			onDelete: 'restrict',
 		}),
 		position: integer('position').notNull().default(0),
 	},
-	table => [uniqueIndex('idx_schema_property_name').on(table.schemaId, table.name)],
+	table => [
+		uniqueIndex('idx_schema_property_name').on(table.schemaId, table.name),
+	],
 );
 
 // Collections (root-level containers for block instances)
@@ -225,7 +263,10 @@ export const blockInstanceValues = sqliteTable(
 		}),
 	},
 	table => [
-		uniqueIndex('idx_instance_property_value').on(table.instanceId, table.propertyId),
+		uniqueIndex('idx_instance_property_value').on(
+			table.instanceId,
+			table.propertyId,
+		),
 	],
 );
 
@@ -235,4 +276,5 @@ export const authSchema = {
 	session,
 	account,
 	verification,
+	apikey,
 };

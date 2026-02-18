@@ -35,10 +35,16 @@ export default [
 			route('sections', 'routes/edge-cms/sections.tsx'),
 			route('users', 'routes/edge-cms/users/users.tsx'),
 			route('users/:id', 'routes/edge-cms/users/users.$id.tsx'),
+			route('settings/api-keys', 'routes/edge-cms/settings/api-keys.tsx'),
 		]),
 		route('sign-in', 'routes/edge-cms/auth/sign-in.tsx'),
 		route('sign-out', 'routes/edge-cms/auth/sign-out.tsx'),
 		route('_a/sign-up', 'routes/edge-cms/auth/sign-up.tsx'),
+		// API routes (API key authenticated)
+		route('api/i18n/pull', 'routes/edge-cms/api/i18n.pull.ts'),
+		route('api/i18n/push', 'routes/edge-cms/api/i18n.push.ts'),
+		route('api/i18n/languages', 'routes/edge-cms/api/i18n.languages.ts'),
+		// Public routes
 		route(
 			'public/i18n/:locale.json',
 			'routes/edge-cms/public/i18n.$locale[.]json.tsx',
