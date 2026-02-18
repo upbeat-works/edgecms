@@ -1,4 +1,5 @@
 import { useFetcher, Link, redirect } from 'react-router';
+import { kebabCase, startCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
 import { createBlockSchema } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
@@ -21,7 +22,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	try {
 		const schema = await createBlockSchema(
-			name.toLowerCase().replace(/\s+/g, '-'),
+			kebabCase(startCase(name)),
 		);
 		return redirect(`/edge-cms/blocks/schemas/${schema.id}`);
 	} catch (error) {

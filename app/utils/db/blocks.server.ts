@@ -283,7 +283,7 @@ export async function updateBlockCollectionSection(
 	for (const instance of instances) {
 		const properties = await getBlockSchemaProperties(instance.schemaId);
 		for (const prop of properties) {
-			if (prop.type === 'string') {
+			if (prop.type === 'translation') {
 				const key = buildTranslationKey(schema.name, instance.id, prop.name);
 				await updateTranslationKeySection(key, section || undefined);
 			}

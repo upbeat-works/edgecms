@@ -1,5 +1,6 @@
 import { useLoaderData, useFetcher, Link, redirect, useNavigate } from 'react-router';
 import { useState } from 'react';
+import { kebabCase, startCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockSchemas,
@@ -48,7 +49,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	try {
 		const block = await createBlockCollection({
-			name: name.toLowerCase().replace(/\s+/g, '-'),
+			name: kebabCase(startCase(name)),
 			schemaId,
 			section: section && section !== '__auto__' ? section : undefined,
 			isCollection,

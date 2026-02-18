@@ -268,6 +268,7 @@ export default function BlockInstancePage() {
 	const fetcher = useFetcher();
 	const navigate = useNavigate();
 	const defaultLang = languages.find(l => l.default) || languages[0];
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	// Check if no languages defined
 	if (languages.length === 0) {
@@ -285,8 +286,6 @@ export default function BlockInstancePage() {
 			</div>
 		);
 	}
-
-	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	const handleDelete = () => {
 		fetcher.submit(

@@ -1,5 +1,6 @@
 import { useLoaderData, useFetcher, Link, redirect } from 'react-router';
 import { useState } from 'react';
+import { kebabCase, startCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockSchemas,
@@ -47,7 +48,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	try {
 		await createBlockSchemaProperty({
 			schemaId,
-			name: name.toLowerCase().replace(/\s+/g, '-'),
+			name: kebabCase(startCase(name)),
 			type,
 			refSchemaId: refSchemaId ? parseInt(refSchemaId as string) : undefined,
 		});

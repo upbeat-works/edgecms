@@ -246,8 +246,10 @@ export function InlineMediaEditor({
 			fetch('/edge-cms/media', {
 				method: 'POST',
 				body: deleteFetcher,
-			}).then(() => {
-				handleRemove();
+			}).then(response => {
+				if (response.ok) {
+					handleRemove();
+				}
 			});
 		}
 	};
