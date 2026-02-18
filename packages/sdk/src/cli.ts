@@ -14,15 +14,11 @@ program
 program
 	.command('pull')
 	.description('Pull translations from EdgeCMS and generate TypeScript types')
-	.option(
-		'-v, --version <version>',
-		'Version to pull: "draft" or "live"',
-		'live',
-	)
+	.option('--from <from>', 'Pull from "draft" or "live"', 'live')
 	.action(async options => {
 		try {
 			const config = loadConfig();
-			await pull(config, { version: options.version });
+			await pull(config, { version: options.from });
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);
