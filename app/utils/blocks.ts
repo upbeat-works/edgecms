@@ -12,12 +12,6 @@ export function buildTranslationKey(
 	return `blocks.${schemaName}.${instanceId}.${propertyName}`;
 }
 
-// Language type (shared)
-export interface Language {
-	locale: string;
-	default: boolean;
-}
-
 // Block types (shared between client and server)
 export interface BlockSchema {
 	id: number;
