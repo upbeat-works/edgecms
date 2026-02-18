@@ -174,8 +174,10 @@ export function InlineMediaEditor({
 }) {
 	const updateFetcher = useFetcher();
 	const uploadFetcher = useFetcher();
+	const mediaActionFetcher = useFetcher();
 	const [showReplace, setShowReplace] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [pendingDeleteRemove, setPendingDeleteRemove] = useState(false);
 
 	// After successful upload/replace, update the block instance value with the new media ID
 	useEffect(() => {
@@ -196,6 +198,14 @@ export function InlineMediaEditor({
 			setShowReplace(false);
 		}
 	}, [uploadFetcher.data, uploadFetcher.state, instanceId, propertyId]);
+
+	// After successful media delete, remove the reference from the block instance
+	useEffect(() => {
+		if (pendingDeleteRemove && mediaActionFetcher.state === 'idle') {
+			setPendingDeleteRemove(false);
+			handleRemove();
+		}
+	}, [mediaActionFetcher.state, pendingDeleteRemove]);
 
 	const handleRemove = () => {
 		updateFetcher.submit(
@@ -226,31 +236,26 @@ export function InlineMediaEditor({
 
 	const handleArchive = () => {
 		if (media?.id) {
-			const archiveFetcher = new FormData();
-			archiveFetcher.append('intent', 'archive');
-			archiveFetcher.append('mediaId', media.id.toString());
-
-			fetch('/edge-cms/media', {
-				method: 'POST',
-				body: archiveFetcher,
-			});
+			mediaActionFetcher.submit(
+				{
+					intent: 'archive',
+					mediaId: media.id.toString(),
+				},
+				{ method: 'post', action: '/edge-cms/media' },
+			);
 		}
 	};
 
 	const handleDelete = () => {
 		if (media?.id) {
-			const deleteFetcher = new FormData();
-			deleteFetcher.append('intent', 'delete-all-versions');
-			deleteFetcher.append('mediaId', media.id.toString());
-
-			fetch('/edge-cms/media', {
-				method: 'POST',
-				body: deleteFetcher,
-			}).then(response => {
-				if (response.ok) {
-					handleRemove();
-				}
-			});
+			setPendingDeleteRemove(true);
+			mediaActionFetcher.submit(
+				{
+					intent: 'delete-all-versions',
+					mediaId: media.id.toString(),
+				},
+				{ method: 'post', action: '/edge-cms/media' },
+			);
 		}
 	};
 
