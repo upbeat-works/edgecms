@@ -25,7 +25,7 @@ export function generateTypes(keys: string[]): string {
 	lines.push(' * Helper function to get a typed translation key.');
 	lines.push(' * This ensures the key exists at compile time.');
 	lines.push(' */');
-	lines.push('export function t<K extends TranslationKey>(key: K): K {');
+	lines.push('export function t(key: TranslationKey): TranslationKey {');
 	lines.push('  return key;');
 	lines.push('}');
 	lines.push('');
