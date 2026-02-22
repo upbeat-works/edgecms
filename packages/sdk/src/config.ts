@@ -2,9 +2,9 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export interface EdgeCMSConfig {
-	/** Base URL of the EdgeCMS instance (e.g., "https://cms.example.com/edge-cms") */
+	/** Base URL of the EdgeCMS instance. Can be set via EDGECMS_BASE_URL env var or in config file (supports ${ENV_VAR} syntax). */
 	baseUrl: string;
-	/** API key for authentication (can use ${ENV_VAR} syntax) */
+	/** API key for authentication. Must be set via EDGECMS_API_KEY env var. */
 	apiKey: string;
 	/** Directory where locale JSON files are stored */
 	localesDir: string;
@@ -47,15 +47,16 @@ export function loadConfig(cwd: string = process.cwd()): EdgeCMSConfig {
 				`Example:\n` +
 				JSON.stringify(
 					{
-						baseUrl: 'https://your-cms.example.com/edge-cms',
-						apiKey: '${EDGECMS_API_KEY}',
 						localesDir: './src/locales',
 						defaultLocale: 'en',
 						typesOutputPath: './src/locales/types.ts',
 					},
 					null,
 					2,
-				),
+				) +
+				`\n\nAlso set these environment variables:\n` +
+				`  EDGECMS_API_KEY=your-api-key\n` +
+				`  EDGECMS_BASE_URL=https://your-cms.example.com/edge-cms`,
 		);
 	}
 
@@ -69,10 +70,8 @@ export function loadConfig(cwd: string = process.cwd()): EdgeCMSConfig {
 		);
 	}
 
-	// Validate required fields
+	// Validate required fields (baseUrl and apiKey are resolved from env)
 	const requiredFields: (keyof EdgeCMSConfig)[] = [
-		'baseUrl',
-		'apiKey',
 		'localesDir',
 		'defaultLocale',
 		'typesOutputPath',
@@ -86,11 +85,24 @@ export function loadConfig(cwd: string = process.cwd()): EdgeCMSConfig {
 		}
 	}
 
-	// Resolve environment variables in apiKey
-	const apiKey = resolveEnvVars(rawConfig.apiKey!);
+	// API key must come from env
+	const apiKey = process.env.EDGECMS_API_KEY;
+	if (!apiKey) {
+		throw new Error(
+			`Environment variable "EDGECMS_API_KEY" is not set. ` +
+				`Please set it in your environment or .env file.`,
+		);
+	}
 
-	// Normalize baseUrl (remove trailing slash)
-	const baseUrl = rawConfig.baseUrl!.replace(/\/$/, '');
+	// Base URL: env takes priority, then config file (which supports ${ENV_VAR} syntax)
+	const rawBaseUrl = process.env.EDGECMS_BASE_URL ?? rawConfig.baseUrl;
+	if (!rawBaseUrl) {
+		throw new Error(
+			`Base URL is not configured. Set the EDGECMS_BASE_URL environment variable ` +
+				`or add "baseUrl" to ${CONFIG_FILENAME}.`,
+		);
+	}
+	const baseUrl = resolveEnvVars(rawBaseUrl).replace(/\/$/, '');
 
 	return {
 		baseUrl,
