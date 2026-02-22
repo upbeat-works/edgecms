@@ -1,5 +1,5 @@
 {
-  "name": "@edgecms/sdk",
+  "name": "@upbeat-works/edgecms-sdk",
   "version": "0.1.0",
   "description": "CLI SDK for EdgeCMS i18n - pull and push translations",
   "type": "module",
