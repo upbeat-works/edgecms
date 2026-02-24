@@ -18,10 +18,7 @@ import type {
 	BlockInstanceValue,
 } from '../blocks';
 import { buildTranslationKey } from '../blocks';
-import {
-	updateTranslationKeySection,
-	upsertTranslation,
-} from './translations.server';
+import { updateTranslationKeySection } from './translations.server';
 import { getMediaById } from './media.server';
 
 const db = drizzle(env.DB);
@@ -367,6 +364,12 @@ export async function createBlockInstance(props: {
 					.insert(translationKeys)
 					.values({ key, section: collection.section })
 					.onConflictDoNothing();
+				// Store the translation key as stringValue so getBlockCollectionData can read it
+				await upsertBlockInstanceValue({
+					instanceId: instance.id,
+					propertyId: prop.id,
+					stringValue: key,
+				});
 			}
 		}
 	}
@@ -513,11 +516,13 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 				const value = values.find(v => v.propertyId === prop.id);
 				item[prop.name] = value?.stringValue || null;
 			} else if (prop.type === 'translation') {
-				item[prop.name] = buildTranslationKey(
-					collection.schemaName,
-					instance.id,
-					prop.name,
-				);
+				const value = values.find(v => v.propertyId === prop.id);
+				item[prop.name] = value?.stringValue ||
+					buildTranslationKey(
+						collection.schemaName,
+						instance.id,
+						prop.name,
+					);
 			} else if (prop.type === 'boolean') {
 				const value = values.find(v => v.propertyId === prop.id);
 				item[prop.name] = value?.booleanValue === 1;
@@ -583,12 +588,12 @@ export async function importBlockItems(
 					});
 					break;
 				case 'translation':
-					await upsertTranslation(
-						buildTranslationKey(schema.name, instance.id, prop.name),
-						locale,
-						String(value ?? ''),
-						collection.section ?? undefined,
-					);
+					// Store the provided translation key reference as a string value
+					await upsertBlockInstanceValue({
+						instanceId: instance.id,
+						propertyId: prop.id,
+						stringValue: String(value ?? ''),
+					});
 					break;
 				case 'boolean':
 					await upsertBlockInstanceValue({

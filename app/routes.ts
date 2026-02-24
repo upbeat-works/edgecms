@@ -44,6 +44,7 @@ export default [
 		route('api/i18n/pull', 'routes/edge-cms/api/i18n.pull.ts'),
 		route('api/i18n/push', 'routes/edge-cms/api/i18n.push.ts'),
 		route('api/i18n/languages', 'routes/edge-cms/api/i18n.languages.ts'),
+		route('api/blocks/import', 'routes/edge-cms/api/blocks.import.ts'),
 		// Public routes
 		route(
 			'public/i18n/:locale.json',
