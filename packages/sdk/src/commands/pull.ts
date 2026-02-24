@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFile, mkdir, access } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import type { EdgeCMSConfig } from '../config.js';
 import { EdgeCMSClient } from '../api.js';
@@ -6,6 +6,7 @@ import { generateTypes } from '../codegen.js';
 
 export interface PullOptions {
 	version?: 'draft' | 'live';
+	allLocales?: boolean;
 }
 
 /**
@@ -25,24 +26,32 @@ export async function pull(
 
 	// Ensure locales directory exists
 	const localesDir = resolve(process.cwd(), config.localesDir);
-	if (!existsSync(localesDir)) {
-		mkdirSync(localesDir, { recursive: true });
-		console.log(`Created directory: ${config.localesDir}`);
-	}
+	await mkdir(localesDir, { recursive: true });
 
-	// Write JSON files for each locale
+	// Determine which locales to write
+	const localesToWrite = options.allLocales
+		? Object.entries(response.translations)
+		: [[
+				config.defaultLocale,
+				response.translations[config.defaultLocale] ||
+					response.translations[response.defaultLocale || ''] ||
+					Object.values(response.translations)[0] ||
+					{},
+			] as const];
+
+	// Write JSON files
 	let totalKeys = 0;
-	for (const [locale, translations] of Object.entries(response.translations)) {
+	for (const [locale, translations] of localesToWrite) {
 		const filePath = resolve(localesDir, `${locale}.json`);
 		const content = JSON.stringify(translations, null, 2);
-		writeFileSync(filePath, content + '\n', 'utf-8');
+		await writeFile(filePath, content + '\n', 'utf-8');
 
 		const keyCount = Object.keys(translations).length;
 		totalKeys = Math.max(totalKeys, keyCount);
 		console.log(`  ${locale}.json (${keyCount} keys)`);
 	}
 
-	// Generate TypeScript types from default locale keys
+	// Resolve default locale translations for type generation
 	const defaultTranslations =
 		response.translations[config.defaultLocale] ||
 		response.translations[response.defaultLocale || ''] ||
@@ -55,14 +64,13 @@ export async function pull(
 	// Ensure types output directory exists
 	const typesPath = resolve(process.cwd(), config.typesOutputPath);
 	const typesDir = dirname(typesPath);
-	if (!existsSync(typesDir)) {
-		mkdirSync(typesDir, { recursive: true });
-	}
+	await mkdir(typesDir, { recursive: true });
 
-	writeFileSync(typesPath, typesContent, 'utf-8');
+	await writeFile(typesPath, typesContent, 'utf-8');
 	console.log(`  ${config.typesOutputPath} (${keys.length} keys)`);
 
-	console.log(
-		`\nPull complete! ${response.languages.length} locales, ${totalKeys} keys.`,
-	);
+	const localesSummary = options.allLocales
+		? `${localesToWrite.length} locales, `
+		: '';
+	console.log(`\nPull complete! ${localesSummary}${totalKeys} keys.`);
 }

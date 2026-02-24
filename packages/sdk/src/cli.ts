@@ -16,10 +16,11 @@ program
 	.command('pull')
 	.description('Pull translations from EdgeCMS and generate TypeScript types')
 	.option('--from <from>', 'Pull from "draft" or "live"', 'live')
+	.option('--all', 'Pull all locales instead of just the default')
 	.action(async options => {
 		try {
-			const config = loadConfig();
-			await pull(config, { version: options.from });
+			const config = await loadConfig();
+			await pull(config, { version: options.from, allLocales: options.all });
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);
@@ -32,7 +33,7 @@ program
 	.option('-s, --section <section>', 'Section to assign to new keys')
 	.action(async options => {
 		try {
-			const config = loadConfig();
+			const config = await loadConfig();
 			await push(config, { section: options.section });
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
@@ -51,7 +52,7 @@ program
 	)
 	.action(async (file, collection, options) => {
 		try {
-			const config = loadConfig();
+			const config = await loadConfig();
 			await importBlocks(config, file, collection, { locale: options.locale });
 		} catch (error) {
 			console.error('Error:', (error as Error).message);

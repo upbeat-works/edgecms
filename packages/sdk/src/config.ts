@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export interface EdgeCMSConfig {
@@ -37,10 +37,12 @@ function resolveEnvVars(value: string): string {
  * Loads the EdgeCMS configuration from the project root.
  * Looks for edgecms.config.json in the current working directory.
  */
-export function loadConfig(cwd: string = process.cwd()): EdgeCMSConfig {
+export async function loadConfig(cwd: string = process.cwd()): Promise<EdgeCMSConfig> {
 	const configPath = resolve(cwd, CONFIG_FILENAME);
 
-	if (!existsSync(configPath)) {
+	try {
+		await access(configPath);
+	} catch {
 		throw new Error(
 			`Configuration file not found: ${CONFIG_FILENAME}\n` +
 				`Please create a ${CONFIG_FILENAME} file in your project root.\n\n` +
@@ -62,7 +64,7 @@ export function loadConfig(cwd: string = process.cwd()): EdgeCMSConfig {
 
 	let rawConfig: Partial<EdgeCMSConfig>;
 	try {
-		const content = readFileSync(configPath, 'utf-8');
+		const content = await readFile(configPath, 'utf-8');
 		rawConfig = JSON.parse(content);
 	} catch (error) {
 		throw new Error(

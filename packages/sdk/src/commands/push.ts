@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { EdgeCMSConfig } from '../config.js';
 import { EdgeCMSClient } from '../api.js';
@@ -22,7 +22,9 @@ export async function push(
 	const localesDir = resolve(process.cwd(), config.localesDir);
 	const filePath = resolve(localesDir, `${locale}.json`);
 
-	if (!existsSync(filePath)) {
+	try {
+		await access(filePath);
+	} catch {
 		throw new Error(
 			`Translations file not found: ${filePath}\n` +
 				`Run 'edgecms pull' first to download translations.`,
@@ -31,7 +33,7 @@ export async function push(
 
 	let translations: Record<string, string>;
 	try {
-		const content = readFileSync(filePath, 'utf-8');
+		const content = await readFile(filePath, 'utf-8');
 		translations = JSON.parse(content);
 	} catch (error) {
 		throw new Error(`Failed to parse ${filePath}: ${(error as Error).message}`);

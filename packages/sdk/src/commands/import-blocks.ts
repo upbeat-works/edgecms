@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { EdgeCMSConfig } from '../config.js';
 import { EdgeCMSClient } from '../api.js';
@@ -21,13 +21,15 @@ export async function importBlocks(
 
 	const filePath = resolve(process.cwd(), file);
 
-	if (!existsSync(filePath)) {
+	try {
+		await access(filePath);
+	} catch {
 		throw new Error(`File not found: ${filePath}`);
 	}
 
 	let items: Record<string, unknown>[];
 	try {
-		const content = readFileSync(filePath, 'utf-8');
+		const content = await readFile(filePath, 'utf-8');
 		items = JSON.parse(content);
 	} catch (error) {
 		throw new Error(`Failed to parse ${filePath}: ${(error as Error).message}`);
