@@ -1,6 +1,6 @@
 import { useLoaderData, useFetcher, Link, redirect } from 'react-router';
 import { useState } from 'react';
-import { kebabCase, startCase } from 'lodash-es';
+import { camelCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockSchemas,
@@ -48,7 +48,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	try {
 		await createBlockSchemaProperty({
 			schemaId,
-			name: kebabCase(startCase(name)),
+			name: camelCase(name),
 			type,
 			refSchemaId: refSchemaId ? parseInt(refSchemaId as string) : undefined,
 		});
@@ -92,7 +92,7 @@ export default function AddPropertyPage() {
 							autoFocus
 						/>
 						<p className="text-muted-foreground text-xs">
-							Will be converted to lowercase kebab-case
+							Will be converted to camelCase
 						</p>
 					</div>
 
