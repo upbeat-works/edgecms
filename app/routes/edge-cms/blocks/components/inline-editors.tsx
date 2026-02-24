@@ -3,10 +3,16 @@ import { useFetcher, Link } from 'react-router';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
 import { Button } from '~/components/ui/button';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '~/components/ui/select';
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 
-import { ConfirmDialog } from './confirm-dialog';
 
 /**
  * Inline editor for translation-type properties
@@ -216,6 +222,7 @@ export function InlineMediaEditor({
 	media,
 	section,
 	sections,
+	availableMedia = [],
 }: {
 	instanceId: number;
 	propertyId: number;
@@ -227,13 +234,11 @@ export function InlineMediaEditor({
 	} | null;
 	section: string | null;
 	sections: { name: string }[];
+	availableMedia?: { id: number; filename: string; mimeType: string; version: number }[];
 }) {
 	const updateFetcher = useFetcher();
 	const uploadFetcher = useFetcher();
-	const mediaActionFetcher = useFetcher();
 	const [showReplace, setShowReplace] = useState(false);
-	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-	const [pendingDeleteRemove, setPendingDeleteRemove] = useState(false);
 
 	// After successful upload/replace, update the block instance value with the new media ID
 	useEffect(() => {
@@ -254,14 +259,6 @@ export function InlineMediaEditor({
 			setShowReplace(false);
 		}
 	}, [uploadFetcher.data, uploadFetcher.state, instanceId, propertyId]);
-
-	// After successful media delete, remove the reference from the block instance
-	useEffect(() => {
-		if (pendingDeleteRemove && mediaActionFetcher.state === 'idle') {
-			setPendingDeleteRemove(false);
-			handleRemove();
-		}
-	}, [mediaActionFetcher.state, pendingDeleteRemove]);
 
 	const handleRemove = () => {
 		updateFetcher.submit(
@@ -290,54 +287,38 @@ export function InlineMediaEditor({
 		}
 	};
 
-	const handleArchive = () => {
-		if (media?.id) {
-			mediaActionFetcher.submit(
-				{
-					intent: 'archive',
-					mediaId: media.id.toString(),
-				},
-				{ method: 'post', action: '/edge-cms/media' },
-			);
-		}
-	};
-
-	const handleDelete = () => {
-		if (media?.id) {
-			setPendingDeleteRemove(true);
-			mediaActionFetcher.submit(
-				{
-					intent: 'delete-all-versions',
-					mediaId: media.id.toString(),
-				},
-				{ method: 'post', action: '/edge-cms/media' },
-			);
-		}
-	};
-
 	const isUploading = uploadFetcher.state === 'submitting';
+
+	const handleSelectExisting = (mediaId: string) => {
+		updateFetcher.submit(
+			{
+				intent: 'update-media-value',
+				instanceId: instanceId.toString(),
+				propertyId: propertyId.toString(),
+				mediaId,
+			},
+			{ method: 'post' },
+		);
+		setShowReplace(false);
+	};
 
 	const actions: MediaCardAction[] = [
 		{
-			label: 'Replace with new file',
+			label: 'Replace',
 			onClick: () => setShowReplace(true),
 		},
 		{
-			label: 'Archive',
-			onClick: handleArchive,
-		},
-		{
-			label: 'Delete',
-			onClick: () => setShowDeleteConfirm(true),
-			variant: 'destructive' as const,
-		},
-		{
-			label: 'See Versions',
+			label: 'Open in Media',
 			onClick: () =>
 				window.open(
 					`/edge-cms/media?filename=${encodeURIComponent(media?.filename || '')}`,
 					'_blank',
 				),
+		},
+		{
+			label: 'Remove',
+			onClick: handleRemove,
+			variant: 'destructive' as const,
 			separator: true,
 		},
 	];
@@ -351,7 +332,28 @@ export function InlineMediaEditor({
 						actions={actions}
 					/>
 				) : (
-					<div className="space-y-1">
+					<div className="space-y-2">
+						{availableMedia.length > 0 && (
+							<Select onValueChange={handleSelectExisting}>
+								<SelectTrigger>
+									<SelectValue placeholder="Select existing media..." />
+								</SelectTrigger>
+								<SelectContent>
+									{availableMedia.map(m => (
+										<SelectItem key={m.id} value={m.id.toString()}>
+											{m.filename}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						)}
+						{availableMedia.length > 0 && (
+							<div className="text-muted-foreground flex items-center gap-2 text-xs">
+								<div className="bg-border h-px flex-1" />
+								<span>or upload new</span>
+								<div className="bg-border h-px flex-1" />
+							</div>
+						)}
 						<div className="flex gap-2">
 							<Input
 								type="file"
@@ -380,13 +382,6 @@ export function InlineMediaEditor({
 					<p className="text-destructive text-sm">{uploadFetcher.data.error}</p>
 				)}
 			</div>
-			<ConfirmDialog
-				open={showDeleteConfirm}
-				onOpenChange={setShowDeleteConfirm}
-				onConfirm={handleDelete}
-				title="Delete media"
-				description="Delete all versions of this media? This cannot be undone."
-			/>
 		</>
 	);
 }

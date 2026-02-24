@@ -32,6 +32,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '~/components/ui/select';
+import { MediaPreview } from '~/components/media-preview';
 import { Trash2, ArrowLeft } from 'lucide-react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import { env } from 'cloudflare:workers';
@@ -78,7 +79,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			properties,
 			schema,
 			languages,
-			media: media.map(m => ({ id: m.id, filename: m.filename })),
+			media: media.map(m => ({ id: m.id, filename: m.filename, mimeType: m.mimeType, version: m.version })),
 			sections,
 			instance: null,
 			mode: 'create' as const,
@@ -106,7 +107,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			properties,
 			schema,
 			languages,
-			media: media.map(m => ({ id: m.id, filename: m.filename })),
+			media: media.map(m => ({ id: m.id, filename: m.filename, mimeType: m.mimeType, version: m.version })),
 			sections,
 			instance,
 			mode: 'edit' as const,
@@ -412,7 +413,7 @@ function BlockInstanceForm({
 	properties: any[];
 	schema: any;
 	languages: any[];
-	media: { id: number; filename: string }[];
+	media: { id: number; filename: string; mimeType: string; version: number }[];
 	sections: { name: string }[];
 	mode: 'create' | 'edit';
 	defaultLang: any;
@@ -580,34 +581,50 @@ function BlockInstanceForm({
 					</div>
 				))}
 
-				{mediaProps.map(prop => (
-					<div key={prop.id} className="space-y-2">
-						<Label>{prop.name}</Label>
-						<Select
-							value={formValues.media[prop.name] || undefined}
-							onValueChange={(value: string) =>
-								setFormValues(prev => ({
-									...prev,
-									media: {
-										...prev.media,
-										[prop.name]: value,
-									},
-								}))
-							}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder="Select media..." />
-							</SelectTrigger>
-							<SelectContent>
-								{media.map(m => (
-									<SelectItem key={m.id} value={m.id.toString()}>
-										{m.filename}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-				))}
+				{mediaProps.map(prop => {
+					const selectedMedia = formValues.media[prop.name]
+						? media.find(m => m.id.toString() === formValues.media[prop.name])
+						: null;
+					return (
+						<div key={prop.id} className="space-y-2">
+							<Label>{prop.name}</Label>
+							<Select
+								value={formValues.media[prop.name] || undefined}
+								onValueChange={(value: string) =>
+									setFormValues(prev => ({
+										...prev,
+										media: {
+											...prev.media,
+											[prop.name]: value,
+										},
+									}))
+								}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Select media..." />
+								</SelectTrigger>
+								<SelectContent>
+									{media.map(m => (
+										<SelectItem key={m.id} value={m.id.toString()}>
+											{m.filename}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{selectedMedia && (
+								<div className="flex aspect-video items-center justify-center overflow-hidden rounded border bg-gray-100">
+									<MediaPreview
+										filename={selectedMedia.filename}
+										mimeType={selectedMedia.mimeType}
+										version={selectedMedia.version}
+										loading="lazy"
+										disableInteraction={true}
+									/>
+								</div>
+							)}
+						</div>
+					);
+				})}
 
 				{fetcher.data?.error && (
 					<p className="text-destructive text-sm">{fetcher.data.error}</p>
@@ -694,6 +711,7 @@ function BlockInstanceForm({
 						media={instance.values[prop.id]?.media || null}
 						section={block.section}
 						sections={sections}
+						availableMedia={media}
 					/>
 				</div>
 			))}
