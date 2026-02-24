@@ -293,6 +293,27 @@ export async function action({ request, params }: Route.ActionArgs) {
 				await upsertTranslation(key, language, value, section || undefined);
 				return { success: true };
 			}
+
+			case 'link-translation-key': {
+				const propertyId = parseInt(formData.get('propertyId') as string);
+				const translationKey = formData.get('translationKey') as string;
+				await upsertBlockInstanceValue({
+					instanceId,
+					propertyId,
+					stringValue: translationKey,
+				});
+				return { success: true };
+			}
+
+			case 'unlink-translation-key': {
+				const propertyId = parseInt(formData.get('propertyId') as string);
+				await upsertBlockInstanceValue({
+					instanceId,
+					propertyId,
+					stringValue: null,
+				});
+				return { success: true };
+			}
 		}
 	}
 
@@ -682,6 +703,9 @@ function BlockInstanceForm({
 						}
 						defaultLanguage={defaultLang?.locale || ''}
 						section={block.section}
+						instanceId={instance.id}
+						propertyId={prop.id}
+						hasStoredKey={!!instance.values[prop.id]?.stringValue}
 					/>
 				</div>
 			))}

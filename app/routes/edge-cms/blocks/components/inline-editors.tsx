@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFetcher, Link } from 'react-router';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
@@ -10,6 +10,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '~/components/ui/select';
+import { ExternalLink } from 'lucide-react';
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 
@@ -388,7 +389,10 @@ export function InlineMediaEditor({
 
 /**
  * Translation editor with link to full i18n page
- * Shows the default language value and links to edit all translations
+ * Shows the default language value and links to edit all translations.
+ * When no value exists, offers two modes:
+ * - "text" (default): enter a new translation value for the default language
+ * - "link": link to an existing translation key by name
  */
 export function TranslationEditorWithLink({
 	translationKey,
@@ -396,52 +400,134 @@ export function TranslationEditorWithLink({
 	defaultValue,
 	defaultLanguage,
 	section,
+	instanceId,
+	propertyId,
+	hasStoredKey,
 }: {
 	translationKey: string;
 	propertyName: string;
 	defaultValue: string;
 	defaultLanguage: string;
 	section: string | null;
+	instanceId: number;
+	propertyId: number;
+	hasStoredKey: boolean;
 }) {
+	const [mode, setMode] = useState<'text' | 'link'>('text');
+	const linkInputRef = useRef<HTMLInputElement>(null);
+	const fetcher = useFetcher();
+	const [linkValue, setLinkValue] = useState('');
+
+	const handleLinkBlur = () => {
+		if (linkValue.trim()) {
+			fetcher.submit(
+				{
+					intent: 'link-translation-key',
+					instanceId: instanceId.toString(),
+					propertyId: propertyId.toString(),
+					translationKey: linkValue.trim(),
+				},
+				{ method: 'post' },
+			);
+		}
+	};
+
+	const handleUnlink = (e: React.MouseEvent) => {
+		e.preventDefault();
+		fetcher.submit(
+			{
+				intent: 'unlink-translation-key',
+				instanceId: instanceId.toString(),
+				propertyId: propertyId.toString(),
+			},
+			{ method: 'post' },
+		);
+	};
 
 	if (defaultValue) {
 		return (
-			<Link
-				to={`/edge-cms/i18n?query=${encodeURIComponent(translationKey)}`}
-				target="_blank"
-				className="hover:bg-muted block rounded-lg border p-3 transition-colors"
-			>
-				<div className="text-sm">{defaultValue}</div>
-				<div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-					<span>Edit translations for {propertyName}</span>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="12"
-						height="12"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					>
-						<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-						<polyline points="15 3 21 3 21 9" />
-						<line x1="10" x2="21" y1="14" y2="3" />
-					</svg>
-				</div>
-			</Link>
+			<div className="space-y-2">
+				<Link
+					to={`/edge-cms/i18n?query=${encodeURIComponent(translationKey)}`}
+					target="_blank"
+					className="hover:bg-muted block rounded-lg border p-3 transition-colors"
+				>
+					<div className="text-sm">{defaultValue}</div>
+					<div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+						<span>Edit translations for {propertyName}</span>
+						<ExternalLink className="h-3 w-3" />
+					</div>
+				</Link>
+				{hasStoredKey && (
+					<div className="text-muted-foreground flex items-center justify-between text-xs">
+						<span className="font-mono">{translationKey}</span>
+						<button
+							type="button"
+							onClick={handleUnlink}
+							className="text-destructive hover:text-destructive/80 underline"
+						>
+							Unlink key
+						</button>
+					</div>
+				)}
+			</div>
 		);
 	}
 
-	// No value yet - show inline editor
+	// No value yet - show input with mode toggle
+	if (mode === 'link') {
+		return (
+			<div className="space-y-2">
+				<Input
+					ref={linkInputRef}
+					value={linkValue}
+					onChange={e => setLinkValue(e.target.value)}
+					onBlur={handleLinkBlur}
+					onKeyDown={e => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							e.currentTarget.blur();
+						}
+					}}
+					className="h-9"
+					placeholder="e.g. common.heading"
+				/>
+				<div className="text-muted-foreground flex items-center justify-between text-xs">
+					<span>Use an existing translation key from your i18n data</span>
+					<button
+						type="button"
+						onClick={() => setMode('text')}
+						className="hover:text-foreground underline"
+					>
+						Create new text
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	return (
-		<InlineTranslationEditor
-			translationKey={translationKey}
-			language={defaultLanguage}
-			value=""
-			section={section}
-			placeholder={`Enter ${propertyName} (${defaultLanguage})...`}
-		/>
+		<div className="space-y-2">
+			<InlineTranslationEditor
+				translationKey={translationKey}
+				language={defaultLanguage}
+				value=""
+				section={section}
+				placeholder={`Enter text in ${defaultLanguage}...`}
+			/>
+			<div className="text-muted-foreground flex items-center justify-between text-xs">
+				<span>Creates a new translation key for this property</span>
+				<button
+					type="button"
+					onClick={() => {
+						setMode('link');
+						setTimeout(() => linkInputRef.current?.focus(), 0);
+					}}
+					className="hover:text-foreground underline"
+				>
+					Link to existing key
+				</button>
+			</div>
+		</div>
 	);
 }
