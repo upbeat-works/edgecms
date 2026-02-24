@@ -15,13 +15,27 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release": "npm run build && release-it"
+  },
+  "release-it": {
+    "git": {
+      "tagName": "sdk-v${version}",
+      "commitMessage": "chore: release sdk v${version}"
+    },
+    "npm": {
+      "publish": true
+    },
+    "hooks": {
+      "before:init": "npm run typecheck"
+    }
   },
   "dependencies": {
     "commander": "^12.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.9",
+    "release-it": "^19.2.4",
     "typescript": "^5.8.3"
   },
   "engines": {
