@@ -33,8 +33,8 @@ export async function getTranslations({
 			.where(
 				or(
 					like(translations.value, `%${query}%`),
-					like(translations.key, `%${query}%`)
-				)
+					like(translations.key, `%${query}%`),
+				),
 			)
 			.groupBy(translations.key);
 

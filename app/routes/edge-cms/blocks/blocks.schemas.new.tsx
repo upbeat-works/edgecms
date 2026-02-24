@@ -21,9 +21,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const name = formData.get('name') as string;
 
 	try {
-		const schema = await createBlockSchema(
-			kebabCase(startCase(name)),
-		);
+		const schema = await createBlockSchema(kebabCase(startCase(name)));
 		return redirect(`/edge-cms/blocks/schemas/${schema.id}`);
 	} catch (error) {
 		return {
@@ -37,21 +35,15 @@ export default function NewSchemaPage() {
 
 	return (
 		<>
-			<div className="flex items-center gap-3 mb-6">
+			<div className="mb-6 flex items-center gap-3">
 				<Link to="/edge-cms/blocks/schemas">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8 shrink-0"
-					>
+					<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				</Link>
-				<SheetHeader className="space-y-1 flex-1">
+				<SheetHeader className="flex-1 space-y-1">
 					<SheetTitle>New Schema</SheetTitle>
-					<SheetDescription>
-						Define a new block structure
-					</SheetDescription>
+					<SheetDescription>Define a new block structure</SheetDescription>
 				</SheetHeader>
 			</div>
 

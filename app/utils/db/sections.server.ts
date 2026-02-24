@@ -1,7 +1,12 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, count, isNull } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
-import { sections, media, translations, translationKeys } from '../schema.server';
+import {
+	sections,
+	media,
+	translations,
+	translationKeys,
+} from '../schema.server';
 import type { Section, SectionWithCounts } from './types';
 
 const db = drizzle(env.DB);

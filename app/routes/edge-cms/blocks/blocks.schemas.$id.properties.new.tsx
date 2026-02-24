@@ -56,8 +56,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return redirect(`/edge-cms/blocks/schemas/${schemaId}`);
 	} catch (error) {
 		return {
-			error:
-				error instanceof Error ? error.message : 'Failed to add property',
+			error: error instanceof Error ? error.message : 'Failed to add property',
 		};
 	}
 }
@@ -69,21 +68,15 @@ export default function AddPropertyPage() {
 
 	return (
 		<>
-			<div className="flex items-center gap-3 mb-6">
+			<div className="mb-6 flex items-center gap-3">
 				<Link to={`/edge-cms/blocks/schemas/${schemaId}`}>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8 shrink-0"
-					>
+					<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				</Link>
-				<SheetHeader className="space-y-1 flex-1">
+				<SheetHeader className="flex-1 space-y-1">
 					<SheetTitle>Add Property</SheetTitle>
-					<SheetDescription>
-						Add a new property to the schema
-					</SheetDescription>
+					<SheetDescription>Add a new property to the schema</SheetDescription>
 				</SheetHeader>
 			</div>
 

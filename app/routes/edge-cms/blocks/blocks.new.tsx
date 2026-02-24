@@ -1,4 +1,10 @@
-import { useLoaderData, useFetcher, Link, redirect, useNavigate } from 'react-router';
+import {
+	useLoaderData,
+	useFetcher,
+	Link,
+	redirect,
+	useNavigate,
+} from 'react-router';
 import { useState } from 'react';
 import { kebabCase, startCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
@@ -70,96 +76,105 @@ export default function NewBlockPage() {
 	const [isCollection, setIsCollection] = useState(false);
 
 	return (
-		<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks', { replace: true })}>
+		<Sheet
+			open={true}
+			onOpenChange={open =>
+				!open && navigate('/edge-cms/blocks', { replace: true })
+			}
+		>
 			<SheetContent side="right" className="w-[500px] overflow-y-auto">
 				<SheetHeader>
 					<SheetTitle>Create Block</SheetTitle>
 				</SheetHeader>
 
 				<div className="mt-6">
-				<fetcher.Form method="post" className="space-y-6">
-					<input
-						type="hidden"
-						name="isCollection"
-						value={isCollection.toString()}
-					/>
-
-					<div className="space-y-2">
-						<Label htmlFor="block-name">Block Name</Label>
-						<Input
-							id="block-name"
-							name="name"
-							placeholder="e.g., footer, homepage-faqs"
-							required
-							autoFocus
+					<fetcher.Form method="post" className="space-y-6">
+						<input
+							type="hidden"
+							name="isCollection"
+							value={isCollection.toString()}
 						/>
-						<p className="text-muted-foreground text-xs">
-							Will be converted to lowercase kebab-case
-						</p>
-					</div>
 
-					<div className="space-y-2">
-						<Label htmlFor="block-schema">Schema</Label>
-						<Select name="schemaId" required>
-							<SelectTrigger id="block-schema">
-								<SelectValue placeholder="Select schema..." />
-							</SelectTrigger>
-							<SelectContent>
-								{schemas.map(s => (
-									<SelectItem key={s.id} value={s.id.toString()}>
-										{s.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-
-					<div className="flex items-center justify-between rounded-lg border p-4">
-						<div className="space-y-0.5">
-							<Label htmlFor="is-collection">Collection</Label>
+						<div className="space-y-2">
+							<Label htmlFor="block-name">Block Name</Label>
+							<Input
+								id="block-name"
+								name="name"
+								placeholder="e.g., footer, homepage-faqs"
+								required
+								autoFocus
+							/>
 							<p className="text-muted-foreground text-xs">
-								Multiple items vs single instance
+								Will be converted to lowercase kebab-case
 							</p>
 						</div>
-						<Switch
-							id="is-collection"
-							checked={isCollection}
-							onCheckedChange={setIsCollection}
-						/>
-					</div>
 
-					<div className="space-y-2">
-						<Label htmlFor="block-section">Section (optional)</Label>
-						<Select name="section" defaultValue="__auto__">
-							<SelectTrigger id="block-section">
-								<SelectValue placeholder="Auto-create from name" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="__auto__">Auto-create from name</SelectItem>
-								{sections.map(s => (
-									<SelectItem key={s.name} value={s.name}>
-										{s.name}
+						<div className="space-y-2">
+							<Label htmlFor="block-schema">Schema</Label>
+							<Select name="schemaId" required>
+								<SelectTrigger id="block-schema">
+									<SelectValue placeholder="Select schema..." />
+								</SelectTrigger>
+								<SelectContent>
+									{schemas.map(s => (
+										<SelectItem key={s.id} value={s.id.toString()}>
+											{s.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="flex items-center justify-between rounded-lg border p-4">
+							<div className="space-y-0.5">
+								<Label htmlFor="is-collection">Collection</Label>
+								<p className="text-muted-foreground text-xs">
+									Multiple items vs single instance
+								</p>
+							</div>
+							<Switch
+								id="is-collection"
+								checked={isCollection}
+								onCheckedChange={setIsCollection}
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="block-section">Section (optional)</Label>
+							<Select name="section" defaultValue="__auto__">
+								<SelectTrigger id="block-section">
+									<SelectValue placeholder="Auto-create from name" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="__auto__">
+										Auto-create from name
 									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
+									{sections.map(s => (
+										<SelectItem key={s.name} value={s.name}>
+											{s.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
 
-					{fetcher.data?.error && (
-						<p className="text-destructive text-sm">{fetcher.data.error}</p>
-					)}
+						{fetcher.data?.error && (
+							<p className="text-destructive text-sm">{fetcher.data.error}</p>
+						)}
 
-					<div className="flex gap-2">
-						<Button type="submit" disabled={fetcher.state === 'submitting'}>
-							{fetcher.state === 'submitting' ? 'Creating...' : 'Create Block'}
-						</Button>
-						<Link to="/edge-cms/blocks">
-							<Button type="button" variant="outline">
-								Cancel
+						<div className="flex gap-2">
+							<Button type="submit" disabled={fetcher.state === 'submitting'}>
+								{fetcher.state === 'submitting'
+									? 'Creating...'
+									: 'Create Block'}
 							</Button>
-						</Link>
-					</div>
-				</fetcher.Form>
+							<Link to="/edge-cms/blocks">
+								<Button type="button" variant="outline">
+									Cancel
+								</Button>
+							</Link>
+						</div>
+					</fetcher.Form>
 				</div>
 			</SheetContent>
 		</Sheet>

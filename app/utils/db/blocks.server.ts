@@ -18,7 +18,10 @@ import type {
 	BlockInstanceValue,
 } from '../blocks';
 import { buildTranslationKey } from '../blocks';
-import { updateTranslationKeySection } from './translations.server';
+import {
+	updateTranslationKeySection,
+	upsertTranslation,
+} from './translations.server';
 import { getMediaById } from './media.server';
 
 const db = drizzle(env.DB);
@@ -501,8 +504,8 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 	for (const instance of instances) {
 		const values = await getBlockInstanceValues(instance.id);
 		const item: Record<string, unknown> = {
-			_id: instance.id,
-			_position: instance.position,
+			id: instance.id,
+			position: instance.position,
 		};
 
 		for (const prop of properties) {
@@ -543,6 +546,65 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 		section: collection.section,
 		items,
 	};
+}
+
+// Bulk import block items from JSON
+export async function importBlockItems(
+	collectionId: number,
+	items: Record<string, unknown>[],
+	locale: string,
+): Promise<number> {
+	const collection = await getBlockCollectionById(collectionId);
+	if (!collection) throw new Error('Collection not found');
+
+	const schema = await getBlockSchemaById(collection.schemaId);
+	if (!schema) throw new Error('Schema not found');
+
+	const properties = await getBlockSchemaProperties(collection.schemaId);
+
+	let created = 0;
+
+	for (const item of items) {
+		const instance = await createBlockInstance({
+			schemaId: collection.schemaId,
+			collectionId,
+		});
+
+		for (const prop of properties) {
+			if (!(prop.name in item)) continue;
+			const value = item[prop.name];
+
+			switch (prop.type) {
+				case 'string':
+					await upsertBlockInstanceValue({
+						instanceId: instance.id,
+						propertyId: prop.id,
+						stringValue: String(value ?? ''),
+					});
+					break;
+				case 'translation':
+					await upsertTranslation(
+						buildTranslationKey(schema.name, instance.id, prop.name),
+						locale,
+						String(value ?? ''),
+						collection.section ?? undefined,
+					);
+					break;
+				case 'boolean':
+					await upsertBlockInstanceValue({
+						instanceId: instance.id,
+						propertyId: prop.id,
+						booleanValue: Boolean(value),
+					});
+					break;
+				// media — skip
+			}
+		}
+
+		created++;
+	}
+
+	return created;
 }
 
 // Re-export buildTranslationKey for convenience

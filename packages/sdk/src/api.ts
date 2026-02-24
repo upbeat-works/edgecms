@@ -1,4 +1,7 @@
-import type { EdgeCMSConfig } from './config.js';
+export interface EdgeCMSClientConfig {
+	baseUrl: string;
+	apiKey: string;
+}
 
 export interface Language {
 	locale: string;
@@ -28,6 +31,24 @@ export interface ApiError {
 	code: string;
 }
 
+export interface BlockItem {
+	id: number;
+	position: number;
+	[key: string]: unknown;
+}
+
+export interface BlocksResponse {
+	collection: string;
+	schema: string;
+	section: string | null;
+	items: BlockItem[];
+}
+
+export interface ImportBlocksResponse {
+	success: boolean;
+	instancesCreated: number;
+}
+
 class EdgeCMSApiError extends Error {
 	constructor(
 		public code: string,
@@ -46,7 +67,7 @@ export class EdgeCMSClient {
 	private baseUrl: string;
 	private apiKey: string;
 
-	constructor(config: EdgeCMSConfig) {
+	constructor(config: EdgeCMSClientConfig) {
 		this.baseUrl = config.baseUrl;
 		this.apiKey = config.apiKey;
 	}
@@ -113,5 +134,28 @@ export class EdgeCMSClient {
 	 */
 	async getLanguages(): Promise<LanguagesResponse> {
 		return this.fetch<LanguagesResponse>('/api/i18n/languages');
+	}
+
+	/**
+	 * Get block collection data by name.
+	 */
+	async getBlocks(collectionName: string): Promise<BlocksResponse> {
+		return this.fetch<BlocksResponse>(
+			`/public/blocks/${encodeURIComponent(collectionName)}`,
+		);
+	}
+
+	/**
+	 * Bulk-import block instances into a collection.
+	 */
+	async importBlocks(
+		collection: string,
+		items: Record<string, unknown>[],
+		locale: string,
+	): Promise<ImportBlocksResponse> {
+		return this.fetch<ImportBlocksResponse>('/api/blocks/import', {
+			method: 'POST',
+			body: JSON.stringify({ collection, items, locale }),
+		});
 	}
 }

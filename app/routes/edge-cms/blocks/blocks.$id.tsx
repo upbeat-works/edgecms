@@ -1,5 +1,13 @@
-import { useLoaderData, useFetcher, Link, Outlet, useNavigate, useOutlet, redirect } from 'react-router';
-import { useState } from 'react';
+import {
+	useLoaderData,
+	useFetcher,
+	Link,
+	Outlet,
+	useNavigate,
+	useOutlet,
+	redirect,
+} from 'react-router';
+import { useState, useRef } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockCollectionById,
@@ -9,10 +17,18 @@ import {
 	getLanguages,
 	reorderBlockInstances,
 	deleteBlockInstance,
+	importBlockItems,
 } from '~/utils/db.server';
 import { enrichInstances } from './block-queries';
 import { Button } from '~/components/ui/button';
-import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical } from 'lucide-react';
+import {
+	Plus,
+	ArrowUp,
+	ArrowDown,
+	Trash2,
+	GripVertical,
+	Upload,
+} from 'lucide-react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import {
 	Sheet,
@@ -45,7 +61,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	]);
 
 	// Enrich instances with values and translations
-	const enrichedInstances = await enrichInstances(instances, properties, schema);
+	const enrichedInstances = await enrichInstances(
+		instances,
+		properties,
+		schema,
+	);
 
 	return {
 		block,
@@ -76,6 +96,22 @@ export async function action({ request, params }: Route.ActionArgs) {
 			return { success: true };
 		}
 
+		case 'import-json': {
+			const jsonString = formData.get('json') as string;
+			const locale = formData.get('locale') as string;
+			let items: Record<string, unknown>[];
+			try {
+				items = JSON.parse(jsonString);
+			} catch {
+				return { error: 'Invalid JSON' };
+			}
+			if (!Array.isArray(items)) {
+				return { error: 'JSON must be an array' };
+			}
+			const created = await importBlockItems(blockId, items, locale);
+			return { success: true, instancesCreated: created };
+		}
+
 		default:
 			return { error: 'Invalid action' };
 	}
@@ -90,6 +126,27 @@ export default function BlockDetailPage() {
 	const defaultLang = languages.find(l => l.default) || languages[0];
 
 	const [deleteInstanceId, setDeleteInstanceId] = useState<number | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const importFetcher = useFetcher();
+
+	const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			importFetcher.submit(
+				{
+					intent: 'import-json',
+					json: reader.result as string,
+					locale: defaultLang?.locale || 'en',
+				},
+				{ method: 'post' },
+			);
+		};
+		reader.readAsText(file);
+		// Reset so the same file can be re-selected
+		e.target.value = '';
+	};
 
 	// Check if we're viewing an instance detail (nested route)
 	const isViewingInstance = outlet !== null;
@@ -141,7 +198,12 @@ export default function BlockDetailPage() {
 
 	return (
 		<>
-			<Sheet open={true} onOpenChange={open => !open && navigate('/edge-cms/blocks', { replace: true })}>
+			<Sheet
+				open={true}
+				onOpenChange={open =>
+					!open && navigate('/edge-cms/blocks', { replace: true })
+				}
+			>
 				<SheetContent side="right" className="w-[600px] overflow-y-auto">
 					{isViewingInstance ? (
 						// Show instance detail when viewing a specific instance
@@ -149,7 +211,7 @@ export default function BlockDetailPage() {
 					) : (
 						// Show instances list when viewing the block
 						<>
-							<SheetHeader className="space-y-1 mb-6">
+							<SheetHeader className="mb-6 space-y-1">
 								<SheetTitle>{block.name}</SheetTitle>
 								<SheetDescription>
 									{schema?.name} collection • {instances.length} items
@@ -157,12 +219,34 @@ export default function BlockDetailPage() {
 							</SheetHeader>
 
 							<div className="mt-6">
-								<Link to={`/edge-cms/blocks/${block.id}/instances/new`}>
-									<Button className="w-full mb-4">
-										<Plus className="mr-2 h-4 w-4" />
-										Add Item
+								<div className="mb-4 flex gap-2">
+									<Link
+										to={`/edge-cms/blocks/${block.id}/instances/new`}
+										className="flex-1"
+									>
+										<Button className="w-full">
+											<Plus className="mr-2 h-4 w-4" />
+											Add Item
+										</Button>
+									</Link>
+									<Button
+										variant="outline"
+										onClick={() => fileInputRef.current?.click()}
+										disabled={importFetcher.state !== 'idle'}
+									>
+										<Upload className="mr-2 h-4 w-4" />
+										{importFetcher.state !== 'idle'
+											? 'Importing...'
+											: 'Import JSON'}
 									</Button>
-								</Link>
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept=".json"
+										className="hidden"
+										onChange={handleFileImport}
+									/>
+								</div>
 
 								{instances.length === 0 ? (
 									<div className="text-muted-foreground rounded-lg border p-12 text-center">
@@ -184,7 +268,9 @@ export default function BlockDetailPage() {
 												>
 													<div className="mb-2 flex items-start justify-between">
 														<div>
-															<h3 className="font-semibold">Item #{index + 1}</h3>
+															<h3 className="font-semibold">
+																Item #{index + 1}
+															</h3>
 															<p className="text-muted-foreground text-xs">
 																ID: {instance.id}
 															</p>
@@ -235,11 +321,19 @@ export default function BlockDetailPage() {
 
 													<div className="space-y-1 text-sm">
 														{stringProps.slice(0, 3).map(prop => {
-															const value = instance.values[prop.id]?.stringValue || '';
+															const value =
+																instance.values[prop.id]?.stringValue || '';
 															return (
-																<p key={prop.id} className="text-muted-foreground truncate">
-																	<span className="font-medium">{prop.name}:</span>{' '}
-																	{value || <span className="italic">empty</span>}
+																<p
+																	key={prop.id}
+																	className="text-muted-foreground truncate"
+																>
+																	<span className="font-medium">
+																		{prop.name}:
+																	</span>{' '}
+																	{value || (
+																		<span className="italic">empty</span>
+																	)}
 																</p>
 															);
 														})}
@@ -249,9 +343,16 @@ export default function BlockDetailPage() {
 																	defaultLang?.locale || ''
 																] || '';
 															return (
-																<p key={prop.id} className="text-muted-foreground truncate">
-																	<span className="font-medium">{prop.name}:</span>{' '}
-																	{value || <span className="italic">empty</span>}
+																<p
+																	key={prop.id}
+																	className="text-muted-foreground truncate"
+																>
+																	<span className="font-medium">
+																		{prop.name}:
+																	</span>{' '}
+																	{value || (
+																		<span className="italic">empty</span>
+																	)}
 																</p>
 															);
 														})}
@@ -278,6 +379,6 @@ export default function BlockDetailPage() {
 				title="Delete item"
 				description="Delete this item? All associated translations will be deleted."
 			/>
-	</>
+		</>
 	);
 }

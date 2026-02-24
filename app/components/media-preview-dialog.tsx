@@ -17,7 +17,10 @@ interface MediaPreviewDialogProps {
 	mediaId?: number;
 }
 
-export function MediaPreviewDialog({ media, mediaId }: MediaPreviewDialogProps) {
+export function MediaPreviewDialog({
+	media,
+	mediaId,
+}: MediaPreviewDialogProps) {
 	return (
 		<Dialog>
 			<DialogTrigger asChild>

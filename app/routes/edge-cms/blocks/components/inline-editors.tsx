@@ -354,7 +354,11 @@ export function TranslationEditorWithLink({
 	defaultLanguage: string;
 	section: string | null;
 }) {
-	const translationKey = buildTranslationKey(schemaName, instanceId, propertyName);
+	const translationKey = buildTranslationKey(
+		schemaName,
+		instanceId,
+		propertyName,
+	);
 
 	if (defaultValue) {
 		return (

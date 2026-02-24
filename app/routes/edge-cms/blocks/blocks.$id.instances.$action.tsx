@@ -1,4 +1,10 @@
-import { useLoaderData, useFetcher, Link, redirect, useNavigate } from 'react-router';
+import {
+	useLoaderData,
+	useFetcher,
+	Link,
+	redirect,
+	useNavigate,
+} from 'react-router';
 import { useState } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
@@ -263,8 +269,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function BlockInstancePage() {
-	const { block, properties, schema, languages, media, sections, instance, mode } =
-		useLoaderData<typeof loader>();
+	const {
+		block,
+		properties,
+		schema,
+		languages,
+		media,
+		sections,
+		instance,
+		mode,
+	} = useLoaderData<typeof loader>();
 	const fetcher = useFetcher();
 	const navigate = useNavigate();
 	const defaultLang = languages.find(l => l.default) || languages[0];
@@ -288,34 +302,30 @@ export default function BlockInstancePage() {
 	}
 
 	const handleDelete = () => {
-		fetcher.submit(
-			{ intent: 'delete-instance' },
-			{ method: 'post' },
-		);
+		fetcher.submit({ intent: 'delete-instance' }, { method: 'post' });
 	};
 
 	return (
 		<>
-			<div className="flex items-center gap-3 mb-6">
+			<div className="mb-6 flex items-center gap-3">
 				{block.isCollection && (
 					<Button
 						variant="ghost"
 						size="icon"
-						onClick={() => navigate(`/edge-cms/blocks/${block.id}`, { replace: true })}
+						onClick={() =>
+							navigate(`/edge-cms/blocks/${block.id}`, { replace: true })
+						}
 						className="h-8 w-8 shrink-0"
 					>
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				)}
-				<SheetHeader className="space-y-1 flex-1">
-					<SheetTitle>
-						{mode === 'create' ? 'New Item' : block.name}
-					</SheetTitle>
+				<SheetHeader className="flex-1 space-y-1">
+					<SheetTitle>{mode === 'create' ? 'New Item' : block.name}</SheetTitle>
 					<SheetDescription>
 						{mode === 'create'
 							? `${block.schemaName} • Create new instance`
-							: `${block.schemaName} • Instance #${instance?.id}`
-						}
+							: `${block.schemaName} • Instance #${instance?.id}`}
 					</SheetDescription>
 				</SheetHeader>
 			</div>
@@ -336,7 +346,7 @@ export default function BlockInstancePage() {
 				<>
 					<Button
 						variant="destructive"
-						className="w-full mt-8"
+						className="mt-8 w-full"
 						onClick={() => setShowDeleteConfirm(true)}
 					>
 						<Trash2 className="mr-2 h-4 w-4" />
@@ -575,7 +585,8 @@ function BlockInstanceForm({
 						instanceId={instance.id}
 						propertyName={prop.name}
 						defaultValue={
-							instance.translations[prop.name]?.[defaultLang?.locale || ''] || ''
+							instance.translations[prop.name]?.[defaultLang?.locale || ''] ||
+							''
 						}
 						defaultLanguage={defaultLang?.locale || ''}
 						section={block.section}

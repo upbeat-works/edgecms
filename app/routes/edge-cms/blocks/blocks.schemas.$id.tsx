@@ -1,4 +1,11 @@
-import { useLoaderData, useFetcher, Link, Outlet, useNavigate, useOutlet } from 'react-router';
+import {
+	useLoaderData,
+	useFetcher,
+	Link,
+	Outlet,
+	useNavigate,
+	useOutlet,
+} from 'react-router';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getBlockSchemas,
@@ -74,16 +81,18 @@ export default function SchemaDetailPage() {
 				<Outlet />
 			) : (
 				<>
-					<div className="flex items-center gap-3 mb-6">
+					<div className="mb-6 flex items-center gap-3">
 						<Button
 							variant="ghost"
 							size="icon"
-							onClick={() => navigate(`/edge-cms/blocks/schemas`, { replace: true })}
+							onClick={() =>
+								navigate(`/edge-cms/blocks/schemas`, { replace: true })
+							}
 							className="h-8 w-8 shrink-0"
 						>
 							<ArrowLeft className="h-4 w-4" />
 						</Button>
-						<SheetHeader className="space-y-1 flex-1">
+						<SheetHeader className="flex-1 space-y-1">
 							<SheetTitle>{schema.name}</SheetTitle>
 							<SheetDescription>
 								{properties.length} properties defined
@@ -92,7 +101,7 @@ export default function SchemaDetailPage() {
 					</div>
 
 					<div className="mt-6">
-						<div className="flex items-center justify-end mb-4">
+						<div className="mb-4 flex items-center justify-end">
 							<Link to={`/edge-cms/blocks/schemas/${schema.id}/properties/new`}>
 								<Button size="sm">
 									<Plus className="mr-2 h-4 w-4" />
@@ -103,7 +112,8 @@ export default function SchemaDetailPage() {
 
 						{properties.length === 0 ? (
 							<div className="text-muted-foreground rounded-lg border p-8 text-center text-sm">
-								No properties defined yet. Add a property to define the structure.
+								No properties defined yet. Add a property to define the
+								structure.
 							</div>
 						) : (
 							<div className="space-y-2">
