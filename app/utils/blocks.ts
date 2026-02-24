@@ -23,7 +23,7 @@ export interface BlockSchemaProperty {
 	id: number;
 	schemaId: number;
 	name: string;
-	type: 'string' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
+	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
 	refSchemaId: number | null;
 	position: number;
 }
@@ -53,5 +53,6 @@ export interface BlockInstanceValue {
 	propertyId: number;
 	stringValue: string | null;
 	booleanValue: number | null;
+	numberValue: number | null;
 	mediaId: number | null;
 }

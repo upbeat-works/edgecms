@@ -201,6 +201,14 @@ function BlockCard({
 						<span className="italic">empty</span>
 					)
 				);
+			case 'number': {
+				const numVal = block.instance.values[prop.id]?.numberValue;
+				return numVal != null ? (
+					numVal
+				) : (
+					<span className="italic">empty</span>
+				);
+			}
 			case 'translation': {
 				const value =
 					block.instance.translations[prop.name]?.[defaultLang?.locale || ''];

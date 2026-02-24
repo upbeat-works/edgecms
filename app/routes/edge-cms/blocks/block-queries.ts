@@ -14,6 +14,7 @@ import { buildTranslationKey } from '~/utils/blocks';
 export type EnrichedInstanceValue = {
 	stringValue: string | null;
 	booleanValue: number | null;
+	numberValue: number | null;
 	mediaId: number | null;
 	media: {
 		id: number;
@@ -57,6 +58,7 @@ export async function buildInstanceValuesMap(
 			valuesMap[v.propertyId] = {
 				stringValue: v.stringValue,
 				booleanValue: v.booleanValue,
+				numberValue: v.numberValue,
 				mediaId: v.mediaId,
 				media,
 			};
@@ -73,12 +75,15 @@ export async function buildInstanceTranslations(
 	instance: BlockInstance,
 	properties: BlockSchemaProperty[],
 	schema: BlockSchema,
+	valuesMap: Record<number, EnrichedInstanceValue>,
 ): Promise<Record<string, Record<string, string>>> {
 	const translations: Record<string, Record<string, string>> = {};
 
 	for (const prop of properties) {
 		if (prop.type === 'translation') {
-			const key = buildTranslationKey(schema.name, instance.id, prop.name);
+			// Use stored key (supports custom keys from import), fall back to auto-generated
+			const key = valuesMap[prop.id]?.stringValue ||
+				buildTranslationKey(schema.name, instance.id, prop.name);
 			const trans = await getTranslations({ key });
 			translations[prop.name] = {};
 			trans.forEach(t => {
@@ -100,7 +105,7 @@ export async function enrichInstance(
 ): Promise<EnrichedInstance> {
 	const values = await buildInstanceValuesMap(instance.id);
 	const translations = schema
-		? await buildInstanceTranslations(instance, properties, schema)
+		? await buildInstanceTranslations(instance, properties, schema, values)
 		: {};
 
 	return {

@@ -2,6 +2,7 @@ import {
 	sqliteTable,
 	text,
 	integer,
+	real,
 	primaryKey,
 	uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -189,6 +190,7 @@ export const blockSchemaProperties = sqliteTable(
 		type: text('type', {
 			enum: [
 				'string',
+				'number',
 				'translation',
 				'media',
 				'boolean',
@@ -258,6 +260,7 @@ export const blockInstanceValues = sqliteTable(
 			.references(() => blockSchemaProperties.id, { onDelete: 'cascade' }),
 		stringValue: text('stringValue'),
 		booleanValue: integer('booleanValue'),
+		numberValue: real('numberValue'),
 		mediaId: integer('mediaId').references(() => media.id, {
 			onDelete: 'set null',
 		}),

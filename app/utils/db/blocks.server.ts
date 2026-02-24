@@ -100,7 +100,7 @@ export async function getBlockSchemaProperties(
 export async function createBlockSchemaProperty(props: {
 	schemaId: number;
 	name: string;
-	type: 'string' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
+	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
 	refSchemaId?: number;
 }): Promise<BlockSchemaProperty> {
 	// Get max position for this schema
@@ -435,29 +435,32 @@ export async function upsertBlockInstanceValue(props: {
 	instanceId: number;
 	propertyId: number;
 	stringValue?: string | null;
+	numberValue?: number | null;
 	booleanValue?: boolean;
 	mediaId?: number | null;
 }): Promise<void> {
+	const stringValue = props.stringValue ?? null;
+	const booleanValue = props.booleanValue !== undefined
+		? (props.booleanValue ? 1 : 0)
+		: null;
+	const numberValue = props.numberValue ?? null;
+
 	await db
 		.insert(blockInstanceValues)
 		.values({
 			instanceId: props.instanceId,
 			propertyId: props.propertyId,
-			stringValue: props.stringValue ?? null,
-			booleanValue:
-				props.booleanValue !== undefined ? (props.booleanValue ? 1 : 0) : null,
+			stringValue,
+			booleanValue,
+			numberValue,
 			mediaId: props.mediaId ?? null,
 		})
 		.onConflictDoUpdate({
 			target: [blockInstanceValues.instanceId, blockInstanceValues.propertyId],
 			set: {
-				stringValue: props.stringValue ?? null,
-				booleanValue:
-					props.booleanValue !== undefined
-						? props.booleanValue
-							? 1
-							: 0
-						: null,
+				stringValue,
+				booleanValue,
+				numberValue,
 				mediaId: props.mediaId ?? null,
 			},
 		});
@@ -515,6 +518,9 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 			if (prop.type === 'string') {
 				const value = values.find(v => v.propertyId === prop.id);
 				item[prop.name] = value?.stringValue || null;
+			} else if (prop.type === 'number') {
+				const value = values.find(v => v.propertyId === prop.id);
+				item[prop.name] = value?.numberValue ?? null;
 			} else if (prop.type === 'translation') {
 				const value = values.find(v => v.propertyId === prop.id);
 				item[prop.name] = value?.stringValue ||
@@ -595,6 +601,17 @@ export async function importBlockItems(
 						stringValue: String(value ?? ''),
 					});
 					break;
+				case 'number': {
+					const num = Number(value);
+					if (value != null && value !== '' && !isNaN(num)) {
+						await upsertBlockInstanceValue({
+							instanceId: instance.id,
+							propertyId: prop.id,
+							numberValue: num,
+						});
+					}
+					break;
+				}
 				case 'boolean':
 					await upsertBlockInstanceValue({
 						instanceId: instance.id,

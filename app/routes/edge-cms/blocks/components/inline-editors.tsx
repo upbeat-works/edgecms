@@ -5,7 +5,7 @@ import { Switch } from '~/components/ui/switch';
 import { Button } from '~/components/ui/button';
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
-import { buildTranslationKey } from '~/utils/blocks';
+
 import { ConfirmDialog } from './confirm-dialog';
 
 /**
@@ -113,6 +113,62 @@ export function StringEditor({
 			onBlur={handleBlur}
 			className="h-9"
 			placeholder={placeholder || 'Enter text...'}
+		/>
+	);
+}
+
+/**
+ * Inline editor for number-type properties
+ * Saves on blur
+ */
+export function NumberEditor({
+	instanceId,
+	propertyId,
+	value,
+	placeholder,
+}: {
+	instanceId: number;
+	propertyId: number;
+	value: number | null;
+	placeholder?: string;
+}) {
+	const fetcher = useFetcher();
+	const [localValue, setLocalValue] = useState(value?.toString() ?? '');
+	const [isDirty, setIsDirty] = useState(false);
+
+	useEffect(() => {
+		setLocalValue(value?.toString() ?? '');
+		setIsDirty(false);
+	}, [value]);
+
+	const handleBlur = () => {
+		const parsed = localValue === '' ? null : Number(localValue);
+		const original = value;
+		if (isDirty && parsed !== original && (parsed === null || !isNaN(parsed))) {
+			fetcher.submit(
+				{
+					intent: 'update-number-value',
+					instanceId: instanceId.toString(),
+					propertyId: propertyId.toString(),
+					value: parsed != null ? parsed.toString() : '',
+				},
+				{ method: 'post' },
+			);
+			setIsDirty(false);
+		}
+	};
+
+	return (
+		<Input
+			type="number"
+			value={localValue}
+			onChange={e => {
+				setLocalValue(e.target.value);
+				setIsDirty(true);
+			}}
+			onBlur={handleBlur}
+			className="h-9"
+			placeholder={placeholder || 'Enter number...'}
 		/>
 	);
 }
@@ -340,25 +396,18 @@ export function InlineMediaEditor({
  * Shows the default language value and links to edit all translations
  */
 export function TranslationEditorWithLink({
-	schemaName,
-	instanceId,
+	translationKey,
 	propertyName,
 	defaultValue,
 	defaultLanguage,
 	section,
 }: {
-	schemaName: string;
-	instanceId: number;
+	translationKey: string;
 	propertyName: string;
 	defaultValue: string;
 	defaultLanguage: string;
 	section: string | null;
 }) {
-	const translationKey = buildTranslationKey(
-		schemaName,
-		instanceId,
-		propertyName,
-	);
 
 	if (defaultValue) {
 		return (

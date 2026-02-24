@@ -104,6 +104,7 @@ export default function AddPropertyPage() {
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="string">String</SelectItem>
+								<SelectItem value="number">Number</SelectItem>
 								<SelectItem value="translation">Translation</SelectItem>
 								<SelectItem value="media">Media</SelectItem>
 								<SelectItem value="boolean">Boolean</SelectItem>

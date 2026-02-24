@@ -37,6 +37,7 @@ import { ConfirmDialog } from './components/confirm-dialog';
 import { env } from 'cloudflare:workers';
 import {
 	StringEditor,
+	NumberEditor,
 	BooleanEditor,
 	InlineMediaEditor,
 	TranslationEditorWithLink,
@@ -155,6 +156,23 @@ export async function action({ request, params }: Route.ActionArgs) {
 					}
 				}
 
+				// Set number values
+				if (values.numbers) {
+					for (const [propertyName, value] of Object.entries(values.numbers)) {
+						const prop = properties.find(
+							p => p.name === propertyName && p.type === 'number',
+						);
+						const num = Number(value);
+						if (prop && value !== '' && !isNaN(num)) {
+							await upsertBlockInstanceValue({
+								instanceId: instance.id,
+								propertyId: prop.id,
+								numberValue: num,
+							});
+						}
+					}
+				}
+
 				// Set translation values
 				if (values.translations) {
 					for (const [propertyName, value] of Object.entries(
@@ -228,6 +246,18 @@ export async function action({ request, params }: Route.ActionArgs) {
 					instanceId,
 					propertyId,
 					stringValue: value,
+				});
+				return { success: true };
+			}
+
+			case 'update-number-value': {
+				const propertyId = parseInt(formData.get('propertyId') as string);
+				const value = formData.get('value') as string;
+				const num = Number(value);
+				await upsertBlockInstanceValue({
+					instanceId,
+					propertyId,
+					numberValue: value === '' || isNaN(num) ? null : num,
 				});
 				return { success: true };
 			}
@@ -390,6 +420,7 @@ function BlockInstanceForm({
 	const fetcher = useFetcher();
 
 	const stringProps = properties.filter(p => p.type === 'string');
+	const numberProps = properties.filter(p => p.type === 'number');
 	const translationProps = properties.filter(p => p.type === 'translation');
 	const booleanProps = properties.filter(p => p.type === 'boolean');
 	const mediaProps = properties.filter(p => p.type === 'media');
@@ -397,6 +428,7 @@ function BlockInstanceForm({
 	// Initialize form values for create mode
 	const [formValues, setFormValues] = useState<{
 		strings: Record<string, string>;
+		numbers: Record<string, string>;
 		translations: Record<string, string>;
 		booleans: Record<string, boolean>;
 		media: Record<string, string>;
@@ -407,6 +439,14 @@ function BlockInstanceForm({
 					stringProps.map(prop => [
 						prop.name,
 						instance.values[prop.id]?.stringValue || '',
+					]),
+				),
+				numbers: Object.fromEntries(
+					numberProps.map(prop => [
+						prop.name,
+						instance.values[prop.id]?.numberValue != null
+							? String(instance.values[prop.id].numberValue)
+							: '',
 					]),
 				),
 				translations: Object.fromEntries(
@@ -429,7 +469,7 @@ function BlockInstanceForm({
 				),
 			};
 		}
-		return { strings: {}, translations: {}, booleans: {}, media: {} };
+		return { strings: {}, numbers: {}, translations: {}, booleans: {}, media: {} };
 	});
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -437,6 +477,7 @@ function BlockInstanceForm({
 
 		const hasValues =
 			Object.keys(formValues.strings).length > 0 ||
+			Object.keys(formValues.numbers).length > 0 ||
 			Object.keys(formValues.translations).length > 0 ||
 			Object.keys(formValues.booleans).length > 0 ||
 			Object.keys(formValues.media).length > 0;
@@ -478,6 +519,25 @@ function BlockInstanceForm({
 					</div>
 				))}
 
+				{numberProps.map((prop, index) => (
+					<div key={prop.id} className="space-y-2">
+						<Label htmlFor={`number-${prop.id}`}>{prop.name}</Label>
+						<Input
+							id={`number-${prop.id}`}
+							type="number"
+							value={formValues.numbers[prop.name] || ''}
+							onChange={e =>
+								setFormValues(prev => ({
+									...prev,
+									numbers: { ...prev.numbers, [prop.name]: e.target.value },
+								}))
+							}
+							placeholder={`Enter ${prop.name}...`}
+							autoFocus={stringProps.length === 0 && index === 0}
+						/>
+					</div>
+				))}
+
 				{translationProps.map((prop, index) => (
 					<div key={prop.id} className="space-y-2">
 						<Label htmlFor={`translation-${prop.id}`}>
@@ -496,7 +556,7 @@ function BlockInstanceForm({
 								}))
 							}
 							placeholder={`Enter ${prop.name}...`}
-							autoFocus={stringProps.length === 0 && index === 0}
+							autoFocus={stringProps.length === 0 && numberProps.length === 0 && index === 0}
 						/>
 					</div>
 				))}
@@ -576,13 +636,28 @@ function BlockInstanceForm({
 				</div>
 			))}
 
+			{/* Number properties */}
+			{numberProps.map(prop => (
+				<div key={prop.id} className="space-y-2">
+					<Label>{prop.name}</Label>
+					<NumberEditor
+						instanceId={instance.id}
+						propertyId={prop.id}
+						value={instance.values[prop.id]?.numberValue ?? null}
+						placeholder={`enter ${prop.name}`}
+					/>
+				</div>
+			))}
+
 			{/* Translation properties (translatable) */}
 			{translationProps.map(prop => (
 				<div key={prop.id} className="space-y-2">
 					<Label>{prop.name}</Label>
 					<TranslationEditorWithLink
-						schemaName={schema?.name || ''}
-						instanceId={instance.id}
+						translationKey={
+							instance.values[prop.id]?.stringValue ||
+							buildTranslationKey(schema?.name || '', instance.id, prop.name)
+						}
 						propertyName={prop.name}
 						defaultValue={
 							instance.translations[prop.name]?.[defaultLang?.locale || ''] ||
