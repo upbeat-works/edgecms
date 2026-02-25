@@ -47,6 +47,14 @@
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 *
+	 * Consumer config example (in the consuming worker's wrangler.toml):
+	 *   [[services]]
+	 *   binding = "EDGECMS"
+	 *   service = "edgecms"
+	 *   entrypoint = "EdgeCMSService"
+	 *
+	 * Then call: const translations = await env.EDGECMS.getTranslations("en")
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
 
