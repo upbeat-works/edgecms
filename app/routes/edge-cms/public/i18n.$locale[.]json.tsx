@@ -2,6 +2,12 @@ import { getLatestVersion } from '~/utils/db.server';
 import type { Route } from './+types/i18n.$locale[.]json';
 import { env } from 'cloudflare:workers';
 
+const CACHE_HEADERS = {
+	'Content-Type': 'application/json',
+	// Short browser cache, then serve stale while revalidating in the background
+	'Cache-Control': 'public, max-age=180, stale-while-revalidate=604800',
+} as const;
+
 export async function loader({ params, request }: Route.LoaderArgs) {
 	const locale = params.locale;
 	const url = new URL(request.url);
@@ -14,6 +20,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	}
 
 	const version = requestedVersion || liveVersion?.id;
+	const etag = `${version}-${locale}`;
+
+	// Return 304 if the client already has the current version
+	if (request.headers.get('If-None-Match') === etag) {
+		return new Response(null, {
+			status: 304,
+			headers: { ...CACHE_HEADERS, ETag: etag },
+		});
+	}
 
 	// Try to get from cache first
 	const cacheKey = `translations:${locale}:${version}`;
@@ -21,13 +36,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 	if (cached) {
 		return new Response(cached, {
-			headers: {
-				'Content-Type': 'application/json',
-				// 1 week browser cache, 72 hour stale
-				'Cache-Control':
-					'public, max-age=604800, stale-while-revalidate=259200',
-				ETag: `${version}-${locale}`,
-			},
+			headers: { ...CACHE_HEADERS, ETag: etag },
 		});
 	}
 
@@ -36,7 +45,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	const translationFile = await env.BACKUPS_BUCKET.get(filename);
 
 	if (!translationFile) {
-		// Fallback to empty object if file doesn't exist
 		return new Response('No translation file found', { status: 404 });
 	}
 
@@ -50,11 +58,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	});
 
 	return new Response(jsonResponse, {
-		headers: {
-			'Content-Type': 'application/json',
-			// 1 week browser cache, 72 hour stale
-			'Cache-Control': 'public, max-age=604800, stale-while-revalidate=259200',
-			ETag: `${version}-${locale}`,
-		},
+		headers: { ...CACHE_HEADERS, ETag: etag },
 	});
 }
