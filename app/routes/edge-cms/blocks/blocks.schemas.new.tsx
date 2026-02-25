@@ -1,6 +1,7 @@
 import { useFetcher, Link, redirect } from 'react-router';
 import { kebabCase, startCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import { createBlockSchema } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -15,7 +16,8 @@ import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.new';
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireAuth(request, env);
+	const auth = await requireAuth(request, env);
+	await ensureDraftVersion(auth.user.id);
 
 	const formData = await request.formData();
 	const name = formData.get('name') as string;

@@ -2,6 +2,7 @@ import { useLoaderData, useFetcher, Link, redirect } from 'react-router';
 import { useState } from 'react';
 import { camelCase } from 'lodash-es';
 import { requireAuth } from '~/utils/auth.middleware';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import {
 	getBlockSchemas,
 	createBlockSchemaProperty,
@@ -36,7 +37,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-	await requireAuth(request, env);
+	const auth = await requireAuth(request, env);
+	await ensureDraftVersion(auth.user.id);
 
 	const schemaId = parseInt(params.id);
 	const formData = await request.formData();

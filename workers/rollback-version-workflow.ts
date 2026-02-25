@@ -5,7 +5,7 @@ import {
 } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
 import { languages, translations, versions } from '~/utils/schema.server';
-import { promoteVersion } from '~/utils/db.server';
+import { promoteVersion, restoreBlocksFromBackup } from '~/utils/db.server';
 import { drizzle } from 'drizzle-orm/d1';
 import { gunzipString } from '~/utils/gzip';
 
@@ -173,6 +173,68 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				} catch (error) {
 					console.error(error);
 					throw new Error('Failed to insert translations from backup data');
+				}
+			},
+		);
+
+		const blocksBackupData = await step.do(
+			'get blocks backup',
+			{
+				retries: {
+					limit: 5,
+					delay: '3 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '2 minutes',
+			},
+			async () => {
+				console.log('[RollbackVersionWorkflow] Getting blocks backup');
+				try {
+					const file = await this.env.BACKUPS_BUCKET.get(
+						`${versionId}/blocks-backup.gz`,
+					);
+					if (!file) {
+						console.log(
+							'[RollbackVersionWorkflow] No blocks backup found (pre-feature version), skipping',
+						);
+						return null;
+					}
+
+					const data = await file.bytes();
+					const backup = await gunzipString(data);
+					return JSON.parse(backup);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to get blocks backup data');
+				}
+			},
+		);
+
+		await step.do(
+			'restore blocks from backup',
+			{
+				retries: {
+					limit: 3,
+					delay: '2 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '3 minutes',
+			},
+			async () => {
+				if (!blocksBackupData) {
+					console.log(
+						'[RollbackVersionWorkflow] No blocks backup data, skipping restore',
+					);
+					return;
+				}
+				console.log(
+					'[RollbackVersionWorkflow] Restoring blocks from backup',
+				);
+				try {
+					await restoreBlocksFromBackup(blocksBackupData);
+				} catch (error) {
+					console.error(error);
+					throw new Error('Failed to restore blocks from backup');
 				}
 			},
 		);
