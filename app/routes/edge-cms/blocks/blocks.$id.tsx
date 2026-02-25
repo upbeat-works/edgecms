@@ -9,6 +9,7 @@ import {
 } from 'react-router';
 import { useState, useRef } from 'react';
 import { requireAuth } from '~/utils/auth.middleware';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import {
 	getBlockCollectionById,
 	getBlockInstances,
@@ -77,7 +78,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-	await requireAuth(request, env);
+	const auth = await requireAuth(request, env);
+	await ensureDraftVersion(auth.user.id);
 
 	const blockId = parseInt(params.id);
 	const formData = await request.formData();

@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { debounce } from 'lodash-es';
 import { FixedSizeGrid } from 'react-window';
 import { requireAuth } from '~/utils/auth.middleware';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import {
 	getLanguages,
 	getSections,
@@ -20,7 +21,6 @@ import {
 	setDefaultLanguage,
 	type Translation,
 	getLatestVersion,
-	createVersion,
 	bulkUpsertTranslations,
 	runAITranslation,
 	getAITranslateInstance,
@@ -115,17 +115,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent');
 
 	// Before any change we need to create a new draft version if none exists
-	const [draftVersion, liveVersion] = await Promise.all([
-		getLatestVersion('draft'),
-		getLatestVersion('live'),
-	]);
-
-	if (draftVersion == null) {
-		const description = liveVersion
-			? `fork from v${liveVersion.id}`
-			: new Date().toISOString().split('T')[0];
-		await createVersion(description, auth.user.id);
-	}
+	await ensureDraftVersion(auth.user.id);
 
 	switch (intent) {
 		case 'update-translation': {

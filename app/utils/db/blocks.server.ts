@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
+import { z } from 'zod';
 import {
 	blockSchemas,
 	blockSchemaProperties,
@@ -627,6 +628,100 @@ export async function importBlockItems(
 	}
 
 	return created;
+}
+
+// Get all block collections data for snapshotting
+export async function getAllBlockCollectionsData(): Promise<
+	Record<string, Awaited<ReturnType<typeof getBlockCollectionData>>>
+> {
+	const collections = await getBlockCollections();
+	const result: Record<
+		string,
+		Awaited<ReturnType<typeof getBlockCollectionData>>
+	> = {};
+
+	for (const collection of collections) {
+		const data = await getBlockCollectionData(collection.name);
+		if (data) {
+			result[collection.name] = data;
+		}
+	}
+
+	return result;
+}
+
+// Dump all block tables for backup/rollback
+export async function getBlocksBackupData(): Promise<{
+	schemas: BlockSchema[];
+	properties: BlockSchemaProperty[];
+	collections: BlockCollection[];
+	instances: BlockInstance[];
+	values: BlockInstanceValue[];
+}> {
+	const [schemas, properties, collections, instances, values] =
+		await Promise.all([
+			db.select().from(blockSchemas),
+			db.select().from(blockSchemaProperties),
+			db.select().from(blockCollections),
+			db.select().from(blockInstances),
+			db.select().from(blockInstanceValues),
+		]);
+
+	return { schemas, properties, collections, instances, values };
+}
+
+const blocksBackupSchema = z.object({
+	schemas: z.array(z.any()),
+	properties: z.array(z.any()),
+	collections: z.array(z.any()),
+	instances: z.array(z.any()),
+	values: z.array(z.any()),
+});
+
+// Restore all block data from backup
+export async function restoreBlocksFromBackup(data: unknown): Promise<void> {
+	// Validate backup data shape before deleting anything
+	const parsed = blocksBackupSchema.parse(data);
+
+	const BATCH_SIZE = 25;
+
+	// Delete in reverse dependency order
+	await db.delete(blockInstanceValues);
+	await db.delete(blockInstances);
+	await db.delete(blockCollections);
+	await db.delete(blockSchemaProperties);
+	await db.delete(blockSchemas);
+
+	// Insert in dependency order with batching (skip empty arrays)
+	for (let i = 0; i < parsed.schemas.length; i += BATCH_SIZE) {
+		await db
+			.insert(blockSchemas)
+			.values(parsed.schemas.slice(i, i + BATCH_SIZE));
+	}
+
+	for (let i = 0; i < parsed.properties.length; i += BATCH_SIZE) {
+		await db
+			.insert(blockSchemaProperties)
+			.values(parsed.properties.slice(i, i + BATCH_SIZE));
+	}
+
+	for (let i = 0; i < parsed.collections.length; i += BATCH_SIZE) {
+		await db
+			.insert(blockCollections)
+			.values(parsed.collections.slice(i, i + BATCH_SIZE));
+	}
+
+	for (let i = 0; i < parsed.instances.length; i += BATCH_SIZE) {
+		await db
+			.insert(blockInstances)
+			.values(parsed.instances.slice(i, i + BATCH_SIZE));
+	}
+
+	for (let i = 0; i < parsed.values.length; i += BATCH_SIZE) {
+		await db
+			.insert(blockInstanceValues)
+			.values(parsed.values.slice(i, i + BATCH_SIZE));
+	}
 }
 
 // Re-export buildTranslationKey for convenience

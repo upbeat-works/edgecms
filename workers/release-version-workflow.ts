@@ -8,6 +8,8 @@ import {
 	getLatestVersion,
 	getTranslations,
 	promoteVersion,
+	getAllBlockCollectionsData,
+	getBlocksBackupData,
 } from '~/utils/db.server';
 import { gzipString } from '~/utils/gzip';
 
@@ -210,6 +212,93 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				const compressed = await gzipString(JSON.stringify(backup));
 				await this.env.BACKUPS_BUCKET.put(
 					`${draftVersion.id}/backup.gz`,
+					compressed,
+				);
+			},
+		);
+
+		const blockCollections = await step.do(
+			'get all block collections data',
+			{
+				retries: {
+					limit: 3,
+					delay: '2 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '2 minutes',
+			},
+			async () => {
+				console.log(
+					'[ReleaseVersionWorkflow] Getting all block collections data',
+				);
+				return await getAllBlockCollectionsData();
+			},
+		);
+
+		const blocksBackup = await step.do(
+			'get blocks backup data',
+			{
+				retries: {
+					limit: 3,
+					delay: '2 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '2 minutes',
+			},
+			async () => {
+				console.log(
+					'[ReleaseVersionWorkflow] Getting blocks backup data',
+				);
+				return await getBlocksBackupData();
+			},
+		);
+
+		await step.do(
+			'save block snapshots',
+			{
+				retries: {
+					limit: 5,
+					delay: '3 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '3 minutes',
+			},
+			async () => {
+				console.log('[ReleaseVersionWorkflow] Saving block snapshots');
+				await Promise.all(
+					Object.entries(blockCollections).map(
+						([collectionName, data]) =>
+							this.env.BACKUPS_BUCKET.put(
+								`${draftVersion.id}/blocks/${collectionName}.json`,
+								JSON.stringify(data),
+								{
+									httpMetadata: {
+										contentType: 'application/json',
+										cacheControl:
+											'public, immutable, max-age=31536000',
+									},
+								},
+							),
+					),
+				);
+			},
+		);
+
+		await step.do(
+			'save blocks backup',
+			{
+				retries: {
+					limit: 5,
+					delay: '3 seconds',
+					backoff: 'exponential',
+				},
+				timeout: '2 minutes',
+			},
+			async () => {
+				console.log('[ReleaseVersionWorkflow] Saving blocks backup');
+				const compressed = await gzipString(JSON.stringify(blocksBackup));
+				await this.env.BACKUPS_BUCKET.put(
+					`${draftVersion.id}/blocks-backup.gz`,
 					compressed,
 				);
 			},

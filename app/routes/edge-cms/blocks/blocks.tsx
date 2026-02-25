@@ -1,5 +1,6 @@
 import { useLoaderData, useFetcher, Link, Outlet } from 'react-router';
 import { requireAuth } from '~/utils/auth.middleware';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import {
 	getBlockSchemas,
 	getBlockSchemaProperties,
@@ -86,7 +87,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireAuth(request, env);
+	const auth = await requireAuth(request, env);
+	await ensureDraftVersion(auth.user.id);
 
 	const formData = await request.formData();
 	const intent = formData.get('intent');
