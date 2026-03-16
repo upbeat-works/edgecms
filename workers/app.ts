@@ -58,4 +58,5 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 
+export { EdgeCMSService } from './edgecms-service';
 export { ReleaseVersionWorkflow, RollbackVersionWorkflow, AITranslateWorkflow };
