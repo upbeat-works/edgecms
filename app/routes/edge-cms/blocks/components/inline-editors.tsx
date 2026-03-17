@@ -3,6 +3,7 @@ import { useFetcher, Link } from 'react-router';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
 import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
 	Select,
 	SelectContent,
@@ -474,10 +475,28 @@ export function TranslationEditorWithLink({
 		);
 	}
 
-	// No value yet - show input with mode toggle
-	if (mode === 'link') {
-		return (
-			<div className="space-y-2">
+	// No value yet - show input with checkbox to toggle mode
+	return (
+		<div className="space-y-2">
+			<div className="flex items-center gap-2">
+				<Checkbox
+					id={`link-mode-${propertyId}`}
+					checked={mode === 'link'}
+					onCheckedChange={(checked) => {
+						setMode(checked ? 'link' : 'text');
+						if (checked) {
+							setTimeout(() => linkInputRef.current?.focus(), 0);
+						}
+					}}
+				/>
+				<label
+					htmlFor={`link-mode-${propertyId}`}
+					className="text-muted-foreground text-xs select-none"
+				>
+					Link to existing key
+				</label>
+			</div>
+			{mode === 'link' ? (
 				<Input
 					ref={linkInputRef}
 					value={linkValue}
@@ -492,42 +511,15 @@ export function TranslationEditorWithLink({
 					className="h-9"
 					placeholder="e.g. common.heading"
 				/>
-				<div className="text-muted-foreground flex items-center justify-between text-xs">
-					<span>Use an existing translation key from your i18n data</span>
-					<button
-						type="button"
-						onClick={() => setMode('text')}
-						className="hover:text-foreground underline"
-					>
-						Create new text
-					</button>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="space-y-2">
-			<InlineTranslationEditor
-				translationKey={translationKey}
-				language={defaultLanguage}
-				value=""
-				section={section}
-				placeholder={`Enter text in ${defaultLanguage}...`}
-			/>
-			<div className="text-muted-foreground flex items-center justify-between text-xs">
-				<span>Creates a new translation key for this property</span>
-				<button
-					type="button"
-					onClick={() => {
-						setMode('link');
-						setTimeout(() => linkInputRef.current?.focus(), 0);
-					}}
-					className="hover:text-foreground underline"
-				>
-					Link to existing key
-				</button>
-			</div>
+			) : (
+				<InlineTranslationEditor
+					translationKey={translationKey}
+					language={defaultLanguage}
+					value=""
+					section={section}
+					placeholder={`Actual value in ${defaultLanguage}...`}
+				/>
+			)}
 		</div>
 	);
 }

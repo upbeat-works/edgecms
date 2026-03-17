@@ -23,6 +23,10 @@ export default [
 							'properties/new',
 							'routes/edge-cms/blocks/blocks.schemas.$id.properties.new.tsx',
 						),
+						route(
+							'properties/:propertyId',
+							'routes/edge-cms/blocks/blocks.schemas.$id.properties.$propertyId.tsx',
+						),
 					]),
 				]),
 				route(':id', 'routes/edge-cms/blocks/blocks.$id.tsx', [

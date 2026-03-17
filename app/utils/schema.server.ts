@@ -202,6 +202,7 @@ export const blockSchemaProperties = sqliteTable(
 			onDelete: 'restrict',
 		}),
 		position: integer('position').notNull().default(0),
+		description: text('description'),
 	},
 	table => [
 		uniqueIndex('idx_schema_property_name').on(table.schemaId, table.name),

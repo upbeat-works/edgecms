@@ -87,6 +87,16 @@ export async function deleteBlockSchema(id: number): Promise<void> {
 }
 
 // Block Schema Property operations
+export async function getBlockSchemaPropertyById(
+	id: number,
+): Promise<BlockSchemaProperty | null> {
+	const result = await db
+		.select()
+		.from(blockSchemaProperties)
+		.where(eq(blockSchemaProperties.id, id));
+	return result[0] || null;
+}
+
 export async function getBlockSchemaProperties(
 	schemaId: number,
 ): Promise<BlockSchemaProperty[]> {
@@ -103,6 +113,7 @@ export async function createBlockSchemaProperty(props: {
 	name: string;
 	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
 	refSchemaId?: number;
+	description?: string;
 }): Promise<BlockSchemaProperty> {
 	// Get max position for this schema
 	const maxPos = await db
@@ -120,6 +131,7 @@ export async function createBlockSchemaProperty(props: {
 			type: props.type,
 			refSchemaId: props.refSchemaId || null,
 			position,
+			description: props.description || null,
 		})
 		.returning();
 	return result[0];
@@ -127,12 +139,13 @@ export async function createBlockSchemaProperty(props: {
 
 export async function updateBlockSchemaProperty(
 	id: number,
-	props: { name?: string; type?: string; refSchemaId?: number | null },
+	props: { name?: string; type?: string; refSchemaId?: number | null; description?: string | null },
 ): Promise<void> {
 	const updates: Record<string, unknown> = {};
 	if (props.name !== undefined) updates.name = props.name;
 	if (props.type !== undefined) updates.type = props.type;
 	if (props.refSchemaId !== undefined) updates.refSchemaId = props.refSchemaId;
+	if (props.description !== undefined) updates.description = props.description;
 
 	if (Object.keys(updates).length > 0) {
 		await db

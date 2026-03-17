@@ -65,8 +65,8 @@ export default function SchemaDetailPage() {
 	const navigate = useNavigate();
 	const outlet = useOutlet();
 
-	// Check if we're adding a property (nested route is active)
-	const isAddingProperty = outlet !== null;
+	// Check if we're in a nested route (add/edit property)
+	const isNested = outlet !== null;
 	const handleDeleteProperty = (propertyId: number) => {
 		fetcher.submit(
 			{
@@ -79,7 +79,7 @@ export default function SchemaDetailPage() {
 
 	return (
 		<>
-			{isAddingProperty ? (
+			{isNested ? (
 				<Outlet />
 			) : (
 				<>
@@ -125,14 +125,24 @@ export default function SchemaDetailPage() {
 										key={prop.id}
 										className="flex items-center justify-between rounded-lg border p-3"
 									>
-										<div className="flex items-center gap-2">
-											<span className="font-medium">{prop.name}</span>
-											<Badge variant="secondary" className="text-xs">
-												{prop.type}
-												{prop.refSchemaId &&
-													` → ${allSchemas.find(s => s.id === prop.refSchemaId)?.name}`}
-											</Badge>
-										</div>
+										<Link
+											to={`/edge-cms/blocks/schemas/${schema.id}/properties/${prop.id}`}
+											className="flex flex-1 flex-col gap-1"
+										>
+											<div className="flex items-center gap-2">
+												<span className="font-medium">{prop.name}</span>
+												<Badge variant="secondary" className="text-xs">
+													{prop.type}
+													{prop.refSchemaId &&
+														` → ${allSchemas.find(s => s.id === prop.refSchemaId)?.name}`}
+												</Badge>
+											</div>
+											{prop.description && (
+												<p className="text-muted-foreground text-xs">
+													{prop.description}
+												</p>
+											)}
+										</Link>
 										<Button
 											variant="ghost"
 											size="icon"

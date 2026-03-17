@@ -46,6 +46,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	const name = formData.get('name') as string;
 	const type = formData.get('type') as BlockSchemaProperty['type'];
 	const refSchemaId = formData.get('refSchemaId');
+	const description = formData.get('description') as string | null;
 
 	try {
 		await createBlockSchemaProperty({
@@ -53,6 +54,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			name: camelCase(name),
 			type,
 			refSchemaId: refSchemaId ? parseInt(refSchemaId as string) : undefined,
+			description: description || undefined,
 		});
 
 		return redirect(`/edge-cms/blocks/schemas/${schemaId}`);
@@ -135,6 +137,19 @@ export default function AddPropertyPage() {
 							</Select>
 						</div>
 					)}
+
+					<div className="space-y-2">
+						<Label htmlFor="prop-description">Description (optional)</Label>
+						<Input
+							id="prop-description"
+							name="description"
+							placeholder="Hint shown when editing instances"
+						/>
+						<p className="text-muted-foreground text-xs">
+							Shown as a hint when editing instances. Supports markdown for
+							links.
+						</p>
+					</div>
 
 					{fetcher.data?.error && (
 						<p className="text-destructive text-sm">{fetcher.data.error}</p>

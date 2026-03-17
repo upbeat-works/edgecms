@@ -26,6 +26,7 @@ export interface BlockSchemaProperty {
 	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
 	refSchemaId: number | null;
 	position: number;
+	description: string | null;
 }
 
 export interface BlockCollection {

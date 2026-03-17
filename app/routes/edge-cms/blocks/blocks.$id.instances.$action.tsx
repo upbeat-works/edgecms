@@ -44,6 +44,7 @@ import {
 	InlineMediaEditor,
 	TranslationEditorWithLink,
 } from './components/inline-editors';
+import { PropertyDescription } from './components/property-description';
 import {
 	SheetHeader,
 	SheetTitle,
@@ -528,6 +529,7 @@ function BlockInstanceForm({
 				{stringProps.map((prop, index) => (
 					<div key={prop.id} className="space-y-2">
 						<Label htmlFor={`string-${prop.id}`}>{prop.name}</Label>
+						<PropertyDescription description={prop.description} />
 						<Input
 							id={`string-${prop.id}`}
 							value={formValues.strings[prop.name] || ''}
@@ -546,6 +548,7 @@ function BlockInstanceForm({
 				{numberProps.map((prop, index) => (
 					<div key={prop.id} className="space-y-2">
 						<Label htmlFor={`number-${prop.id}`}>{prop.name}</Label>
+						<PropertyDescription description={prop.description} />
 						<Input
 							id={`number-${prop.id}`}
 							type="number"
@@ -567,6 +570,7 @@ function BlockInstanceForm({
 						<Label htmlFor={`translation-${prop.id}`}>
 							{prop.name} {defaultLang && `(${defaultLang.locale})`}
 						</Label>
+						<PropertyDescription description={prop.description} />
 						<Input
 							id={`translation-${prop.id}`}
 							value={formValues.translations[prop.name] || ''}
@@ -588,19 +592,22 @@ function BlockInstanceForm({
 				{booleanProps.map(prop => (
 					<div
 						key={prop.id}
-						className="flex items-center justify-between rounded-lg border p-3"
+						className="space-y-2 rounded-lg border p-3"
 					>
-						<Label htmlFor={`boolean-${prop.id}`}>{prop.name}</Label>
-						<Switch
-							id={`boolean-${prop.id}`}
-							checked={formValues.booleans[prop.name] || false}
-							onCheckedChange={(checked: boolean) =>
-								setFormValues(prev => ({
-									...prev,
-									booleans: { ...prev.booleans, [prop.name]: checked },
-								}))
-							}
-						/>
+						<div className="flex items-center justify-between">
+							<Label htmlFor={`boolean-${prop.id}`}>{prop.name}</Label>
+							<Switch
+								id={`boolean-${prop.id}`}
+								checked={formValues.booleans[prop.name] || false}
+								onCheckedChange={(checked: boolean) =>
+									setFormValues(prev => ({
+										...prev,
+										booleans: { ...prev.booleans, [prop.name]: checked },
+									}))
+								}
+							/>
+						</div>
+						<PropertyDescription description={prop.description} />
 					</div>
 				))}
 
@@ -611,6 +618,7 @@ function BlockInstanceForm({
 					return (
 						<div key={prop.id} className="space-y-2">
 							<Label>{prop.name}</Label>
+							<PropertyDescription description={prop.description} />
 							<Select
 								value={formValues.media[prop.name] || undefined}
 								onValueChange={(value: string) =>
@@ -667,6 +675,7 @@ function BlockInstanceForm({
 			{stringProps.map(prop => (
 				<div key={prop.id} className="space-y-2">
 					<Label>{prop.name}</Label>
+					<PropertyDescription description={prop.description} />
 					<StringEditor
 						instanceId={instance.id}
 						propertyId={prop.id}
@@ -680,6 +689,7 @@ function BlockInstanceForm({
 			{numberProps.map(prop => (
 				<div key={prop.id} className="space-y-2">
 					<Label>{prop.name}</Label>
+					<PropertyDescription description={prop.description} />
 					<NumberEditor
 						instanceId={instance.id}
 						propertyId={prop.id}
@@ -693,6 +703,7 @@ function BlockInstanceForm({
 			{translationProps.map(prop => (
 				<div key={prop.id} className="space-y-2">
 					<Label>{prop.name}</Label>
+					<PropertyDescription description={prop.description} />
 					<TranslationEditorWithLink
 						translationKey={
 							instance.values[prop.id]?.stringValue ||
@@ -716,14 +727,17 @@ function BlockInstanceForm({
 			{booleanProps.map(prop => (
 				<div
 					key={prop.id}
-					className="flex items-center justify-between rounded-lg border p-3"
+					className="space-y-2 rounded-lg border p-3"
 				>
-					<Label htmlFor={`bool-${prop.id}`}>{prop.name}</Label>
-					<BooleanEditor
-						instanceId={instance.id}
-						propertyId={prop.id}
-						value={instance.values[prop.id]?.booleanValue === 1}
-					/>
+					<div className="flex items-center justify-between">
+						<Label htmlFor={`bool-${prop.id}`}>{prop.name}</Label>
+						<BooleanEditor
+							instanceId={instance.id}
+							propertyId={prop.id}
+							value={instance.values[prop.id]?.booleanValue === 1}
+						/>
+					</div>
+					<PropertyDescription description={prop.description} />
 				</div>
 			))}
 
@@ -731,6 +745,7 @@ function BlockInstanceForm({
 			{mediaProps.map(prop => (
 				<div key={prop.id} className="space-y-2">
 					<Label>{prop.name}</Label>
+					<PropertyDescription description={prop.description} />
 					<InlineMediaEditor
 						instanceId={instance.id}
 						propertyId={prop.id}
