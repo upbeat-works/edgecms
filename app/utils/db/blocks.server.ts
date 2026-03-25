@@ -696,7 +696,9 @@ export async function restoreBlocksFromBackup(data: unknown): Promise<void> {
 	// Validate backup data shape before deleting anything
 	const parsed = blocksBackupSchema.parse(data);
 
-	const BATCH_SIZE = 25;
+	// D1 has a limit of 100 bound parameters per query, so batch size
+	// must account for the number of columns in each table.
+	const D1_MAX_PARAMS = 100;
 
 	// Delete in reverse dependency order
 	await db.delete(blockInstanceValues);
@@ -706,34 +708,19 @@ export async function restoreBlocksFromBackup(data: unknown): Promise<void> {
 	await db.delete(blockSchemas);
 
 	// Insert in dependency order with batching (skip empty arrays)
-	for (let i = 0; i < parsed.schemas.length; i += BATCH_SIZE) {
-		await db
-			.insert(blockSchemas)
-			.values(parsed.schemas.slice(i, i + BATCH_SIZE));
-	}
+	const tables = [
+		{ data: parsed.schemas, table: blockSchemas, cols: 3 },
+		{ data: parsed.properties, table: blockSchemaProperties, cols: 7 },
+		{ data: parsed.collections, table: blockCollections, cols: 5 },
+		{ data: parsed.instances, table: blockInstances, cols: 7 },
+		{ data: parsed.values, table: blockInstanceValues, cols: 6 },
+	] as const;
 
-	for (let i = 0; i < parsed.properties.length; i += BATCH_SIZE) {
-		await db
-			.insert(blockSchemaProperties)
-			.values(parsed.properties.slice(i, i + BATCH_SIZE));
-	}
-
-	for (let i = 0; i < parsed.collections.length; i += BATCH_SIZE) {
-		await db
-			.insert(blockCollections)
-			.values(parsed.collections.slice(i, i + BATCH_SIZE));
-	}
-
-	for (let i = 0; i < parsed.instances.length; i += BATCH_SIZE) {
-		await db
-			.insert(blockInstances)
-			.values(parsed.instances.slice(i, i + BATCH_SIZE));
-	}
-
-	for (let i = 0; i < parsed.values.length; i += BATCH_SIZE) {
-		await db
-			.insert(blockInstanceValues)
-			.values(parsed.values.slice(i, i + BATCH_SIZE));
+	for (const { data: rows, table, cols } of tables) {
+		const batchSize = Math.floor(D1_MAX_PARAMS / cols);
+		for (let i = 0; i < rows.length; i += batchSize) {
+			await db.insert(table).values(rows.slice(i, i + batchSize));
+		}
 	}
 }
 
