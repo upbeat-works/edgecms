@@ -24,6 +24,7 @@ import {
 } from '~/components/ui/sheet';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.$id';
+import { PropertyDescription } from './components/property-description';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
 	await requireAuth(request, env);
@@ -138,9 +139,9 @@ export default function SchemaDetailPage() {
 												</Badge>
 											</div>
 											{prop.description && (
-												<p className="text-muted-foreground text-xs">
-													{prop.description}
-												</p>
+												<PropertyDescription
+													description={prop.description}
+												/>
 											)}
 										</Link>
 										<Button
