@@ -709,15 +709,17 @@ export async function restoreBlocksFromBackup(data: unknown): Promise<void> {
 
 	// Insert in dependency order with batching (skip empty arrays)
 	const tables = [
-		{ data: parsed.schemas, table: blockSchemas, cols: 3 },
-		{ data: parsed.properties, table: blockSchemaProperties, cols: 7 },
-		{ data: parsed.collections, table: blockCollections, cols: 5 },
-		{ data: parsed.instances, table: blockInstances, cols: 7 },
-		{ data: parsed.values, table: blockInstanceValues, cols: 6 },
+		{ data: parsed.schemas, table: blockSchemas },
+		{ data: parsed.properties, table: blockSchemaProperties },
+		{ data: parsed.collections, table: blockCollections },
+		{ data: parsed.instances, table: blockInstances },
+		{ data: parsed.values, table: blockInstanceValues },
 	] as const;
 
-	for (const { data: rows, table, cols } of tables) {
-		const batchSize = Math.floor(D1_MAX_PARAMS / cols);
+	for (const { data: rows, table } of tables) {
+		if (rows.length === 0) continue;
+		const cols = Object.keys(rows[0]).length;
+		const batchSize = Math.max(1, Math.floor(D1_MAX_PARAMS / cols));
 		for (let i = 0; i < rows.length; i += batchSize) {
 			await db.insert(table).values(rows.slice(i, i + batchSize));
 		}
