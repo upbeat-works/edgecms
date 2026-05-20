@@ -27,7 +27,6 @@ import {
 	updateTranslationKey,
 	deleteTranslationsByKeys,
 	updateTranslationKeySection,
-	releaseDraft,
 } from '~/utils/db.server';
 
 import { Button } from '~/components/ui/button';
@@ -60,7 +59,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sections,
 		translations,
 		activeVersion,
-		draftVersion,
 		aiTranslateInstance,
 	] = await Promise.all([
 		getLanguages(),
@@ -70,7 +68,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 			query: queryFilter || undefined,
 		}),
 		getLatestVersion('live'),
-		getLatestVersion('draft'),
 		aiTranslateId
 			? getAITranslateInstance(aiTranslateId)
 			: Promise.resolve(null),
@@ -102,7 +99,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		sectionFilter,
 		queryFilter,
 		activeVersion,
-		draftVersion,
 		aiTranslateStatus,
 		isAiAvailable,
 	};
@@ -269,11 +265,6 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 		}
 
-		case 'publish-version': {
-			await releaseDraft();
-			return { success: true };
-		}
-
 		default:
 			return { error: 'Invalid action' };
 	}
@@ -287,7 +278,6 @@ export default function I18n() {
 		sectionFilter,
 		queryFilter,
 		activeVersion,
-		draftVersion,
 		aiTranslateStatus,
 		isAiAvailable,
 	} = useLoaderData<typeof loader>();
@@ -299,7 +289,6 @@ export default function I18n() {
 	const [selectedKeys, setSelectedKeys] = useState<Array<string>>([]);
 	const defaultLanguageFetcher = useFetcher();
 	const deleteFetcher = useFetcher();
-	const publishFetcher = useFetcher();
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const wrapperRef = useRef<HTMLDivElement>(null);
@@ -411,10 +400,6 @@ export default function I18n() {
 		);
 	};
 
-	const handlePublishVersion = () => {
-		publishFetcher.submit({ intent: 'publish-version' }, { method: 'post' });
-	};
-
 	// Clear selection after successful deletion
 	useEffect(() => {
 		if (deleteFetcher.state === 'idle' && deleteFetcher.data?.success) {
@@ -466,17 +451,6 @@ export default function I18n() {
 										{activeVersion.description ?? `v${activeVersion.id}`}
 									</span>
 								</div>
-							)}
-							{draftVersion && (
-								<Button
-									onClick={handlePublishVersion}
-									disabled={publishFetcher.state !== 'idle'}
-									className="bg-green-600 hover:bg-green-700"
-								>
-									{publishFetcher.state !== 'idle'
-										? 'Publishing...'
-										: `Publish ${draftVersion.description}`}
-								</Button>
 							)}
 						</div>
 					</div>

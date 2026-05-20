@@ -40,6 +40,7 @@ export default [
 			route('users', 'routes/edge-cms/users/users.tsx'),
 			route('users/:id', 'routes/edge-cms/users/users.$id.tsx'),
 			route('settings/api-keys', 'routes/edge-cms/settings/api-keys.tsx'),
+			route('publish', 'routes/edge-cms/publish.tsx'),
 		]),
 		route('sign-in', 'routes/edge-cms/auth/sign-in.tsx'),
 		route('sign-out', 'routes/edge-cms/auth/sign-out.tsx'),

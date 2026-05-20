@@ -81,9 +81,16 @@ export async function promoteVersion(versionId: number): Promise<void> {
 		.where(eq(versions.id, versionId));
 }
 
-export async function releaseDraft(): Promise<void> {
+export async function releaseDraft(): Promise<string> {
 	const instance = await env.RELEASE_VERSION_WORKFLOW.create({ params: {} });
 	console.log('Created release version workflow: ', instance);
+	return instance.id;
+}
+
+export async function getReleaseInstance(
+	instanceId: string,
+): Promise<WorkflowInstance> {
+	return env.RELEASE_VERSION_WORKFLOW.get(instanceId);
 }
 
 export async function rollbackVersion(versionId: number): Promise<void> {
