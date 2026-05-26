@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { Sun, Moon, Key, Menu } from 'lucide-react';
 import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
+import { Separator } from '~/components/ui/separator';
 import {
 	Sheet,
 	SheetContent,
@@ -21,7 +22,7 @@ import {
 import { requireAuth } from '~/utils/auth.middleware';
 import { getLatestVersion, getReleaseInstance } from '~/utils/db.server';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
-import { navItems } from '~/nav-items';
+import { builtInNavItems, customNavItems } from '~/nav-items';
 import { PublishProgressDialog } from './publish-progress-dialog';
 import type { Route } from './+types/_layout';
 
@@ -45,6 +46,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export default function Layout() {
 	const { user, draftVersion, publishStatus } = useLoaderData<typeof loader>();
 	const location = useLocation();
+	const isCustomPage = location.pathname.startsWith('/edge-cms/custom');
 	const publishFetcher = useFetcher<{ success: boolean; publishId: string }>();
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -151,7 +153,24 @@ export default function Layout() {
 						</Link>
 
 						<div className="ml-8 hidden items-center space-x-4 md:flex">
-							{navItems.map(item => (
+							{builtInNavItems.map(item => (
+								<Link
+									key={item.href}
+									to={item.href}
+									className={cn(
+										'hover:text-primary text-sm font-medium transition-colors',
+										location.pathname === item.href
+											? 'text-foreground'
+											: 'text-muted-foreground',
+									)}
+								>
+									{item.label}
+								</Link>
+							))}
+							{customNavItems.length > 0 && (
+								<Separator orientation="vertical" className="h-5" />
+							)}
+							{customNavItems.map(item => (
 								<Link
 									key={item.href}
 									to={item.href}
@@ -168,7 +187,7 @@ export default function Layout() {
 						</div>
 
 						<div className="ml-auto flex items-center space-x-4">
-							{draftVersion && (
+							{draftVersion && !isCustomPage && (
 								<publishFetcher.Form
 									method="post"
 									action="/edge-cms/publish"
@@ -263,7 +282,25 @@ export default function Layout() {
 								<SheetContent side="right" className="w-72">
 									<SheetTitle>Menu</SheetTitle>
 									<nav className="mt-6 flex flex-col space-y-1">
-										{navItems.map(item => (
+										{builtInNavItems.map(item => (
+											<SheetClose asChild key={item.href}>
+												<Link
+													to={item.href}
+													className={cn(
+														'hover:bg-accent rounded-md px-3 py-2 text-sm font-medium transition-colors',
+														location.pathname === item.href
+															? 'text-foreground bg-accent'
+															: 'text-muted-foreground',
+													)}
+												>
+													{item.label}
+												</Link>
+											</SheetClose>
+										))}
+										{customNavItems.length > 0 && (
+											<Separator className="my-2" />
+										)}
+										{customNavItems.map(item => (
 											<SheetClose asChild key={item.href}>
 												<Link
 													to={item.href}
