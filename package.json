@@ -40,6 +40,7 @@
     "isbot": "^5.1.27",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.524.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-intersection-observer": "^9.16.0",

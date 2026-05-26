@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { Button } from '~/components/ui/button';
+import { Separator } from '~/components/ui/separator';
 import { builtInNavItems, customNavItems } from '~/nav-items';
 import type { NavItem } from '~/extension.types';
 import type { Route } from './+types/home';
@@ -19,9 +20,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return new Response('ok');
 }
 
-function NavButtonColumn({ items }: { items: NavItem[] }) {
+function NavButtonGrid({ items }: { items: NavItem[] }) {
 	return (
-		<div className="flex-1 space-y-4">
+		<div className="grid grid-cols-2 gap-4">
 			{items.map(item => (
 				<Button
 					key={item.href}
@@ -42,25 +43,19 @@ export default function Home() {
 
 	return (
 		<div className="flex min-h-screen items-center justify-center">
-			<div
-				className={`w-full space-y-8 text-center ${hasCustomItems ? 'max-w-2xl' : 'max-w-md'}`}
-			>
+			<div className="w-full max-w-md space-y-8 text-center">
 				<div>
 					<h1 className="text-4xl font-bold tracking-tight">EdgeCMS</h1>
 					<p className="mt-2">Your cloudflare first CMS admin</p>
 				</div>
 
-				{hasCustomItems ? (
-					<div className="flex items-stretch gap-8">
-						<NavButtonColumn items={builtInNavItems} />
-						<div
-						aria-hidden
-						className="via-border w-px self-stretch bg-gradient-to-b from-transparent to-transparent"
-					/>
-						<NavButtonColumn items={customNavItems} />
-					</div>
-				) : (
-					<NavButtonColumn items={builtInNavItems} />
+				<NavButtonGrid items={builtInNavItems} />
+
+				{hasCustomItems && (
+					<>
+						<Separator className="mx-auto data-[orientation=horizontal]:w-4/5" />
+						<NavButtonGrid items={customNavItems} />
+					</>
 				)}
 			</div>
 		</div>
