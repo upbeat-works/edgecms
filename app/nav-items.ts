@@ -8,7 +8,6 @@ export const builtInNavItems: NavItem[] = [
 	{ href: '/edge-cms/sections', label: 'Sections' },
 ];
 
-export const navItems: NavItem[] = [
-	...builtInNavItems,
-	...(extension.navItems ?? []),
-];
+export const customNavItems: NavItem[] = extension.navItems ?? [];
+
+export const navItems: NavItem[] = [...builtInNavItems, ...customNavItems];
