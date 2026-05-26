@@ -168,7 +168,7 @@ export default function Layout() {
 								</Link>
 							))}
 							{customNavItems.length > 0 && (
-								<Separator orientation="vertical" className="h-5" />
+								<Separator orientation="vertical" className="h-[25px]" />
 							)}
 							{customNavItems.map(item => (
 								<Link
