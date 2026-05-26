@@ -428,6 +428,15 @@ EdgeCMS is designed to run alongside your existing Cloudflare Workers app. Mount
 it under `/edge-cms` and you're good to go — your CMS lives where your code
 does, on the edge.
 
+## Extensions
+
+EdgeCMS supports project-specific admin pages through a small extension API.
+Register custom routes under `/edge-cms/custom/*` and add links to the header
+nav by editing `app/extension.ts`. Extension routes are mounted inside the
+EdgeCMS layout, so they inherit auth, theme, and styling automatically.
+
+See [docs/extensions.md](./docs/extensions.md) for the full guide.
+
 ## License
 
 See [LICENSE.md](./LICENSE.md).

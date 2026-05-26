@@ -21,6 +21,7 @@ import {
 import { requireAuth } from '~/utils/auth.middleware';
 import { getLatestVersion, getReleaseInstance } from '~/utils/db.server';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
+import { navItems } from '~/nav-items';
 import { PublishProgressDialog } from './publish-progress-dialog';
 import type { Route } from './+types/_layout';
 
@@ -139,13 +140,6 @@ export default function Layout() {
 	useEffect(() => {
 		setMobileNavOpen(false);
 	}, [location.pathname]);
-
-	const navItems = [
-		{ href: '/edge-cms/i18n', label: 'Translations' },
-		{ href: '/edge-cms/media', label: 'Media' },
-		{ href: '/edge-cms/blocks', label: 'Blocks' },
-		{ href: '/edge-cms/sections', label: 'Sections' },
-	];
 
 	return (
 		<div className="bg-background min-h-screen">

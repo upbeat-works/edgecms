@@ -5,11 +5,13 @@ import {
 	index,
 	layout,
 } from '@react-router/dev/routes';
+import extension from './extension';
 
 export default [
 	...prefix('edge-cms', [
 		index('routes/edge-cms/home.tsx'),
 		layout('routes/edge-cms/_layout.tsx', [
+			...prefix('custom', extension.routes ?? []),
 			route('i18n', 'routes/edge-cms/i18n/i18n.tsx'),
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media/media.tsx'),
