@@ -76,7 +76,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	}
 }
 
-export async function action({ request, params, context }: Route.ActionArgs) {
+export async function action({ request, params }: Route.ActionArgs) {
 	const { auth } = await requireAuth(request, env);
 	const formData = await request.formData();
 	const action = formData.get('action');

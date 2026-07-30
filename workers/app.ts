@@ -7,22 +7,13 @@ if (import.meta.hot) {
 	import.meta.hot.accept();
 }
 
-declare module 'react-router' {
-	export interface AppLoadContext {
-		cloudflare: {
-			env: Env;
-			ctx: ExecutionContext;
-		};
-	}
-}
-
 const requestHandler = createRequestHandler(
 	() => import('virtual:react-router/server-build'),
 	import.meta.env.MODE,
 );
 
 export default {
-	async fetch(request, env, ctx) {
+	async fetch(request, env) {
 		const CORS_HEADERS = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET',
@@ -44,9 +35,7 @@ export default {
 		}
 
 		// Handle the main request
-		const response = await requestHandler(request, {
-			cloudflare: { env, ctx },
-		});
+		const response = await requestHandler(request);
 
 		// Add CORS headers to the response
 		const newResponse = new Response(response.body, response);

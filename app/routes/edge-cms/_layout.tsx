@@ -25,11 +25,12 @@ import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { builtInNavItems, customNavItems } from '~/nav-items';
 import { PublishProgressDialog } from './publish-progress-dialog';
 import type { Route } from './+types/_layout';
+import { env } from 'cloudflare:workers';
 
 const PUBLISH_TERMINAL_STATES = ['terminated', 'errored', 'complete'];
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const { user } = await requireAuth(request, context.cloudflare.env);
+export async function loader({ request }: Route.LoaderArgs) {
+	const { user } = await requireAuth(request, env);
 	const url = new URL(request.url);
 	const publishId = url.searchParams.get('publishId');
 

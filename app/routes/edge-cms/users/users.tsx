@@ -37,9 +37,10 @@ import {
 } from '~/utils/toast/toast.server';
 import { combineHeaders } from '~/utils/misc';
 import { requireAuth } from '~/utils/auth.middleware';
+import { env } from 'cloudflare:workers';
 
-export async function loader({ request, context }: Route.LoaderArgs) {
-	const { auth, user } = await requireAuth(request, context.cloudflare.env);
+export async function loader({ request }: Route.LoaderArgs) {
+	const { auth, user } = await requireAuth(request, env);
 
 	try {
 		const users = await auth.api.listUsers({
@@ -56,8 +57,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	}
 }
 
-export async function action({ request, context }: Route.ActionArgs) {
-	const auth = createAuth(context.cloudflare.env);
+export async function action({ request }: Route.ActionArgs) {
+	const auth = createAuth(env);
 	const formData = await request.formData();
 	const action = formData.get('action');
 
