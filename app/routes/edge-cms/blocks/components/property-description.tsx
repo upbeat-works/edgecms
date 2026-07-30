@@ -9,7 +9,7 @@ export function PropertyDescription({
 	if (!description) return null;
 
 	return (
-		<div className="text-muted-foreground text-xs italic [&_p]:m-0 [&_a]:text-primary [&_a]:underline">
+		<div className="text-muted-foreground [&_a]:text-primary text-xs italic [&_a]:underline [&_p]:m-0">
 			<Markdown rehypePlugins={[rehypeSanitize]}>{description}</Markdown>
 		</div>
 	);

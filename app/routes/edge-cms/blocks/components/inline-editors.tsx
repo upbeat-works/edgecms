@@ -15,7 +15,6 @@ import { ExternalLink } from 'lucide-react';
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 
-
 /**
  * Inline editor for translation-type properties
  * Saves on blur
@@ -236,7 +235,12 @@ export function InlineMediaEditor({
 	} | null;
 	section: string | null;
 	sections: { name: string }[];
-	availableMedia?: { id: number; filename: string; mimeType: string; version: number }[];
+	availableMedia?: {
+		id: number;
+		filename: string;
+		mimeType: string;
+		version: number;
+	}[];
 }) {
 	const updateFetcher = useFetcher();
 	const uploadFetcher = useFetcher();
@@ -482,7 +486,7 @@ export function TranslationEditorWithLink({
 				<Checkbox
 					id={`link-mode-${propertyId}`}
 					checked={mode === 'link'}
-					onCheckedChange={(checked) => {
+					onCheckedChange={checked => {
 						setMode(checked ? 'link' : 'text');
 						if (checked) {
 							setTimeout(() => linkInputRef.current?.focus(), 0);

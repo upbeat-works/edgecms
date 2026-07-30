@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
+import type { JsonValue } from './types';
 import {
 	blockSchemas,
 	blockSchemaProperties,
@@ -111,7 +112,14 @@ export async function getBlockSchemaProperties(
 export async function createBlockSchemaProperty(props: {
 	schemaId: number;
 	name: string;
-	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
+	type:
+		| 'string'
+		| 'number'
+		| 'translation'
+		| 'media'
+		| 'boolean'
+		| 'block'
+		| 'collection';
 	refSchemaId?: number;
 	description?: string;
 }): Promise<BlockSchemaProperty> {
@@ -139,7 +147,12 @@ export async function createBlockSchemaProperty(props: {
 
 export async function updateBlockSchemaProperty(
 	id: number,
-	props: { name?: string; type?: string; refSchemaId?: number | null; description?: string | null },
+	props: {
+		name?: string;
+		type?: string;
+		refSchemaId?: number | null;
+		description?: string | null;
+	},
 ): Promise<void> {
 	const updates: Record<string, unknown> = {};
 	if (props.name !== undefined) updates.name = props.name;
@@ -454,9 +467,8 @@ export async function upsertBlockInstanceValue(props: {
 	mediaId?: number | null;
 }): Promise<void> {
 	const stringValue = props.stringValue ?? null;
-	const booleanValue = props.booleanValue !== undefined
-		? (props.booleanValue ? 1 : 0)
-		: null;
+	const booleanValue =
+		props.booleanValue !== undefined ? (props.booleanValue ? 1 : 0) : null;
 	const numberValue = props.numberValue ?? null;
 
 	await db
@@ -511,7 +523,7 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 	collection: string;
 	schema: string;
 	section: string | null;
-	items: Record<string, unknown>[];
+	items: Record<string, JsonValue>[];
 } | null> {
 	const collection = await getBlockCollectionByName(collectionName);
 	if (!collection) return null;
@@ -519,11 +531,11 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 	const instances = await getBlockInstances(collection.id);
 	const properties = await getBlockSchemaProperties(collection.schemaId);
 
-	const items: Record<string, unknown>[] = [];
+	const items: Record<string, JsonValue>[] = [];
 
 	for (const instance of instances) {
 		const values = await getBlockInstanceValues(instance.id);
-		const item: Record<string, unknown> = {
+		const item: Record<string, JsonValue> = {
 			id: instance.id,
 			position: instance.position,
 		};
@@ -537,12 +549,9 @@ export async function getBlockCollectionData(collectionName: string): Promise<{
 				item[prop.name] = value?.numberValue ?? null;
 			} else if (prop.type === 'translation') {
 				const value = values.find(v => v.propertyId === prop.id);
-				item[prop.name] = value?.stringValue ||
-					buildTranslationKey(
-						collection.schemaName,
-						instance.id,
-						prop.name,
-					);
+				item[prop.name] =
+					value?.stringValue ||
+					buildTranslationKey(collection.schemaName, instance.id, prop.name);
 			} else if (prop.type === 'boolean') {
 				const value = values.find(v => v.propertyId === prop.id);
 				item[prop.name] = value?.booleanValue === 1;
@@ -643,14 +652,20 @@ export async function importBlockItems(
 	return created;
 }
 
-// Get all block collections data for snapshotting
+// Get all block collections data for snapshotting.
+// Values are non-nullable: null results are skipped below rather than stored.
+// Keeping `| null` in the value type also makes the result unassignable to
+// workerd's `Serializable<T>`, which breaks passing it through a Workflow step.
 export async function getAllBlockCollectionsData(): Promise<
-	Record<string, Awaited<ReturnType<typeof getBlockCollectionData>>>
+	Record<
+		string,
+		NonNullable<Awaited<ReturnType<typeof getBlockCollectionData>>>
+	>
 > {
 	const collections = await getBlockCollections();
 	const result: Record<
 		string,
-		Awaited<ReturnType<typeof getBlockCollectionData>>
+		NonNullable<Awaited<ReturnType<typeof getBlockCollectionData>>>
 	> = {};
 
 	for (const collection of collections) {

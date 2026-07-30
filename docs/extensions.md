@@ -30,12 +30,8 @@ import { route } from '@react-router/dev/routes';
 import type { Extension } from './extension.types';
 
 const extension: Extension = {
-  routes: [
-    route('operations', 'routes/custom/operations.tsx'),
-  ],
-  navItems: [
-    { href: '/edge-cms/custom/operations', label: 'Operations' },
-  ],
+	routes: [route('operations', 'routes/custom/operations.tsx')],
+	navItems: [{ href: '/edge-cms/custom/operations', label: 'Operations' }],
 };
 
 export default extension;
@@ -47,14 +43,14 @@ Create `app/routes/custom/operations.tsx`:
 
 ```tsx
 export default function Operations() {
-  return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-semibold">Operations</h1>
-      <p className="text-muted-foreground mt-2">
-        Your custom page content here.
-      </p>
-    </div>
-  );
+	return (
+		<div className="container mx-auto py-8">
+			<h1 className="text-2xl font-semibold">Operations</h1>
+			<p className="text-muted-foreground mt-2">
+				Your custom page content here.
+			</p>
+		</div>
+	);
 }
 ```
 
@@ -74,14 +70,12 @@ paths are relative to `app/`.
 
 ```ts
 const extension: Extension = {
-  routes: [
-    route('operations', 'routes/custom/operations.tsx'),
-    route('operations/reports', 'routes/custom/operations.reports.tsx'),
-    route('operations/reports/:id', 'routes/custom/operations.reports.$id.tsx'),
-  ],
-  navItems: [
-    { href: '/edge-cms/custom/operations', label: 'Operations' },
-  ],
+	routes: [
+		route('operations', 'routes/custom/operations.tsx'),
+		route('operations/reports', 'routes/custom/operations.reports.tsx'),
+		route('operations/reports/:id', 'routes/custom/operations.reports.$id.tsx'),
+	],
+	navItems: [{ href: '/edge-cms/custom/operations', label: 'Operations' }],
 };
 ```
 
@@ -95,13 +89,13 @@ import { requireAuth } from '~/utils/auth.middleware';
 import type { Route } from './+types/operations';
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const { user } = await requireAuth(request, context.cloudflare.env);
-  // Query D1, KV, R2 via context.cloudflare.env.DB / CACHE / MEDIA_BUCKET
-  return { user };
+	const { user } = await requireAuth(request, context.cloudflare.env);
+	// Query D1, KV, R2 via context.cloudflare.env.DB / CACHE / MEDIA_BUCKET
+	return { user };
 }
 
 export default function Operations({ loaderData }: Route.ComponentProps) {
-  return <div>Hello, {loaderData.user.email}</div>;
+	return <div>Hello, {loaderData.user.email}</div>;
 }
 ```
 
@@ -111,26 +105,27 @@ Defined in `app/extension.types.ts`.
 
 ```ts
 type Extension = {
-  routes?: RouteConfigEntry[];
-  navItems?: NavItem[];
+	routes?: RouteConfigEntry[];
+	navItems?: NavItem[];
 };
 
 type NavItem = {
-  href: string;
-  label: string;
+	href: string;
+	label: string;
 };
 ```
 
-| Field      | Type                  | Description                                                                                                  |
-| ---------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `routes`   | `RouteConfigEntry[]`  | React Router route entries. Mounted under `/edge-cms/custom/`. Inherit the EdgeCMS layout and auth gate.     |
-| `navItems` | `NavItem[]`           | Appended after the built-in nav items (Translations, Media, Blocks, Sections). Rendered in desktop + mobile. |
+| Field      | Type                 | Description                                                                                                  |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `routes`   | `RouteConfigEntry[]` | React Router route entries. Mounted under `/edge-cms/custom/`. Inherit the EdgeCMS layout and auth gate.     |
+| `navItems` | `NavItem[]`          | Appended after the built-in nav items (Translations, Media, Blocks, Sections). Rendered in desktop + mobile. |
 
 ## Limitations
 
 The extension API is intentionally minimal. It does **not** support:
 
-- Component overrides or layout slots (the EdgeCMS header, sidebar, etc. are fixed)
+- Component overrides or layout slots (the EdgeCMS header, sidebar, etc. are
+  fixed)
 - Role gating on nav items — every signed-in user sees every link
 - Icons on nav items
 - Settings/admin page injection beyond top-level nav

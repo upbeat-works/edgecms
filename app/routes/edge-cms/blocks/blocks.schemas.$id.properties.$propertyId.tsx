@@ -51,9 +51,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	} catch (error) {
 		return {
 			error:
-				error instanceof Error
-					? error.message
-					: 'Failed to update property',
+				error instanceof Error ? error.message : 'Failed to update property',
 		};
 	}
 }

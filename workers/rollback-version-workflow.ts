@@ -227,9 +227,7 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 					);
 					return;
 				}
-				console.log(
-					'[RollbackVersionWorkflow] Restoring blocks from backup',
-				);
+				console.log('[RollbackVersionWorkflow] Restoring blocks from backup');
 				try {
 					await restoreBlocksFromBackup(blocksBackupData);
 				} catch (error) {

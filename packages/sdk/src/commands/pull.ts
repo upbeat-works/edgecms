@@ -31,13 +31,15 @@ export async function pull(
 	// Determine which locales to write
 	const localesToWrite = options.allLocales
 		? Object.entries(response.translations)
-		: [[
-				config.defaultLocale,
-				response.translations[config.defaultLocale] ||
-					response.translations[response.defaultLocale || ''] ||
-					Object.values(response.translations)[0] ||
-					{},
-			] as const];
+		: [
+				[
+					config.defaultLocale,
+					response.translations[config.defaultLocale] ||
+						response.translations[response.defaultLocale || ''] ||
+						Object.values(response.translations)[0] ||
+						{},
+				] as const,
+			];
 
 	// Write JSON files
 	let totalKeys = 0;

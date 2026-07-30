@@ -139,9 +139,7 @@ export default function SchemaDetailPage() {
 												</Badge>
 											</div>
 											{prop.description && (
-												<PropertyDescription
-													description={prop.description}
-												/>
+												<PropertyDescription description={prop.description} />
 											)}
 										</Link>
 										<Button

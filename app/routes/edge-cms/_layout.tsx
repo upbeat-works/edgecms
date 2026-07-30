@@ -59,7 +59,10 @@ export default function Layout() {
 	// loader can fetch its status and the dialog can survive page navigations.
 	const fetcherPublishId = publishFetcher.data?.publishId;
 	useEffect(() => {
-		if (fetcherPublishId && searchParams.get('publishId') !== fetcherPublishId) {
+		if (
+			fetcherPublishId &&
+			searchParams.get('publishId') !== fetcherPublishId
+		) {
 			setSearchParams(
 				prev => {
 					prev.set('publishId', fetcherPublishId);
@@ -74,8 +77,8 @@ export default function Layout() {
 	const publishId = searchParams.get('publishId');
 	const shouldPollPublish = Boolean(
 		publishId &&
-			publishStatus &&
-			!PUBLISH_TERMINAL_STATES.includes(publishStatus.status),
+		publishStatus &&
+		!PUBLISH_TERMINAL_STATES.includes(publishStatus.status),
 	);
 
 	const publishPoller = useBackoffCallback(
@@ -189,10 +192,7 @@ export default function Layout() {
 
 						<div className="ml-auto flex items-center space-x-4">
 							{draftVersion && !isCustomPage && (
-								<publishFetcher.Form
-									method="post"
-									action="/edge-cms/publish"
-								>
+								<publishFetcher.Form method="post" action="/edge-cms/publish">
 									<Button
 										type="submit"
 										size="sm"
@@ -321,8 +321,7 @@ export default function Layout() {
 												to="/edge-cms/settings/api-keys"
 												className={cn(
 													'hover:bg-accent flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-													location.pathname ===
-														'/edge-cms/settings/api-keys'
+													location.pathname === '/edge-cms/settings/api-keys'
 														? 'text-foreground bg-accent'
 														: 'text-muted-foreground',
 												)}

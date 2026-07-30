@@ -31,7 +31,7 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 		const { userId } = event.payload;
 
 		// Step 1: Get all languages and identify default
-		const [defaultLanguage, otherLanguages] = await step.do(
+		const { defaultLanguage, otherLanguages } = await step.do(
 			'get languages',
 			{
 				retries: {
@@ -64,7 +64,10 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 					throw new Error('No target languages found for translation');
 				}
 
-				return [defaultLanguage, otherLanguages];
+				// Returned as an object rather than a tuple: an array literal of
+				// mixed element types widens to `(Language | Language[])[]`, which
+				// loses the types on destructuring.
+				return { defaultLanguage, otherLanguages };
 			},
 		);
 

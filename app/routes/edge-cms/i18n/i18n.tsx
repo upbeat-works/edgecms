@@ -317,8 +317,8 @@ export default function I18n() {
 	const terminalStates = ['terminated', 'errored', 'complete'];
 	const shouldPoll = Boolean(
 		aiTranslateId &&
-			aiTranslateStatus &&
-			!terminalStates.includes(aiTranslateStatus.status),
+		aiTranslateStatus &&
+		!terminalStates.includes(aiTranslateStatus.status),
 	);
 
 	const aiTranslationPoller = useBackoffCallback(
@@ -597,7 +597,7 @@ export default function I18n() {
 						{/* Scrollable header */}
 						<div
 							ref={headerRef}
-							className="flex-1 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+							className="flex-1 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
 							onScroll={e => {
 								// If header is scrolled manually, sync back to grid
 								if (gridRef.current) {
@@ -637,7 +637,7 @@ export default function I18n() {
 						<div className="bg-background w-[250px] flex-shrink-0 border-r">
 							<div
 								ref={keyColumnRef}
-								className="overflow-x-hidden overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+								className="[scrollbar-width:none] overflow-x-hidden overflow-y-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
 								style={{ height: wrapperBounds.height }}
 								onScroll={e => {
 									// If key column is scrolled manually, sync back to grid

@@ -4,6 +4,10 @@ A repeatable runbook for our React Router + Cloudflare Workers apps. Written
 while upgrading EdgeCMS; intended to be followed as-is for the remaining apps on
 the same stack.
 
+For the non-framework dependencies on the same stack — better-auth, drizzle-orm,
+zod — see [dependency-upgrades.md](./dependency-upgrades.md). The two are
+independent; either can go first.
+
 ## Who this applies to
 
 Apps with this signature:
@@ -15,7 +19,40 @@ Apps with this signature:
 - Optionally D1 + drizzle + better-auth (these are orthogonal to the migration
   but show up in the audit noise)
 
+### Triage the app's shape first
+
+Two greps decide whether this is a one-file migration or a nine-file one. Run
+them before estimating:
+
+```sh
+# 1. Is the app already on the middleware future flag?
+grep -rn "unstable_middleware\|unstable_createContext\|unstable_RouterContextProvider" \
+	--include='*.ts' --include='*.tsx' app/ workers/ react-router.config.ts
+# 2. Does anything else in the tree peer-depend on react-router?
+npm ls react-router
+```
+
+If grep 1 is empty and `npm ls react-router` shows only `@react-router/*`, you
+have the EdgeCMS shape: follow the steps as written and expect ~1 code change.
+
+If either hits, read
+[Variant: apps already on the middleware flag](#variant-apps-already-on-the-middleware-flag)
+**before starting** — several changes the guide places at Step 5 actually land
+at Step 1 for you, and one of them is a silent runtime break.
+
 ## Status of this document
+
+Executed end to end on two apps:
+
+| App        | Outcome                                                             |
+| ---------- | ------------------------------------------------------------------- |
+| EdgeCMS    | 7.6.2 → 8.3.0. One code change (`entry.server.tsx`).                 |
+| casa-barre | 7.6.3 → 8.3.0. Nine files. Two real bugs found — see [Variant: apps already on the middleware flag](#variant-apps-already-on-the-middleware-flag). |
+
+The steps and their ordering held on both. What did **not** hold was the
+estimate of how much code changes at each step: EdgeCMS was a classic-SSR app
+with no middleware and no third-party react-router dependents, which is the
+_easy_ shape. Read the variant section before estimating.
 
 Verified by execution on EdgeCMS (2026-07-30):
 
@@ -100,6 +137,21 @@ per-file breakdown — the 17 extra errors were Cloudflare Workflow type changes
 
 **If the lockfile is dirty when you start, commit or stash it first.** If you
 cannot, at minimum record the baseline from the dirty state, not from `HEAD`.
+casa-barre was migrated this way — unrelated in-progress work in the tree, so
+the baseline was taken from the dirty state and that work left untouched. It
+works, provided you record the baseline *before* the first `npm install`.
+
+Two more baseline notes:
+
+- **A clean baseline is a real outcome.** casa-barre started at 0 typecheck
+  errors and a green build. The guide's prose assumes pre-existing noise; when
+  there is none, any error you see later is unambiguously yours, which makes the
+  migration considerably easier to reason about.
+- **Capture a dev-server baseline too, not just typecheck + build,** if the app
+  has middleware or does routing work in loaders. `npm run build` does not
+  exercise the request path, and without a "before" you cannot tell a stale-HMR
+  500 from a regression. Record status codes for a handful of real routes (get
+  them from `app/routes.ts`) plus a data request.
 
 Isolation recipe when you need to attribute an error:
 
@@ -232,6 +284,21 @@ ls .github/workflows/ 2>/dev/null && grep -rn "node-version" .github/workflows/
 This is a _build toolchain_ requirement. The Workers runtime is workerd, so it
 is unaffected — but CI images, `.nvmrc`, and `engines` all need to agree.
 EdgeCMS had none of those files, so nothing to update; other apps may differ.
+
+They do differ, and CI is the one that bites: casa-barre pinned
+`node-version: 20` in two jobs in `.github/workflows/deploy.yml` (while a third
+job already used 22). A local `node -v` of 24 tells you nothing about CI — this
+would have built fine on the dev machine and failed on deploy. Check every pin,
+not just the first, and note that pins are usually duplicated per job:
+
+```sh
+grep -rn "node-version" .github/workflows/
+```
+
+Also pin the version ranges to something that exists — `@types/react-dom` tracks
+its own numbering and lags `@types/react` (19.2.3 vs 19.2.17 as of 2026-07-30),
+so a guessed `^19.2.9` fails with `ETARGET No matching version found`. Confirm
+with `npm view <pkg> version` before editing `package.json`.
 
 ## Step 3 — Vite 6 → 8
 
@@ -399,6 +466,12 @@ On EdgeCMS: 3 `context.cloudflare.env` sites across 2 files
 (`app/routes/edge-cms/_layout.tsx`, `app/routes/edge-cms/users/users.tsx`), and
 `ctx` appeared only in `workers/app.ts` as plumbing. Small change.
 
+If the app is already on the middleware flag, run this grep at **Step 1**
+instead — a typecheck error there forces the decision early. See
+[Variant: apps already on the middleware flag](#variant-apps-already-on-the-middleware-flag).
+Note also that `context.cloudflare` is only the EdgeCMS-lineage spelling; an app
+with its own `createContext` key needs the same audit under a different name.
+
 Keep any custom `fetch` wrapper (CORS, trusted-origin checks) and any
 `WorkflowEntrypoint` exports — the template has neither, but they are unaffected
 by the context change. Note that they wrap the handler you are editing, so
@@ -427,7 +500,13 @@ Two more from the guide worth grepping for:
   `url` loader/action arg. Find candidates with
   `grep -rn "new URL(request.url)" --include='*.ts' --include='*.tsx' app/`.
   Most hits are search-param reads and are safe; each still needs a look.
-  EdgeCMS had 7 across 7 files.
+  EdgeCMS had 7 across 7 files. **That grep is too narrow** — it misses helpers
+  that take a `Request` and derive the URL internally, and middleware callbacks
+  that never see the normalized `url` at all. Prefer
+  `grep -rn "\.pathname" --include='*.ts' --include='*.tsx' app/`, and read
+  [the variant section](#v8_passthroughrequests-really-can-break-routing) if the
+  app routes on the pathname — on casa-barre this flag caused an infinite
+  redirect loop reachable only through client-side navigation.
 - **`v8_trailingSlashAwareDataRequests`** — data request paths change format:
   `/a/b/c.data` → `/a/b/c/_.data`, and root `/_root.data` → `/_.data`. Update
   any CDN, cache, or rewrite rules keyed on `.data`. Grep the app _and_ the
@@ -612,29 +691,346 @@ advisories went to **zero**, including the RSC-mode
 (critical, pinned to an exact version) and `drizzle-orm` (high, SQL injection
 below 0.45.2). Triage those separately.
 
+## Variant: apps already on the middleware flag
+
+Written while upgrading casa-barre (2026-07-30), which was already running
+`future.unstable_middleware` with a custom `unstable_createContext` and used
+`remix-i18next`'s middleware. Everything here is **in addition to** the steps
+above; the ordering of the steps themselves did not change.
+
+The headline: being "ahead" on the middleware flag does **not** make the
+migration cheaper. It front-loads it. Three things the guide places at Step 5
+land at Step 1, and one of them fails silently.
+
+### Step 1 also stabilizes the middleware flag and the context API
+
+7.18.2 renames more than `viteEnvironmentApi`, and it **removes** the
+`unstable_` context exports rather than aliasing them:
+
+```diff
+ // react-router.config.ts — the augmentation needs renaming too, not just the flag
+ declare module 'react-router' {
+ 	interface Future {
+-		unstable_middleware: true;
++		v8_middleware: true;
+ 	}
+ }
+ export default {
+ 	ssr: true,
+ 	future: {
+-		unstable_middleware: true,
+-		unstable_viteEnvironmentApi: true,
++		v8_middleware: true,
++		v8_viteEnvironmentApi: true,
+ 	},
+ } satisfies Config;
+```
+
+```diff
+-import { unstable_createContext } from 'react-router';
++import { createContext } from 'react-router';
+-import { type unstable_RouterContextProvider } from 'react-router';
++import { type RouterContextProvider } from 'react-router';
+```
+
+Confirm the names against the installed package rather than guessing — the full
+flag list is one grep:
+
+```sh
+grep -ohE "v8_[a-zA-Z]+" node_modules/@react-router/dev/dist/config.d.ts | sort -u
+grep -c "unstable_createContext" node_modules/react-router/dist/development/index.d.ts  # 0 on 7.18.2
+```
+
+With `v8_middleware` on, `createRequestHandler`'s second argument must be a real
+`RouterContextProvider`; a plain `Map` no longer typechecks
+(`Property '#private' is missing in type 'Map<...>'`). Either wrap it
+(`new RouterContextProvider(map)`) or — much better — check whether the context
+is dead first. On casa-barre nothing ever read it:
+
+```sh
+grep -rn "context\.get(\|\.get(yourContext)" --include='*.ts' --include='*.tsx' app/
+```
+
+Nothing consumed it, and 11 files already imported `env` from
+`cloudflare:workers`, so the whole context module was deleted and `workers/app.ts`
+went straight to the v8 end state at Step 1. **Run the Step 4 `ctx` grep during
+Step 1** — this decision is forced early for middleware apps, and taking the
+cheap path now avoids writing code you delete at Step 5.
+
+### The route export renames too — and fails silently
+
+This is the one to watch. `unstable_middleware` is also the **route module
+export name**, and the `v8_middleware` flag renames it to `middleware`:
+
+```diff
+ // app/root.tsx
+-export const unstable_middleware = [i18nextMiddleware];
++export const middleware = [i18nextMiddleware];
+```
+
+Miss it and the middleware simply stops being registered — no error, no warning.
+On casa-barre it surfaced only as a *client* build failure, because the stale
+export is no longer in the framework's server-only list, so the middleware
+module stopped being tree-shaken out of the browser bundle:
+
+```
+[vite]: Rollup failed to resolve import "cloudflare:workers"
+from "app/middleware/i18next.ts"
+```
+
+A `cloudflare:workers` (or other server-only) import suddenly failing to resolve
+in the **client** build is the signature of a route export that is no longer
+recognized. Do not "fix" it by externalizing the import — find the renamed
+export. Grep for it explicitly, since a green typecheck will not catch it:
+
+```sh
+grep -rn "export const unstable_" --include='*.tsx' --include='*.ts' app/
+```
+
+### Third-party packages that peer-depend on react-router
+
+The guide assumed `@react-router/*` are the only packages tracking the major.
+Anything else in `npm ls react-router` needs its own upgrade, planned across
+**two** steps, because these packages track react-router's majors:
+
+```sh
+npm ls react-router   # who else depends on it?
+```
+
+`remix-i18next` needed two bumps on casa-barre:
+
+| Step   | Version  | Why                                                          |
+| ------ | -------- | ------------------------------------------------------------ |
+| Step 1 | `^7.5.0` | 7.2.1 imports the now-deleted `unstable_createContext`, which breaks the **SSR build**, not just types. 7.4.2+ uses stable `createContext`. |
+| Step 5 | `^8.0.0` | peers `react-router@^8`.                                     |
+
+The Step 1 failure is worth recognizing by shape — a dependency's own source
+referencing an export the new react-router no longer has:
+
+```
+node_modules/remix-i18next/build/middleware.js (2:9): "unstable_createContext"
+is not exported by "node_modules/react-router/dist/development/index.mjs"
+```
+
+When a package's peer range alone doesn't tell you whether it uses the stable
+API, read the published file instead of guessing:
+
+```sh
+npm pack <pkg>@<version> && tar xzf <pkg>-<version>.tgz
+grep -nE "^import" package/build/<entry>.js
+```
+
+Majors of these packages also drop deprecated APIs and reshape their export
+maps. `remix-i18next@8` collapsed to a single `.` entrypoint (`/middleware` and
+`/react` subpaths gone) and deleted `useChangeLanguage`.
+
+When a major deletes a deprecated API, **read why it was deprecated before
+re-creating it.** The reflex is to copy the removed implementation into the app
+and keep the call site untouched. That restores the build in one step, but it
+also re-creates the thing upstream deliberately removed, and it leaves a local
+module whose only purpose is to imitate a dead API.
+
+`useChangeLanguage` was a thin wrapper around a guarded effect, and its own
+deprecation note said to call `i18n.changeLanguage(...)` with the root loader's
+locale instead. Inlining the effect at the call site is what upstream meant:
+
+```diff
+-import { useChangeLanguage } from 'remix-i18next/react';
++import { useEffect } from 'react';
+
+ export default function App({ loaderData }: Route.ComponentProps) {
+-	useChangeLanguage(loaderData.locale);
++	const { i18n } = useTranslation();
++	const { locale } = loaderData;
++
++	useEffect(() => {
++		if (i18n.language !== locale) void i18n.changeLanguage(locale);
++	}, [locale, i18n]);
+```
+
+Do keep the effect and the `i18n.language !== locale` guard. Upstream's one-line
+phrasing ("call `i18n.changeLanguage(loaderData.locale)`") reads as though it
+belongs in the component body, but that is a render-phase side effect. The
+effect is still required for client-side navigations between locales — the root
+loader returns the new locale and the client i18next instance has to follow it.
+
+On casa-barre this left `app/hooks/use-change-language.ts` byte-identical to
+`HEAD`: the migration touched the call site only. A useful signal that the
+replacement was the right shape — if a removed-API workaround leaves a new file
+behind, it is probably a re-implementation rather than a migration.
+
+If a package exports the args type only implicitly, derive it the same way the
+package does rather than reaching into its internals:
+
+```ts
+type LanguageDetectorArgs = Parameters<MiddlewareFunction<Response>>[0];
+```
+
+### `v8_passThroughRequests` really can break routing
+
+The guide's EdgeCMS result — "all 7 sites read only `searchParams`, so no code
+changes" — is the best case, not the rule. Any app that does **locale, tenant,
+or section routing from the pathname** will break, and the audit grep in Step 4
+is too narrow to find it. Widen it:
+
+```sh
+# not just `new URL(request.url)` — any pathname read, and every caller
+grep -rn "\.pathname" --include='*.ts' --include='*.tsx' app/
+```
+
+On casa-barre this produced an **infinite redirect loop**, reachable only via
+client-side navigation. `/en` rendered fine as a document, but its data request
+`/en.data` made the locale segment read as `en.data`, which is not a supported
+language, so the layout loader redirected — to `/en.data`, forever:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5173/en.data   # 202
+curl -s http://localhost:5173/en.data | head -c 120
+# [["SingleFetchRedirect",1],...,"redirect","/en.data","status",302,...
+```
+
+**A 202 on a data request whose document is a 200 means the loader is
+redirecting only for data requests** — that is this bug. The guide notes 202 is
+"expected for auth-gated routes"; that is only true when the document redirects
+too. Compare the pair.
+
+The fix is the normalized `url` argument, which exists on `LoaderFunctionArgs`,
+`ActionFunctionArgs` **and** middleware args (all extend `DataFunctionArgs`):
+
+```diff
+-export async function loader({ request, params }: Route.LoaderArgs) {
+-	const url = new URL(request.url);
++export async function loader({ request, params, url }: Route.LoaderArgs) {
+```
+
+Push `URL` across helper boundaries rather than re-deriving it — helpers taking
+a `Request` and calling `new URL(request.url)` internally are exactly where this
+bug hides, and the compiler will then find every caller for you:
+
+```diff
+-export function backwardsCompatRedirect(request: Request) {
+-	const url = new URL(request.url);
++export function backwardsCompatRedirect(url: URL) {
+```
+
+That signature change surfaced a fourth call site the original greps missed.
+
+**Middleware is the gap.** Loaders get `url`, but a third-party middleware may
+hand your callback the raw `Request`. `remix-i18next@7.5.0` does exactly that
+(`findLocale(request)`), so on 7.18.2 there is no normalized URL available and
+the pathname must be de-suffixed by hand:
+
+```ts
+function stripDataSuffix(pathname: string) {
+	if (pathname === '/_root.data' || pathname === '/_.data') return '/';
+	if (pathname.endsWith('/_.data')) return pathname.slice(0, -'/_.data'.length);
+	if (pathname.endsWith('.data')) return pathname.slice(0, -'.data'.length);
+	return pathname;
+}
+```
+
+`remix-i18next@8` changes `findLocale` to receive the full middleware args, so
+this workaround is deleted at Step 5. Expect interim hacks like this whenever a
+third-party package sits between you and the framework's normalized arguments —
+write them so they are easy to remove, and remove them.
+
+### Verify data requests carry the right state, not just a 200
+
+Status codes alone would have missed the locale bug once it was half-fixed.
+Assert on payload content per route:
+
+```sh
+for p in /_.data /en/_.data /ca/_.data; do
+	printf '%-16s ' "$p"
+	curl -s "http://localhost:5173$p" | grep -oE '"locale","[a-z]{2}"' | head -1
+done
+# /_.data          "locale","es"
+# /en/_.data       "locale","en"
+# /ca/_.data       "locale","ca"
+```
+
+### Two smaller things
+
+- **`meta()` `data` → `loaderData` is a real hit at Step 5,** not just a grep
+  item: `Property 'data' does not exist on type 'CreateMetaArgs<...>'`. Renaming
+  in the destructure keeps the body untouched:
+  `({ data })` → `({ loaderData: data })`.
+- **A 500 that renders full HTML is probably stale HMR,** not a regression.
+  Restart the dev server before investigating. `entry.server.tsx` deliberately
+  swallows errors when `!shellRendered`, so there is no stack trace to find; if
+  you must see it, add a temporary `else` branch to that `onError` — and remove
+  it afterwards.
+
+### Verified on casa-barre (2026-07-30)
+
+```
+documents      / /en /ca  /madrid/horarios  /en/madrid/horarios
+               /legal/terminos-y-condiciones  /sitemap.xml /robots.txt      200
+locale strip   /es -> /            /es/madrid/horarios -> /madrid/horarios  302
+back-comparat  /madrid /barcelona -> /                                      301
+               /terminos -> /legal/terminos-y-condiciones                   301
+data requests  /_.data /en/_.data /ca/_.data /en/madrid/horarios/_.data     200
+               payload locale correct per route (es / en / ca / en)
+typecheck      0 — same as the Step 0 baseline
+build          green;  emitted wrangler.json assets.directory = "../client"
+lint           clean (1 pre-existing warning in unrelated in-progress work)
+audit          30 -> 14 vulns; 3 criticals -> 0; react-router advisories zero
+```
+
+Final versions: `react-router` / `@react-router/dev` 8.3.0, `remix-i18next`
+8.0.0, `vite` 8.2.0, `@cloudflare/vite-plugin` 1.48.0, `react` 19.2.8,
+`tailwindcss` 4.3.3.
+
+Files touched, for scale: `react-router.config.ts`, `vite.config.ts`,
+`workers/app.ts`, `app/adaptor-context.ts` (deleted), `app/entry.server.tsx`,
+`app/root.tsx`, `app/middleware/i18next.ts`, `app/routes/locale.tsx`,
+`app/routes/catch-all.tsx`, `app/utils/backwards-compat-redirect.ts`,
+`.github/workflows/deploy.yml`.
+
+**Not verified by this run:** client-side navigation between locales. The
+locale-sync effect in `root.tsx` only runs on a client transition, which `curl`
+cannot exercise — SSR, data-request payloads and build output all pass without
+touching it. Click through the locale switcher once in a browser before
+shipping, or add a route-level test.
+
 ## Per-app checklist
 
 Copy this per repo.
 
 ```
+[ ] Step 0  SHAPE: middleware-flag grep + `npm ls react-router` -> which variant is this?
 [ ] Step 0  lockfile committed/stashed; typecheck count + per-file breakdown recorded; build green
+[ ] Step 0  dev-server baseline recorded (route status codes + a data request)
 [ ] Step 1  react-router + @react-router/dev -> ^7.18.2 (lockfile surgery if ERESOLVE)
 [ ] Step 1  unstable_viteEnvironmentApi -> v8_viteEnvironmentApi (if present)
+[ ] Step 1  unstable_middleware -> v8_middleware, in future block AND Future augmentation
+[ ] Step 1  unstable_createContext/unstable_RouterContextProvider -> stable names (REMOVED in 7.18.2)
+[ ] Step 1  `export const unstable_middleware` -> `export const middleware` (SILENT break)
+[ ] Step 1  third-party react-router dependents bumped to a stable-createContext release
+[ ] Step 1  ctx grep run EARLY if on middleware; take the cheap path if context is dead
 [ ] Step 1  typecheck at baseline parity; build green; npm audit delta recorded
 [ ] Step 1  RSC grep -> is GHSA-qwww-vcr4-c8h2 actually reachable?
 [ ] Step 2  react/react-dom ^19.2.7; @types/node ^22; Node 22.22+ in .nvmrc/engines/CI
+[ ] Step 2  EVERY node-version pin in CI checked (they repeat per job), versions confirmed to exist
 [ ] Step 3  vite ^8; @cloudflare/vite-plugin ^1.48.0; drop vite-tsconfig-paths
 [ ] Step 3  custom outDir/assetsDir/assets-rewrite plugin verified by INSPECTING artifacts
 [ ] Step 4  ctx grep -> is the cheap path available?
 [ ] Step 4  context.cloudflare.env -> cloudflare:workers env; drop AppLoadContext + 2nd arg
 [ ] Step 4  react-router-dom / useMatches / meta data / cloudflareDevProxy greps clean
-[ ] Step 4  new URL(request.url) sites reviewed for .data leakage
+[ ] Step 4  `.pathname` sites reviewed (not just `new URL(request.url)`); helpers take URL
+[ ] Step 4  middleware callbacks that receive a raw Request handled (no normalized url there)
 [ ] Step 4  .data path rules in CDN/cache/infra updated
 [ ] Step 4  all four v8_* flags on, one at a time; dev log shows 0 flag warnings
 [ ] Step 5  package.json FIRST, then lockfile surgery; confirm with npm ls react-router
+[ ] Step 5  third-party react-router dependents bumped to their ^8 majors
+[ ] Step 5  removed APIs migrated at the CALL SITE, not re-implemented locally
+[ ] Post    client-only behaviour (locale switch, etc.) clicked through in a browser
 [ ] Step 5  entry.server.tsx AppLoadContext -> RouterContextProvider (if custom entry)
+[ ] Step 5  meta() ({ data }) -> ({ loaderData: data })
 [ ] Step 5  delete future block; "type": "module" confirmed
-[ ] Post    typecheck at baseline parity; build green; app exercised in dev
+[ ] Step 5  interim Step-4 workarounds removed now that v8 args are available
+[ ] Post    typecheck at baseline parity; build green; lint clean; app exercised in dev
+[ ] Post    data requests assert on PAYLOAD content per route, not just status codes
 [ ] Post    npm audit: react-router advisories at zero
 ```
 
@@ -654,3 +1050,16 @@ Copy this per repo.
 - Unrelated but usually louder in `npm audit` than react-router: `better-auth`
   (often pinned to an exact version, so it needs a deliberate bump) and
   `drizzle-orm` (SQL injection below 0.45.2). Triage separately.
+- **Typecheck and build are not the same detector, and neither catches
+  everything.** Across two apps the three real defects each surfaced in a
+  different place: a typecheck error (`Map` vs `RouterContextProvider`), a
+  *client* build failure (the renamed `middleware` export), and only at runtime
+  in the dev server (the locale redirect loop). Run all three at every step.
+- **Being early on `unstable_` flags is a cost, not a head start.** Those apps
+  pay at Step 1 instead of Step 5, and the `unstable_` → stable rename applies
+  to config keys, imported APIs, *and* route module export names independently.
+- **`npm ls react-router` is a step-zero command.** Every package listed under
+  it is a package you will bump twice.
+- Verify an upgraded package's API by reading its published files
+  (`npm pack` + `tar xzf`) rather than inferring from its peer range. Peer
+  ranges say what it tolerates, not which API it calls.

@@ -81,7 +81,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			properties,
 			schema,
 			languages,
-			media: media.map(m => ({ id: m.id, filename: m.filename, mimeType: m.mimeType, version: m.version })),
+			media: media.map(m => ({
+				id: m.id,
+				filename: m.filename,
+				mimeType: m.mimeType,
+				version: m.version,
+			})),
 			sections,
 			instance: null,
 			mode: 'create' as const,
@@ -109,7 +114,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			properties,
 			schema,
 			languages,
-			media: media.map(m => ({ id: m.id, filename: m.filename, mimeType: m.mimeType, version: m.version })),
+			media: media.map(m => ({
+				id: m.id,
+				filename: m.filename,
+				mimeType: m.mimeType,
+				version: m.version,
+			})),
 			sections,
 			instance,
 			mode: 'edit' as const,
@@ -494,7 +504,13 @@ function BlockInstanceForm({
 				),
 			};
 		}
-		return { strings: {}, numbers: {}, translations: {}, booleans: {}, media: {} };
+		return {
+			strings: {},
+			numbers: {},
+			translations: {},
+			booleans: {},
+			media: {},
+		};
 	});
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -584,16 +600,17 @@ function BlockInstanceForm({
 								}))
 							}
 							placeholder={`Enter ${prop.name}...`}
-							autoFocus={stringProps.length === 0 && numberProps.length === 0 && index === 0}
+							autoFocus={
+								stringProps.length === 0 &&
+								numberProps.length === 0 &&
+								index === 0
+							}
 						/>
 					</div>
 				))}
 
 				{booleanProps.map(prop => (
-					<div
-						key={prop.id}
-						className="space-y-2 rounded-lg border p-3"
-					>
+					<div key={prop.id} className="space-y-2 rounded-lg border p-3">
 						<div className="flex items-center justify-between">
 							<Label htmlFor={`boolean-${prop.id}`}>{prop.name}</Label>
 							<Switch
@@ -668,6 +685,13 @@ function BlockInstanceForm({
 		);
 	}
 
+	// In edit mode the loader guarantees an instance (it throws 404 otherwise),
+	// but `mode` and `instance` are independent props so TypeScript cannot narrow
+	// one from the other. Guard explicitly.
+	if (!instance) {
+		return null;
+	}
+
 	// Edit mode - show inline editors that save on change
 	return (
 		<div className="space-y-6">
@@ -725,10 +749,7 @@ function BlockInstanceForm({
 
 			{/* Boolean properties */}
 			{booleanProps.map(prop => (
-				<div
-					key={prop.id}
-					className="space-y-2 rounded-lg border p-3"
-				>
+				<div key={prop.id} className="space-y-2 rounded-lg border p-3">
 					<div className="flex items-center justify-between">
 						<Label htmlFor={`bool-${prop.id}`}>{prop.name}</Label>
 						<BooleanEditor

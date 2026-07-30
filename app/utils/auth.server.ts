@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
-import { admin, apiKey } from 'better-auth/plugins';
+import { admin } from 'better-auth/plugins';
+import { apiKey } from '@better-auth/api-key';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { authSchema } from './schema.server';

@@ -82,7 +82,8 @@ export async function buildInstanceTranslations(
 	for (const prop of properties) {
 		if (prop.type === 'translation') {
 			// Use stored key (supports custom keys from import), fall back to auto-generated
-			const key = valuesMap[prop.id]?.stringValue ||
+			const key =
+				valuesMap[prop.id]?.stringValue ||
 				buildTranslationKey(schema.name, instance.id, prop.name);
 			const trans = await getTranslations({ key });
 			translations[prop.name] = {};

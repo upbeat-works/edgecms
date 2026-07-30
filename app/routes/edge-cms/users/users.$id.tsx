@@ -43,7 +43,7 @@ import {
 import { combineHeaders } from '~/utils/misc';
 import { requireAuth } from '~/utils/auth.middleware';
 import { env } from 'cloudflare:workers';
-import { APIError, type User } from 'better-auth/api';
+import { APIError } from 'better-auth/api';
 import type { Route } from './+types/users.$id';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -57,7 +57,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			headers: request.headers,
 		});
 
-		const currentUser = users.users?.find((u: User) => u.id === userId);
+		const currentUser = users.users?.find(u => u.id === userId);
 
 		if (!currentUser) {
 			throw new Response('User not found', { status: 404 });
@@ -192,7 +192,7 @@ export default function UserDetailPage() {
 		}
 	}, [fetcher.state, fetcher.data]);
 
-	const formatDate = (date: string | number | null | undefined) => {
+	const formatDate = (date: string | number | Date | null | undefined) => {
 		if (!date) return 'Never';
 		try {
 			return new Date(date).toLocaleString();

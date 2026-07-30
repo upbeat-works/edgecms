@@ -23,7 +23,14 @@ export interface BlockSchemaProperty {
 	id: number;
 	schemaId: number;
 	name: string;
-	type: 'string' | 'number' | 'translation' | 'media' | 'boolean' | 'block' | 'collection';
+	type:
+		| 'string'
+		| 'number'
+		| 'translation'
+		| 'media'
+		| 'boolean'
+		| 'block'
+		| 'collection';
 	refSchemaId: number | null;
 	position: number;
 	description: string | null;

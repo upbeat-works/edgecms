@@ -37,7 +37,9 @@ function resolveEnvVars(value: string): string {
  * Loads the EdgeCMS configuration from the project root.
  * Looks for edgecms.config.json in the current working directory.
  */
-export async function loadConfig(cwd: string = process.cwd()): Promise<EdgeCMSConfig> {
+export async function loadConfig(
+	cwd: string = process.cwd(),
+): Promise<EdgeCMSConfig> {
 	const configPath = resolve(cwd, CONFIG_FILENAME);
 
 	try {

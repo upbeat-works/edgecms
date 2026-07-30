@@ -6,7 +6,7 @@ import {
 	useFetcher,
 	redirect,
 } from 'react-router';
-import type { Route } from '../+types/users';
+import type { Route } from './+types/users';
 import { Button } from '~/components/ui/button';
 import {
 	Table,
@@ -130,7 +130,7 @@ export default function UsersPage() {
 		navigate(`/edge-cms/users/${userId}`);
 	};
 
-	const formatDate = (date: string | number | null | undefined) => {
+	const formatDate = (date: string | number | Date | null | undefined) => {
 		if (!date) return 'Never';
 		try {
 			return new Date(date).toLocaleString();

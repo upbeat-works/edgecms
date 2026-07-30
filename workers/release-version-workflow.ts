@@ -11,6 +11,7 @@ import {
 	getAllBlockCollectionsData,
 	getBlocksBackupData,
 } from '~/utils/db.server';
+import type { Language } from '~/utils/db/types';
 import { gzipString } from '~/utils/gzip';
 
 type Params = {};
@@ -37,7 +38,7 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 		);
 
-		const [defaultLanguage, restLanguages] = await step.do(
+		const { defaultLanguage, restLanguages } = await step.do(
 			'get languages',
 			{
 				retries: {
@@ -51,8 +52,8 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				console.log('[ReleaseVersionWorkflow] Getting languages');
 				const languages = await getLanguages();
 
-				let defaultLanguage = null;
-				let restLanguages = [];
+				let defaultLanguage: Language | null = null;
+				const restLanguages: Language[] = [];
 				for (const language of languages) {
 					if (language.default) {
 						defaultLanguage = language;
@@ -65,7 +66,10 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 					throw new Error('No default language found');
 				}
 
-				return [defaultLanguage, restLanguages];
+				// Returned as an object rather than a tuple: an array literal of
+				// mixed element types widens to `(Language | Language[])[]`, which
+				// loses the types on destructuring.
+				return { defaultLanguage, restLanguages };
 			},
 		);
 
@@ -246,9 +250,7 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 				timeout: '2 minutes',
 			},
 			async () => {
-				console.log(
-					'[ReleaseVersionWorkflow] Getting blocks backup data',
-				);
+				console.log('[ReleaseVersionWorkflow] Getting blocks backup data');
 				return await getBlocksBackupData();
 			},
 		);
@@ -266,19 +268,17 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			async () => {
 				console.log('[ReleaseVersionWorkflow] Saving block snapshots');
 				await Promise.all(
-					Object.entries(blockCollections).map(
-						([collectionName, data]) =>
-							this.env.BACKUPS_BUCKET.put(
-								`${draftVersion.id}/blocks/${collectionName}.json`,
-								JSON.stringify(data),
-								{
-									httpMetadata: {
-										contentType: 'application/json',
-										cacheControl:
-											'public, immutable, max-age=31536000',
-									},
+					Object.entries(blockCollections).map(([collectionName, data]) =>
+						this.env.BACKUPS_BUCKET.put(
+							`${draftVersion.id}/blocks/${collectionName}.json`,
+							JSON.stringify(data),
+							{
+								httpMetadata: {
+									contentType: 'application/json',
+									cacheControl: 'public, immutable, max-age=31536000',
 								},
-							),
+							},
+						),
 					),
 				);
 			},

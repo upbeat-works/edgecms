@@ -1,6 +1,12 @@
-import { type Session, type User } from 'better-auth';
 import { redirect } from 'react-router';
 import { createAuth, type Auth } from './auth.server';
+
+// Use better-auth's inferred session so plugin-added fields (e.g. the admin
+// plugin's `user.role`) are present. The base `User`/`Session` types are not
+// plugin-aware.
+type InferredSession = Auth['$Infer']['Session'];
+type Session = InferredSession['session'];
+type User = InferredSession['user'];
 
 export interface ApiKeyResult {
 	valid: true;
@@ -89,7 +95,9 @@ export async function requireApiKey(
 		key: {
 			id: result.key.id,
 			name: result.key.name,
-			userId: result.key.userId,
+			// better-auth >=1.5 renamed this to `referenceId` to allow org-owned
+			// keys. We don't configure `references`, so it is always a user id.
+			userId: result.key.referenceId,
 			prefix: result.key.prefix,
 			permissions: result.key.permissions ?? null,
 			metadata: (result.key.metadata as Record<string, unknown>) ?? null,

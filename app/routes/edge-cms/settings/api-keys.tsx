@@ -51,7 +51,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		headers: request.headers,
 	});
 
-	const apiKeys: ApiKeyInfo[] = result.map(key => ({
+	// better-auth >=1.5 returns { apiKeys, total, limit, offset } instead of an array
+	const apiKeys: ApiKeyInfo[] = result.apiKeys.map(key => ({
 		id: key.id,
 		name: key.name,
 		start: key.start,

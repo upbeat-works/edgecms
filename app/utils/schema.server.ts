@@ -72,9 +72,12 @@ export const apikey = sqliteTable('apikey', {
 	start: text('start'),
 	prefix: text('prefix'),
 	key: text('key').notNull(),
-	userId: text('userId')
+	// Renamed from `userId` in better-auth 1.5. We don't set the plugin's
+	// `references` option, so this is always a user id.
+	referenceId: text('referenceId')
 		.notNull()
 		.references(() => user.id, { onDelete: 'cascade' }),
+	configId: text('configId').notNull().default('default'),
 	refillInterval: integer('refillInterval'),
 	refillAmount: integer('refillAmount'),
 	lastRefillAt: integer('lastRefillAt', { mode: 'timestamp' }),
