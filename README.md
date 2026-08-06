@@ -185,8 +185,9 @@ npm run dev
 ## Testing
 
 ```bash
-npm test           # Run once
-npm run test:watch # Watch mode
+npm test           # CMS + SDK
+npm run test:watch # Watch mode (CMS)
+npm run test:sdk   # CLI/SDK only
 ```
 
 Tests run inside the Workers runtime via `@cloudflare/vitest-pool-workers`,
@@ -195,6 +196,11 @@ bindings, and real Workflows. Nothing in the stack is mocked: API-key tests
 issue genuine better-auth keys, and the publish tests run
 `ReleaseVersionWorkflow` through to completion and then assert on the rows and
 R2 objects it produced.
+
+The CLI in `packages/sdk` is plain Node code, so it is tested separately in a
+Node environment (`npm run test:sdk`). Those tests stub `fetch` — the one
+boundary they cannot cross — and drive the real commands against an in-memory
+CMS that enforces the rules the CLI has to plan around.
 
 Note: each real release logs an unhandled
 `TypeError: The RPC receiver does not implement the method "entries"` from
@@ -277,6 +283,137 @@ edgecms push                        # Push default locale translations
 edgecms push --section "homepage"   # Assign new keys to a section
 ```
 
+#### `edgecms prune`
+
+`push` only ever adds keys. `prune` is the other half: it compares the CMS
+against your local translations file and removes the keys that are no longer
+there.
+
+Deleting is destructive, so it never happens by accident:
+
+- **Dry run by default.** Without `--yes` the CMS reports what would go and
+  changes nothing. The report is produced by the same code path as the real run,
+  so it says exactly what `--yes` will do.
+- **Block-owned keys are never deleted.** Keys a block instance generates or
+  points at come back under _protected_, whoever asks for them.
+- **An empty local file aborts the run.** A broken build that produces no keys
+  would otherwise mark the entire CMS as unused.
+- **Deletions land in the draft.** Nothing disappears from the live site until
+  you `publish`, and a release can be rolled back.
+
+```bash
+edgecms prune                  # Report the orphans, delete nothing
+edgecms prune --verbose        # List every orphan rather than a sample
+edgecms prune --yes            # Delete them from the draft
+```
+
+The comparison is against the draft — the state the deletion applies to — and
+covers the keys the default locale holds. A key that exists only in a
+non-default locale is invisible to the diff, so `prune` will not propose it;
+remove those with `keys:delete`. If one CMS serves several apps, run `prune`
+from the app that owns the keys, since another app's keys look unused from here.
+
+```
+$ edgecms prune
+Comparing en.json (312 keys) against the CMS draft (340 keys)
+
+28 keys exist in the CMS but not locally.
+
+24 keys would be deleted:
+  home.hero.oldTitle
+  checkout.legacy.notice
+  ... 22 more (--verbose to list all)
+
+Protected, will not be deleted — 4 keys are owned by block instances:
+  blocks.hero.12.title
+  ...
+
+Nothing was deleted — this was a dry run. Re-run with --yes to delete these 24 keys.
+```
+
+#### `edgecms keys:delete`
+
+Delete named keys, for when you know exactly which ones to remove. Same
+protections as `prune`: dry run unless `--yes`, block-owned keys refused, draft
+only.
+
+```bash
+edgecms keys:delete home.hero.oldTitle checkout.legacy.notice
+edgecms keys:delete home.hero.oldTitle --yes
+```
+
+#### `edgecms blocks:push`
+
+Declare your block schemas and collections in `blocks.schema.json` and apply
+them. Schema names are kebab-case, property names camelCase — the API rejects
+anything else rather than silently renaming it.
+
+```json
+{
+	"schemas": {
+		"card": {
+			"heading": "translation",
+			"url": "string"
+		},
+		"hero": {
+			"title": "translation",
+			"image": { "type": "media", "description": "Background image" },
+			"cards": { "type": "collection", "refSchema": "card" }
+		}
+	},
+	"collections": {
+		"homepage-hero": { "schema": "hero", "singleton": true },
+		"features": { "schema": "card", "section": "home" }
+	}
+}
+```
+
+A property is either a type name or an object with `type`, and optionally
+`refSchema` (required for `block` and `collection` types) and `description`. New
+properties are appended in the order they appear; a `block` or `collection`
+property may point at any schema in the file, including its own, whatever order
+they are written in.
+
+```bash
+edgecms blocks:push                  # Apply ./blocks.schema.json
+edgecms blocks:push ./cms/blocks.json  # ...or another file
+```
+
+Applying is **additive and idempotent**: it creates schemas, properties and
+collections that don't exist yet and leaves everything else alone. It never
+deletes a property, retypes one, or rebinds a collection to another schema — it
+fails with `PROPERTY_CONFLICT` / `COLLECTION_CONFLICT` instead, so content
+already stored under a schema cannot be orphaned by a file edit. Re-running it
+after a partial failure is safe.
+
+What the document *does* keep in sync is the parts that carry no structure: a
+property's `description` and a collection's `section` are applied when they
+differ. Anything the document doesn't mention is left as the CMS has it, so
+descriptions written by an editor survive a push that says nothing about them.
+
+```
+$ edgecms blocks:push
+Applying /app/blocks.schema.json
+
+  + schema card (2 properties)
+  ~ schema hero (+1)
+  + collection homepage-hero (singleton)
+  = collection features
+
+Note: these are draft changes. Run `edgecms publish` to make them live.
+```
+
+Set `"blocksFile"` in `edgecms.config.json` to change the default path.
+
+#### `edgecms schemas` / `edgecms blocks`
+
+List what the CMS holds.
+
+```bash
+edgecms schemas    # Schemas with their properties
+edgecms blocks     # Collections with their schema and item count
+```
+
 #### `edgecms import-blocks`
 
 Bulk import block instances from a JSON file.
@@ -336,6 +473,11 @@ edgecms check --verbose        # List every key rather than a sample
 import {
 	pull,
 	push,
+	prune,
+	deleteKeys,
+	pushBlocks,
+	listSchemas,
+	listCollections,
 	importBlocks,
 	addLanguage,
 	setDefaultLanguage,
@@ -349,10 +491,16 @@ import {
 ```bash
 edgecms languages:add en          # Create the default locale
 edgecms languages:add es
+edgecms blocks:push               # Create the schemas and collections
 edgecms push                      # Upload translations into the draft
+edgecms prune                     # Report keys the codebase no longer uses
 edgecms check                     # Fail the build if anything is untranslated
 edgecms publish --wait            # Go live
 ```
+
+Every command above is safe to re-run: `languages:add`, `blocks:push` and `push`
+create what's missing and leave the rest alone, and `prune` only reports until
+someone passes `--yes`.
 
 ## Routes
 
@@ -380,17 +528,22 @@ edgecms publish --wait            # Go live
 
 ### SDK API Routes (API Key Required)
 
-| Route                          | Method | Description                                |
-| ------------------------------ | ------ | ------------------------------------------ |
-| `/edge-cms/api/i18n/pull`      | GET    | Fetch translations                         |
-| `/edge-cms/api/i18n/push`      | POST   | Create/update translations                 |
-| `/edge-cms/api/i18n/languages` | GET    | List available languages                   |
-| `/edge-cms/api/i18n/languages` | POST   | Create a language                          |
-| `/edge-cms/api/i18n/languages` | PATCH  | Set the default language                   |
-| `/edge-cms/api/i18n/missing`   | GET    | Report untranslated keys                   |
-| `/edge-cms/api/blocks/import`  | POST   | Bulk import blocks                         |
-| `/edge-cms/api/publish`        | POST   | Release the draft (returns a `publishId`)  |
-| `/edge-cms/api/publish`        | GET    | Status of a release, via `?id=<publishId>` |
+| Route                              | Method | Description                                  |
+| ---------------------------------- | ------ | -------------------------------------------- |
+| `/edge-cms/api/i18n/pull`          | GET    | Fetch translations                           |
+| `/edge-cms/api/i18n/push`          | POST   | Create/update translations                   |
+| `/edge-cms/api/i18n/languages`     | GET    | List available languages                     |
+| `/edge-cms/api/i18n/languages`     | POST   | Create a language                            |
+| `/edge-cms/api/i18n/languages`     | PATCH  | Set the default language                     |
+| `/edge-cms/api/i18n/missing`       | GET    | Report untranslated keys                     |
+| `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
+| `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |
+| `/edge-cms/api/blocks/schemas`     | GET    | List schemas and their properties            |
+| `/edge-cms/api/blocks/schemas`     | POST   | Create a schema, or add missing properties   |
+| `/edge-cms/api/blocks/collections` | GET    | List collections                             |
+| `/edge-cms/api/blocks/collections` | POST   | Create a collection                          |
+| `/edge-cms/api/publish`            | POST   | Release the draft (returns a `publishId`)    |
+| `/edge-cms/api/publish`            | GET    | Status of a release, via `?id=<publishId>`   |
 
 Errors share a shape: `{ "error": "...", "code": "MACHINE_READABLE_CODE" }`.
 
@@ -419,6 +572,16 @@ const missing = await env.EDGECMS.missingTranslations();
 // Writes
 await env.EDGECMS.createLanguage('pt-BR', { makeDefault: false });
 await env.EDGECMS.setDefaultLanguage('pt-BR');
+await env.EDGECMS.applyBlockSchema('hero', [
+	{ name: 'title', type: 'translation' },
+]);
+await env.EDGECMS.createBlockCollection({
+	name: 'homepage-hero',
+	schema: 'hero',
+});
+await env.EDGECMS.deleteTranslationKeys(['home.hero.oldTitle'], {
+	dryRun: false,
+});
 const { publishId } = await env.EDGECMS.publish();
 const state = await env.EDGECMS.publishStatus(publishId);
 ```

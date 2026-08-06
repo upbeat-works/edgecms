@@ -52,7 +52,13 @@ export default [
 		route('api/i18n/push', 'routes/edge-cms/api/i18n.push.ts'),
 		route('api/i18n/languages', 'routes/edge-cms/api/i18n.languages.ts'),
 		route('api/i18n/missing', 'routes/edge-cms/api/i18n.missing.ts'),
+		route('api/i18n/keys', 'routes/edge-cms/api/i18n.keys.ts'),
 		route('api/blocks/import', 'routes/edge-cms/api/blocks.import.ts'),
+		route('api/blocks/schemas', 'routes/edge-cms/api/blocks.schemas.ts'),
+		route(
+			'api/blocks/collections',
+			'routes/edge-cms/api/blocks.collections.ts',
+		),
 		route('api/publish', 'routes/edge-cms/api/publish.ts'),
 		// Public routes
 		route(

@@ -12,8 +12,9 @@
     "postinstall": "npm run cf-typegen",
     "preview": "npm run build && vite preview",
     "typecheck": "npm run cf-typegen && react-router typegen && tsc -b",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:sdk",
     "test:watch": "vitest",
+    "test:sdk": "npm --prefix packages/sdk test",
     "test:coverage": "vitest run --coverage",
     "format": "prettier --write ."
   },

@@ -67,6 +67,61 @@ export interface MissingKey {
 	defaultValue: string;
 }
 
+export interface DeleteKeysResponse {
+	dryRun: boolean;
+	requested: number;
+	/** Deleted, or — under a dry run — what deleting would remove. */
+	deleted: string[];
+	/** Keys a block instance depends on. Never deleted. */
+	protected: string[];
+	/** Keys the CMS does not hold. */
+	missing: string[];
+}
+
+export type BlockPropertyType =
+	| 'string'
+	| 'number'
+	| 'translation'
+	| 'media'
+	| 'boolean'
+	| 'block'
+	| 'collection';
+
+export interface BlockProperty {
+	name: string;
+	type: BlockPropertyType;
+	refSchema?: string;
+	description?: string;
+}
+
+export interface BlockSchemaResponse {
+	name: string;
+	created: boolean;
+	propertiesAdded: number;
+	/** Existing properties whose declared description was applied. */
+	propertiesUpdated: number;
+	properties: Required<BlockProperty>[];
+}
+
+export interface BlockSchemasResponse {
+	schemas: { name: string; properties: Required<BlockProperty>[] }[];
+}
+
+export interface BlockCollectionResponse {
+	name: string;
+	schema: string;
+	section: string | null;
+	singleton: boolean;
+	created: boolean;
+	/** An existing collection was moved to the declared section. */
+	updated: boolean;
+	instanceCount: number;
+}
+
+export interface BlockCollectionsResponse {
+	collections: Omit<BlockCollectionResponse, 'created' | 'updated'>[];
+}
+
 export interface MissingTranslationsResponse {
 	defaultLocale: string;
 	totalMissing: number;
@@ -150,6 +205,67 @@ export class EdgeCMSClient {
 		return this.fetch<PushResponse>('/api/i18n/push', {
 			method: 'POST',
 			body: JSON.stringify({ locale, translations, section }),
+		});
+	}
+
+	/**
+	 * Delete translation keys and every locale's value for them.
+	 *
+	 * A dry run unless `dryRun: false` is passed: the CMS reports what would go
+	 * rather than deleting it. Keys owned by block instances are never deleted
+	 * and come back under `protected`.
+	 */
+	async deleteKeys(
+		keys: string[],
+		options: { dryRun?: boolean } = {},
+	): Promise<DeleteKeysResponse> {
+		return this.fetch<DeleteKeysResponse>('/api/i18n/keys', {
+			method: 'DELETE',
+			body: JSON.stringify({ keys, dryRun: options.dryRun !== false }),
+		});
+	}
+
+	/**
+	 * List block schemas and their properties.
+	 */
+	async getBlockSchemas(): Promise<BlockSchemasResponse> {
+		return this.fetch<BlockSchemasResponse>('/api/blocks/schemas');
+	}
+
+	/**
+	 * Create a schema, or add the properties it is missing. Additive — an
+	 * existing property is never retyped or dropped.
+	 */
+	async applyBlockSchema(
+		name: string,
+		properties: BlockProperty[] = [],
+	): Promise<BlockSchemaResponse> {
+		return this.fetch<BlockSchemaResponse>('/api/blocks/schemas', {
+			method: 'POST',
+			body: JSON.stringify({ name, properties }),
+		});
+	}
+
+	/**
+	 * List block collections.
+	 */
+	async getBlockCollections(): Promise<BlockCollectionsResponse> {
+		return this.fetch<BlockCollectionsResponse>('/api/blocks/collections');
+	}
+
+	/**
+	 * Create a collection bound to a schema. Re-creating an identical one is a
+	 * no-op, so a declarative document can be applied repeatedly.
+	 */
+	async createBlockCollection(input: {
+		name: string;
+		schema: string;
+		section?: string;
+		singleton?: boolean;
+	}): Promise<BlockCollectionResponse> {
+		return this.fetch<BlockCollectionResponse>('/api/blocks/collections', {
+			method: 'POST',
+			body: JSON.stringify(input),
 		});
 	}
 

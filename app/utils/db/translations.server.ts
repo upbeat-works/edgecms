@@ -98,6 +98,30 @@ export async function getMissingTranslationsForLanguage(
 	}));
 }
 
+/**
+ * Which of `keys` the CMS actually holds. Batched to stay under D1's cap of 100
+ * bound parameters per statement.
+ */
+export async function getExistingTranslationKeys(
+	keys: string[],
+): Promise<string[]> {
+	if (keys.length === 0) return [];
+
+	const BATCH_SIZE = 90;
+	const found: string[] = [];
+
+	for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+		const batch = keys.slice(i, i + BATCH_SIZE);
+		const rows = await db
+			.select({ key: translationKeys.key })
+			.from(translationKeys)
+			.where(inArray(translationKeys.key, batch));
+		found.push(...rows.map(row => row.key));
+	}
+
+	return found;
+}
+
 export async function upsertTranslation(
 	key: string,
 	language: string,
@@ -193,14 +217,24 @@ export async function updateTranslationKey(
 export async function deleteTranslationsByKeys(keys: string[]): Promise<void> {
 	if (keys.length === 0) return;
 
-	const BATCH_SIZE = 25;
+	// Chunked to stay under D1's cap of 100 bound parameters per statement, but
+	// sent as one batch: D1 runs a batch in a transaction, so a failure part-way
+	// through cannot leave a caller with half their keys deleted and no report
+	// of which half.
+	const BATCH_SIZE = 90;
+	const statements = [];
 
 	for (let i = 0; i < keys.length; i += BATCH_SIZE) {
 		const batch = keys.slice(i, i + BATCH_SIZE);
 
-		// Delete from translation_keys table (CASCADE will handle translations)
-		await db.delete(translationKeys).where(inArray(translationKeys.key, batch));
+		// Deleting the key cascades to its translations in every locale.
+		statements.push(
+			db.delete(translationKeys).where(inArray(translationKeys.key, batch)),
+		);
 	}
+
+	const [first, ...rest] = statements;
+	await db.batch([first, ...rest]);
 }
 
 // Helper function to update a translation key's section

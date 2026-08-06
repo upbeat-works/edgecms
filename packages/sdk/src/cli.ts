@@ -12,6 +12,8 @@ import {
 } from './commands/languages.js';
 import { publish, publishStatus } from './commands/publish.js';
 import { check } from './commands/check.js';
+import { deleteKeys, prune } from './commands/keys.js';
+import { listCollections, listSchemas, pushBlocks } from './commands/blocks.js';
 
 // '../package.json' resolves correctly from both src/ and dist/.
 const { version } = createRequire(import.meta.url)('../package.json') as {
@@ -50,6 +52,84 @@ program
 		try {
 			const config = await loadConfig();
 			await push(config, { section: options.section });
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('prune')
+	.description(
+		'Delete keys the CMS holds that the local translations file no longer has. Reports without deleting unless --yes is given.',
+	)
+	.option('--yes', 'Actually delete, instead of reporting what would go')
+	.option('--verbose', 'List every key instead of a sample')
+	.action(async options => {
+		try {
+			await prune(await loadConfig(), {
+				yes: options.yes,
+				verbose: options.verbose,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('keys:delete')
+	.description(
+		'Delete named translation keys. Reports without deleting unless --yes is given.',
+	)
+	.argument('<keys...>', 'Keys to delete')
+	.option('--yes', 'Actually delete, instead of reporting what would go')
+	.option('--verbose', 'List every key instead of a sample')
+	.action(async (keys, options) => {
+		try {
+			await deleteKeys(await loadConfig(), keys, {
+				yes: options.yes,
+				verbose: options.verbose,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('blocks:push')
+	.description(
+		'Create the schemas, properties and collections declared in blocks.schema.json. Additive: never deletes or retypes.',
+	)
+	.argument('[file]', 'Path to the blocks document')
+	.action(async file => {
+		try {
+			await pushBlocks(await loadConfig(), { file });
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('schemas')
+	.description('List the block schemas in the CMS with their properties')
+	.action(async () => {
+		try {
+			await listSchemas(await loadConfig());
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('blocks')
+	.description('List the block collections in the CMS')
+	.action(async () => {
+		try {
+			await listCollections(await loadConfig());
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);

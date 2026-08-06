@@ -496,6 +496,50 @@ export async function upsertBlockInstanceValue(props: {
 		});
 }
 
+/**
+ * Every translation key a block instance depends on: the keys generated from
+ * its schema, plus any key an instance was pointed at by an import. Deleting
+ * one of these would leave a block rendering a missing string.
+ */
+export async function getBlockOwnedTranslationKeys(): Promise<string[]> {
+	const [generated, referenced] = await Promise.all([
+		db
+			.select({
+				instanceId: blockInstances.id,
+				schemaName: blockSchemas.name,
+				propertyName: blockSchemaProperties.name,
+			})
+			.from(blockInstances)
+			.innerJoin(blockSchemas, eq(blockInstances.schemaId, blockSchemas.id))
+			.innerJoin(
+				blockSchemaProperties,
+				and(
+					eq(blockSchemaProperties.schemaId, blockInstances.schemaId),
+					eq(blockSchemaProperties.type, 'translation'),
+				),
+			),
+		db
+			.select({ stringValue: blockInstanceValues.stringValue })
+			.from(blockInstanceValues)
+			.innerJoin(
+				blockSchemaProperties,
+				eq(blockInstanceValues.propertyId, blockSchemaProperties.id),
+			)
+			.where(eq(blockSchemaProperties.type, 'translation')),
+	]);
+
+	const keys = new Set(
+		generated.map(row =>
+			buildTranslationKey(row.schemaName, row.instanceId, row.propertyName),
+		),
+	);
+	for (const row of referenced) {
+		if (row.stringValue) keys.add(row.stringValue);
+	}
+
+	return [...keys];
+}
+
 // Helper: Delete all translation keys for a block instance
 async function deleteBlockInstanceTranslations(
 	instanceId: number,

@@ -1,6 +1,67 @@
+import { getBlockOwnedTranslationKeys } from '../db/blocks.server';
 import { getLanguages } from '../db/languages.server';
-import { getMissingTranslationsForLanguage } from '../db/translations.server';
+import {
+	deleteTranslationsByKeys,
+	getExistingTranslationKeys,
+	getMissingTranslationsForLanguage,
+} from '../db/translations.server';
+import { ensureDraftVersion } from '../ensure-draft-version.server';
 import { err, ok, type ServiceResult } from './result';
+
+export interface DeleteKeysResult {
+	dryRun: boolean;
+	requested: number;
+	/** Deleted, or — under a dry run — what deleting would remove. */
+	deleted: string[];
+	/** Keys a block instance depends on. Never deleted. */
+	protected: string[];
+	/** Keys the CMS does not hold. */
+	missing: string[];
+}
+
+/**
+ * Delete translation keys and every locale's value for them.
+ *
+ * Defaults to a dry run: deleting is the caller's explicit choice, never the
+ * consequence of getting a flag wrong. Whichever way it is called, the report
+ * is the same, so a dry run says exactly what the real run will do.
+ */
+export async function deleteTranslationKeys(
+	keys: string[],
+	options: { dryRun?: boolean; userId?: string } = {},
+): Promise<ServiceResult<DeleteKeysResult>> {
+	const dryRun = options.dryRun !== false;
+	const requested = [...new Set(keys.filter(key => key.trim() !== ''))];
+
+	if (requested.length === 0) {
+		return err('NO_KEYS', 'No keys were given to delete', 400);
+	}
+
+	const [existing, blockOwned] = await Promise.all([
+		getExistingTranslationKeys(requested).then(found => new Set(found)),
+		getBlockOwnedTranslationKeys().then(found => new Set(found)),
+	]);
+
+	// Report in the order asked for, so a caller can read the result against
+	// the list they sent.
+	const missing = requested.filter(key => !existing.has(key));
+	const present = requested.filter(key => existing.has(key));
+	const protectedKeys = present.filter(key => blockOwned.has(key));
+	const deletable = present.filter(key => !blockOwned.has(key));
+
+	if (!dryRun && deletable.length > 0) {
+		await ensureDraftVersion(options.userId);
+		await deleteTranslationsByKeys(deletable);
+	}
+
+	return ok({
+		dryRun,
+		requested: requested.length,
+		deleted: deletable,
+		protected: protectedKeys,
+		missing,
+	});
+}
 
 export interface MissingKey {
 	key: string;

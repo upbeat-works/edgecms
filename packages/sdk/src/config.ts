@@ -12,6 +12,8 @@ export interface EdgeCMSConfig {
 	defaultLocale: string;
 	/** Path to output TypeScript types file */
 	typesOutputPath: string;
+	/** Path to the declarative blocks document. Defaults to ./blocks.schema.json */
+	blocksFile?: string;
 }
 
 const CONFIG_FILENAME = 'edgecms.config.json';
@@ -114,5 +116,6 @@ export async function loadConfig(
 		localesDir: rawConfig.localesDir!,
 		defaultLocale: rawConfig.defaultLocale!,
 		typesOutputPath: rawConfig.typesOutputPath!,
+		blocksFile: rawConfig.blocksFile,
 	};
 }

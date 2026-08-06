@@ -20,7 +20,18 @@ import {
 	type PublishStatusResult,
 } from '~/utils/services/publish.server';
 import {
+	applyBlockSchema,
+	createBlockCollection,
+	listBlockCollections,
+	listBlockSchemas,
+	type BlockCollectionResult,
+	type BlockPropertyInput,
+	type BlockSchemaResult,
+} from '~/utils/services/blocks.server';
+import {
+	deleteTranslationKeys,
 	getMissingTranslations,
+	type DeleteKeysResult,
 	type MissingTranslationsResult,
 } from '~/utils/services/translations.server';
 import { unwrap } from '~/utils/services/result';
@@ -193,6 +204,53 @@ export class EdgeCMSService extends WorkerEntrypoint<Env> {
 
 	async setDefaultLanguage(locale: string): Promise<LanguageResult> {
 		return unwrap(await setDefaultLanguage(locale));
+	}
+
+	/**
+	 * Delete translation keys and every locale's value for them.
+	 *
+	 * Dry run unless `dryRun: false` is passed, and keys owned by block
+	 * instances are never deleted — they come back under `protected`.
+	 */
+	async deleteTranslationKeys(
+		keys: string[],
+		options: { dryRun?: boolean } = {},
+	): Promise<DeleteKeysResult> {
+		return unwrap(
+			await deleteTranslationKeys(keys, { dryRun: options.dryRun }),
+		);
+	}
+
+	async getBlockSchemas(): Promise<
+		{ name: string; properties: BlockSchemaResult['properties'] }[]
+	> {
+		return unwrap(await listBlockSchemas()).schemas;
+	}
+
+	/**
+	 * Create a schema, or add the properties it is missing. Additive: existing
+	 * properties are never retyped or dropped.
+	 */
+	async applyBlockSchema(
+		name: string,
+		properties: BlockPropertyInput[] = [],
+	): Promise<BlockSchemaResult> {
+		return unwrap(await applyBlockSchema(name, properties));
+	}
+
+	async getBlockCollections(): Promise<
+		Omit<BlockCollectionResult, 'created' | 'updated'>[]
+	> {
+		return unwrap(await listBlockCollections()).collections;
+	}
+
+	async createBlockCollection(input: {
+		name: string;
+		schema: string;
+		section?: string;
+		singleton?: boolean;
+	}): Promise<BlockCollectionResult> {
+		return unwrap(await createBlockCollection(input));
 	}
 
 	/**

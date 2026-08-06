@@ -13,6 +13,13 @@ export {
 	type PublishStatusResponse,
 	type MissingTranslationsResponse,
 	type MissingKey,
+	type DeleteKeysResponse,
+	type BlockProperty,
+	type BlockPropertyType,
+	type BlockSchemaResponse,
+	type BlockSchemasResponse,
+	type BlockCollectionResponse,
+	type BlockCollectionsResponse,
 } from './api.js';
 export { generateTypes } from './codegen.js';
 export { pull, type PullOptions } from './commands/pull.js';
@@ -33,3 +40,23 @@ export {
 	type PublishOptions,
 } from './commands/publish.js';
 export { check, type CheckOptions } from './commands/check.js';
+export {
+	deleteKeys,
+	prune,
+	type DeleteKeysOptions,
+	type PruneOptions,
+} from './commands/keys.js';
+export {
+	pushBlocks,
+	listSchemas,
+	listCollections,
+	type PushBlocksOptions,
+} from './commands/blocks.js';
+export {
+	parseBlocksDocument,
+	planSchemaApplication,
+	computeOrphanKeys,
+	type BlocksDocument,
+	type SchemaDeclaration,
+	type CollectionDeclaration,
+} from './planning.js';

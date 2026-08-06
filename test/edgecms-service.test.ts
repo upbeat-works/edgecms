@@ -70,6 +70,64 @@ describe('languages over RPC', () => {
 	});
 });
 
+describe('authoring blocks over RPC', () => {
+	it('creates a schema and a collection bound to it', async () => {
+		const svc = service();
+
+		await svc.applyBlockSchema('hero', [
+			{ name: 'title', type: 'translation' },
+		]);
+		await svc.createBlockCollection({ name: 'homepage-hero', schema: 'hero' });
+
+		await expect(svc.getBlockCollections()).resolves.toEqual([
+			{
+				name: 'homepage-hero',
+				schema: 'hero',
+				section: 'homepage-hero',
+				singleton: false,
+				instanceCount: 0,
+			},
+		]);
+	});
+
+	it('throws with the REST error code for an unknown schema', async () => {
+		await expect(
+			service().createBlockCollection({
+				name: 'homepage-hero',
+				schema: 'hero',
+			}),
+		).rejects.toMatchObject({ name: 'SCHEMA_NOT_FOUND' });
+	});
+});
+
+describe('deleting translation keys over RPC', () => {
+	it('is a dry run unless the caller opts out', async () => {
+		await seedLanguage('en', true);
+		await upsertTranslation('home.hero.title', 'en', 'Hello');
+
+		await expect(
+			service().deleteTranslationKeys(['home.hero.title']),
+		).resolves.toMatchObject({ dryRun: true, deleted: ['home.hero.title'] });
+
+		await expect(service().pullTranslations()).resolves.toMatchObject({
+			translations: { en: { 'home.hero.title': 'Hello' } },
+		});
+	});
+
+	it('deletes when asked to', async () => {
+		await seedLanguage('en', true);
+		await upsertTranslation('home.hero.title', 'en', 'Hello');
+
+		await service().deleteTranslationKeys(['home.hero.title'], {
+			dryRun: false,
+		});
+
+		await expect(service().pullTranslations()).resolves.toMatchObject({
+			translations: { en: {} },
+		});
+	});
+});
+
 describe('publishing over RPC', () => {
 	it('starts a release and returns its id', async () => {
 		await seedLanguage('en', true);
