@@ -2,6 +2,7 @@ import { createRequestHandler } from 'react-router';
 import { ReleaseVersionWorkflow } from './release-version-workflow';
 import { RollbackVersionWorkflow } from './rollback-version-workflow';
 import { AITranslateWorkflow } from './ai-translate-workflow';
+import { EdgeCMSService } from './edgecms-service';
 
 if (import.meta.hot) {
 	import.meta.hot.accept();
@@ -47,4 +48,9 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 
-export { ReleaseVersionWorkflow, RollbackVersionWorkflow, AITranslateWorkflow };
+export {
+	ReleaseVersionWorkflow,
+	RollbackVersionWorkflow,
+	AITranslateWorkflow,
+	EdgeCMSService,
+};

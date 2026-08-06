@@ -182,6 +182,26 @@ npm run typecheck
 npm run dev
 ```
 
+## Testing
+
+```bash
+npm test           # Run once
+npm run test:watch # Watch mode
+```
+
+Tests run inside the Workers runtime via `@cloudflare/vitest-pool-workers`,
+against a real D1 database with the project's migrations applied, real R2 and KV
+bindings, and real Workflows. Nothing in the stack is mocked: API-key tests
+issue genuine better-auth keys, and the publish tests run
+`ReleaseVersionWorkflow` through to completion and then assert on the rows and
+R2 objects it produced.
+
+Note: each real release logs an unhandled
+`TypeError: The RPC receiver does not implement the method "entries"` from
+miniflare's Workflows engine. It has no frame in project code, fires once per
+run regardless of step count, and does not affect the outcome — the assertions
+confirm every step's effect landed.
+
 ## Deployment
 
 ```bash
@@ -266,10 +286,72 @@ edgecms import-blocks ./data.json "hero-blocks"
 edgecms import-blocks ./data.json "carousel" --locale "es"
 ```
 
+#### `edgecms languages`
+
+Manage locales. A fresh instance has none, and `push` / `import-blocks` reject
+unknown locales — so this is the first command to run against a new CMS.
+
+```bash
+edgecms languages                      # List locales, marking the default
+edgecms languages:add en               # First locale created becomes the default
+edgecms languages:add pt-BR            # Added as non-default
+edgecms languages:add es --default     # Create and make default in one step
+edgecms languages:set-default es       # Promote an existing locale
+```
+
+Locale tags are canonicalised to BCP-47 casing (`EN-us` becomes `en-US`), so the
+same language can't be created twice under different spellings. The command
+prints the tag that was actually created.
+
+#### `edgecms publish`
+
+Release the current draft, making it live. Until you publish, nothing the CLI
+writes is visible on the public endpoints.
+
+```bash
+edgecms publish                        # Start a release and return immediately
+edgecms publish --wait                 # Block until it finishes
+edgecms publish --wait --timeout 120   # ...with a custom timeout in seconds
+edgecms publish:status <publishId>     # Check a release started earlier
+```
+
+`--wait` exits non-zero if the release ends in any state other than `complete`.
+Preconditions (an existing draft, a default language) are checked up front, so a
+misconfigured CMS fails immediately rather than halfway through a release.
+
+#### `edgecms check`
+
+Report keys present in the default locale but missing or empty elsewhere. Exits
+non-zero when anything is missing, which makes it usable as a CI gate.
+
+```bash
+edgecms check                  # Every non-default locale
+edgecms check --locale es      # Just one
+edgecms check --verbose        # List every key rather than a sample
+```
+
 ### Programmatic Usage
 
 ```typescript
-import { pull, push, importBlocks } from '@upbeat-works/edgecms-sdk';
+import {
+	pull,
+	push,
+	importBlocks,
+	addLanguage,
+	setDefaultLanguage,
+	publish,
+	check,
+} from '@upbeat-works/edgecms-sdk';
+```
+
+### Bootstrapping a new CMS from CI
+
+```bash
+edgecms languages:add en          # Create the default locale
+edgecms languages:add es
+edgecms push                      # Upload translations into the draft
+edgecms check                     # Fail the build if anything is untranslated
+edgecms publish --wait            # Go live
 ```
 
 ## Routes
@@ -298,12 +380,53 @@ import { pull, push, importBlocks } from '@upbeat-works/edgecms-sdk';
 
 ### SDK API Routes (API Key Required)
 
-| Route                          | Method | Description                |
-| ------------------------------ | ------ | -------------------------- |
-| `/edge-cms/api/i18n/pull`      | GET    | Fetch translations         |
-| `/edge-cms/api/i18n/push`      | POST   | Create/update translations |
-| `/edge-cms/api/i18n/languages` | GET    | List available languages   |
-| `/edge-cms/api/blocks/import`  | POST   | Bulk import blocks         |
+| Route                          | Method | Description                                |
+| ------------------------------ | ------ | ------------------------------------------ |
+| `/edge-cms/api/i18n/pull`      | GET    | Fetch translations                         |
+| `/edge-cms/api/i18n/push`      | POST   | Create/update translations                 |
+| `/edge-cms/api/i18n/languages` | GET    | List available languages                   |
+| `/edge-cms/api/i18n/languages` | POST   | Create a language                          |
+| `/edge-cms/api/i18n/languages` | PATCH  | Set the default language                   |
+| `/edge-cms/api/i18n/missing`   | GET    | Report untranslated keys                   |
+| `/edge-cms/api/blocks/import`  | POST   | Bulk import blocks                         |
+| `/edge-cms/api/publish`        | POST   | Release the draft (returns a `publishId`)  |
+| `/edge-cms/api/publish`        | GET    | Status of a release, via `?id=<publishId>` |
+
+Errors share a shape: `{ "error": "...", "code": "MACHINE_READABLE_CODE" }`.
+
+### Service Bindings (Worker-to-Worker RPC)
+
+Workers in the same Cloudflare account can skip HTTP and API keys entirely by
+binding to the `EdgeCMSService` RPC entrypoint. A service binding is already an
+authenticated, account-private channel.
+
+```jsonc
+// consumer's wrangler.jsonc
+"services": [
+  { "binding": "EDGECMS", "service": "edgecms", "entrypoint": "EdgeCMSService" }
+]
+```
+
+```typescript
+// Reads — served from the live published snapshot
+const translations = await env.EDGECMS.getTranslations('en');
+const blocks = await env.EDGECMS.getBlocks('hero-blocks');
+const media = await env.EDGECMS.getMedia('logo.png'); // { contentType, size, etag, body }
+const { languages, defaultLocale } = await env.EDGECMS.getLanguages();
+const draft = await env.EDGECMS.pullTranslations();
+const missing = await env.EDGECMS.missingTranslations();
+
+// Writes
+await env.EDGECMS.createLanguage('pt-BR', { makeDefault: false });
+await env.EDGECMS.setDefaultLanguage('pt-BR');
+const { publishId } = await env.EDGECMS.publish();
+const state = await env.EDGECMS.publishStatus(publishId);
+```
+
+RPC methods throw on failure instead of returning status codes, with
+`error.name` carrying the same code the REST API returns (`LOCALE_EXISTS`,
+`NO_DRAFT`, `NO_DEFAULT_LANGUAGE`, `COLLECTION_NOT_FOUND`, …). Both surfaces
+call the same service layer, so validation and preconditions cannot drift apart.
 
 ## Usage
 

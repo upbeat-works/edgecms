@@ -9,6 +9,10 @@ export {
 	type BlocksResponse,
 	type BlockItem,
 	type ImportBlocksResponse,
+	type PublishResponse,
+	type PublishStatusResponse,
+	type MissingTranslationsResponse,
+	type MissingKey,
 } from './api.js';
 export { generateTypes } from './codegen.js';
 export { pull, type PullOptions } from './commands/pull.js';
@@ -17,3 +21,15 @@ export {
 	importBlocks,
 	type ImportBlocksOptions,
 } from './commands/import-blocks.js';
+export {
+	listLanguages,
+	addLanguage,
+	setDefaultLanguage,
+	type AddLanguageOptions,
+} from './commands/languages.js';
+export {
+	publish,
+	publishStatus,
+	type PublishOptions,
+} from './commands/publish.js';
+export { check, type CheckOptions } from './commands/check.js';

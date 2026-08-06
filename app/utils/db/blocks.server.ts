@@ -264,18 +264,22 @@ export async function createBlockCollection(props: {
 		await db.insert(sections).values({ name: sectionName });
 	}
 
+	// The stored flag and the singleton-instance decision below must read the
+	// same value, or a collection is born already holding a phantom instance.
+	const isCollection = props.isCollection ?? true;
+
 	const result = await db
 		.insert(blockCollections)
 		.values({
 			name: props.name,
 			schemaId: props.schemaId,
 			section: sectionName,
-			isCollection: props.isCollection ?? true,
+			isCollection,
 		})
 		.returning();
 
 	// For singleton blocks, create the single instance immediately
-	if (!props.isCollection) {
+	if (!isCollection) {
 		await createBlockInstance({
 			schemaId: props.schemaId,
 			collectionId: result[0].id,

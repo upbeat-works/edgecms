@@ -1,0 +1,305 @@
+import { createExecutionContext, env } from 'cloudflare:test';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { EdgeCMSService } from '../workers/edgecms-service';
+import { getLanguages } from '~/utils/db/languages.server';
+import { createVersion } from '~/utils/db/versions.server';
+import { upsertTranslation } from '~/utils/db/translations.server';
+import {
+	resetDb,
+	seedBlockCollection,
+	seedLanguage,
+	seedMedia,
+} from './helpers';
+
+function service() {
+	return new EdgeCMSService(createExecutionContext(), env);
+}
+
+beforeEach(async () => {
+	await resetDb();
+	vi.restoreAllMocks();
+});
+
+describe('languages over RPC', () => {
+	it('creates a language without an API key', async () => {
+		const result = await service().createLanguage('pt-BR');
+
+		expect(result).toEqual({ locale: 'pt-BR', default: true });
+		expect(await getLanguages()).toEqual([{ locale: 'pt-BR', default: true }]);
+	});
+
+	it('lists languages', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+
+		await expect(service().getLanguages()).resolves.toEqual({
+			languages: [
+				{ locale: 'en', default: true },
+				{ locale: 'es', default: false },
+			],
+			defaultLocale: 'en',
+		});
+	});
+
+	it('changes the default language', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+
+		await service().setDefaultLanguage('es');
+
+		expect(await getLanguages()).toEqual([
+			{ locale: 'en', default: false },
+			{ locale: 'es', default: true },
+		]);
+	});
+
+	// REST callers get a status code; RPC callers get a throw carrying the same
+	// machine-readable code.
+	it('throws with the REST error code when the locale already exists', async () => {
+		await seedLanguage('en', true);
+
+		await expect(service().createLanguage('en')).rejects.toMatchObject({
+			name: 'LOCALE_EXISTS',
+		});
+	});
+
+	it('throws when setting a default that does not exist', async () => {
+		await expect(service().setDefaultLanguage('de')).rejects.toMatchObject({
+			name: 'LOCALE_NOT_FOUND',
+		});
+	});
+});
+
+describe('publishing over RPC', () => {
+	it('starts a release and returns its id', async () => {
+		await seedLanguage('en', true);
+		const draft = await createVersion('some changes');
+		vi.spyOn(env.RELEASE_VERSION_WORKFLOW, 'create').mockResolvedValue({
+			id: 'wf_rpc',
+		} as never);
+
+		await expect(service().publish()).resolves.toEqual({
+			publishId: 'wf_rpc',
+			versionId: draft.id,
+		});
+	});
+
+	it('throws when there is nothing to publish', async () => {
+		await seedLanguage('en', true);
+
+		await expect(service().publish()).rejects.toMatchObject({
+			name: 'NO_DRAFT',
+		});
+	});
+
+	it('reports release status', async () => {
+		vi.spyOn(env.RELEASE_VERSION_WORKFLOW, 'get').mockResolvedValue({
+			status: async () => ({ status: 'complete' }),
+		} as never);
+
+		await expect(service().publishStatus('wf_rpc')).resolves.toEqual({
+			publishId: 'wf_rpc',
+			status: 'complete',
+			error: null,
+		});
+	});
+});
+
+describe('reading published content over RPC', () => {
+	const TERMINAL = ['complete', 'errored', 'terminated'];
+
+	async function publishAndWait(svc: EdgeCMSService) {
+		const { publishId } = await svc.publish();
+		const deadline = Date.now() + 15_000;
+		while (Date.now() < deadline) {
+			const state = await svc.publishStatus(publishId);
+			if (TERMINAL.includes(state.status)) return state;
+			await scheduler.wait(50);
+		}
+		throw new Error('publish did not settle');
+	}
+
+	it('serves the locale file written by a real publish', async () => {
+		const svc = service();
+		await seedLanguage('en', true);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await createVersion('some changes');
+
+		await expect(publishAndWait(svc)).resolves.toMatchObject({
+			status: 'complete',
+		});
+
+		await expect(svc.getTranslations('en')).resolves.toEqual({
+			'home.title': 'Welcome',
+		});
+	});
+
+	it('throws a coded error before anything has been published', async () => {
+		await seedLanguage('en', true);
+
+		await expect(service().getTranslations('en')).rejects.toMatchObject({
+			name: 'NO_LIVE_VERSION',
+		});
+	});
+
+	it('throws a coded error for a locale with no published file', async () => {
+		const svc = service();
+		await seedLanguage('en', true);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await createVersion('some changes');
+		await publishAndWait(svc);
+
+		await expect(svc.getTranslations('de')).rejects.toMatchObject({
+			name: 'LOCALE_NOT_FOUND',
+		});
+	});
+
+	it('throws a coded error for an unknown block collection', async () => {
+		await expect(service().getBlocks('nope')).rejects.toMatchObject({
+			name: 'COLLECTION_NOT_FOUND',
+		});
+	});
+
+	it('serves blocks from D1 before anything has been published', async () => {
+		await seedBlockCollection('hero', 'Welcome home');
+
+		const data = (await service().getBlocks('hero')) as {
+			collection: string;
+			items: { heading: string }[];
+		};
+
+		expect(data.collection).toBe('hero');
+		expect(data.items).toHaveLength(1);
+		expect(data.items[0].heading).toBe('Welcome home');
+	});
+
+	it('serves blocks from the snapshot once published', async () => {
+		const svc = service();
+		await seedLanguage('en', true);
+		await seedBlockCollection('hero', 'Welcome home');
+		await createVersion('some changes');
+		await publishAndWait(svc);
+
+		const data = (await svc.getBlocks('hero')) as {
+			items: { heading: string }[];
+		};
+
+		expect(data.items[0].heading).toBe('Welcome home');
+	});
+
+	// A collection created after the last publish has no snapshot. Falling back
+	// to D1 here would leak unpublished content to every consumer.
+	it('refuses to serve a collection created after the last publish', async () => {
+		const svc = service();
+		await seedLanguage('en', true);
+		await createVersion('some changes');
+		await publishAndWait(svc);
+
+		await seedBlockCollection('added-later', 'Draft only');
+
+		await expect(svc.getBlocks('added-later')).rejects.toMatchObject({
+			name: 'COLLECTION_NOT_FOUND',
+		});
+	});
+
+	it('throws a coded error for unknown media', async () => {
+		await expect(service().getMedia('nope.png')).rejects.toMatchObject({
+			name: 'MEDIA_NOT_FOUND',
+		});
+	});
+
+	it('returns media metadata and a readable body', async () => {
+		await seedMedia('logo.png', 'pretend-png-bytes', 'image/png');
+
+		const media = await service().getMedia('logo.png');
+
+		expect(media).toMatchObject({
+			contentType: 'image/png',
+			size: 'pretend-png-bytes'.length,
+		});
+		expect(media.etag).toEqual(expect.any(String));
+		await expect(new Response(media.body).text()).resolves.toBe(
+			'pretend-png-bytes',
+		);
+	});
+
+	it('throws when the media row exists but its file is gone from R2', async () => {
+		const row = await seedMedia('orphan.png');
+		const { buildVersionedFilename } = await import('~/utils/media.server');
+		await env.MEDIA_BUCKET.delete(
+			buildVersionedFilename(row.filename, row.version),
+		);
+
+		await expect(service().getMedia('orphan.png')).rejects.toMatchObject({
+			name: 'MEDIA_NOT_FOUND',
+		});
+	});
+
+	it('reports a null default locale when none is set', async () => {
+		await seedLanguage('en', false);
+
+		await expect(service().pullTranslations()).resolves.toMatchObject({
+			defaultLocale: null,
+		});
+	});
+
+	it('pulls draft translations grouped by locale', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await upsertTranslation('home.title', 'es', 'Bienvenido');
+
+		await expect(service().pullTranslations()).resolves.toEqual({
+			languages: [
+				{ locale: 'en', default: true },
+				{ locale: 'es', default: false },
+			],
+			defaultLocale: 'en',
+			translations: {
+				en: { 'home.title': 'Welcome' },
+				es: { 'home.title': 'Bienvenido' },
+			},
+		});
+	});
+
+	// Draft edits must not leak to RPC readers before they are published.
+	it('keeps serving the published file after a later draft edit', async () => {
+		const svc = service();
+		await seedLanguage('en', true);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await createVersion('some changes');
+		await publishAndWait(svc);
+
+		await upsertTranslation('home.title', 'en', 'Changed in draft');
+
+		await expect(svc.getTranslations('en')).resolves.toEqual({
+			'home.title': 'Welcome',
+		});
+	});
+});
+
+describe('missing translations over RPC', () => {
+	it('reports untranslated keys', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+
+		const result = await service().missingTranslations();
+
+		expect(result).toMatchObject({
+			defaultLocale: 'en',
+			totalMissing: 1,
+		});
+	});
+
+	it('returns values that survive RPC serialization', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+
+		const result = await service().missingTranslations();
+
+		// RPC return values must be structured-cloneable.
+		expect(() => structuredClone(result)).not.toThrow();
+	});
+});

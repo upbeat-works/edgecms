@@ -49,6 +49,30 @@ export interface ImportBlocksResponse {
 	instancesCreated: number;
 }
 
+export interface PublishResponse {
+	publishId: string;
+	versionId: number;
+}
+
+/** queued | running | paused | errored | terminated | complete */
+export interface PublishStatusResponse {
+	publishId: string;
+	status: string;
+	error: string | null;
+}
+
+export interface MissingKey {
+	key: string;
+	section: string | null;
+	defaultValue: string;
+}
+
+export interface MissingTranslationsResponse {
+	defaultLocale: string;
+	totalMissing: number;
+	locales: Record<string, { missingCount: number; keys: MissingKey[] }>;
+}
+
 class EdgeCMSApiError extends Error {
 	constructor(
 		public code: string,
@@ -134,6 +158,53 @@ export class EdgeCMSClient {
 	 */
 	async getLanguages(): Promise<LanguagesResponse> {
 		return this.fetch<LanguagesResponse>('/api/i18n/languages');
+	}
+
+	/**
+	 * Create a language. The first language created is always the default.
+	 */
+	async createLanguage(
+		locale: string,
+		options: { makeDefault?: boolean } = {},
+	): Promise<Language> {
+		return this.fetch<Language>('/api/i18n/languages', {
+			method: 'POST',
+			body: JSON.stringify({ locale, default: options.makeDefault }),
+		});
+	}
+
+	/**
+	 * Mark an existing language as the default.
+	 */
+	async setDefaultLanguage(locale: string): Promise<Language> {
+		return this.fetch<Language>('/api/i18n/languages', {
+			method: 'PATCH',
+			body: JSON.stringify({ locale }),
+		});
+	}
+
+	/**
+	 * Release the current draft, making it live. Asynchronous — poll the
+	 * returned id with `getPublishStatus`.
+	 */
+	async publish(): Promise<PublishResponse> {
+		return this.fetch<PublishResponse>('/api/publish', { method: 'POST' });
+	}
+
+	async getPublishStatus(publishId: string): Promise<PublishStatusResponse> {
+		return this.fetch<PublishStatusResponse>(
+			`/api/publish?id=${encodeURIComponent(publishId)}`,
+		);
+	}
+
+	/**
+	 * Report keys present in the default locale but missing or empty elsewhere.
+	 */
+	async getMissingTranslations(
+		locale?: string,
+	): Promise<MissingTranslationsResponse> {
+		const query = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+		return this.fetch<MissingTranslationsResponse>(`/api/i18n/missing${query}`);
 	}
 
 	/**

@@ -48,6 +48,17 @@
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+	 *
+	 * This worker *exposes* an RPC entrypoint, `EdgeCMSService`. Consumers in the
+	 * same account bind to it from their own wrangler config:
+	 *
+	 *   "services": [
+	 *     { "binding": "EDGECMS", "service": "edgecms", "entrypoint": "EdgeCMSService" }
+	 *   ]
+	 *
+	 * Then call it directly, with no HTTP hop and no API key:
+	 *   const translations = await env.EDGECMS.getTranslations("en")
+	 *   await env.EDGECMS.createLanguage("pt-BR")
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
 
