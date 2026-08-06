@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.9",
+    "msw": "^2.15.0",
     "release-it": "^19.2.4",
     "typescript": "^5.8.3",
     "vitest": "^4.1.10"

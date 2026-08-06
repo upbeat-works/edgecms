@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test';
+import { env, introspectWorkflow } from 'cloudflare:test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { action, loader } from '~/routes/edge-cms/api/publish';
 import {
@@ -30,37 +30,21 @@ function status(id?: string) {
 	} as never);
 }
 
-const TERMINAL_STATES = ['complete', 'errored', 'terminated'];
-
-// Note: each real release logs one unhandled `TypeError: The RPC receiver does
-// not implement the method "entries"` from miniflare's Workflows engine. It has
-// no frame in our code, fires once per run regardless of step count, and does
-// not stop the workflow — the assertions below confirm every step's effect
-// landed. `getAllBlockCollectionsData()`/`getBlocksBackupData()` were checked
-// separately and are structured-cloneable.
-
-/**
- * Drive a real release to completion. The workflow has no sleeps, so it settles
- * quickly; polling the public status endpoint (rather than the binding) means
- * the wait exercises the same path a CI client would use.
- */
-async function awaitPublish(publishId: string, timeoutMs = 15_000) {
-	const deadline = Date.now() + timeoutMs;
-
-	while (Date.now() < deadline) {
-		const body = (await status(publishId).then(r => r.json())) as {
-			status: string;
-			error: string | null;
-		};
-		if (TERMINAL_STATES.includes(body.status)) return body;
-		await scheduler.wait(50);
+async function introspectedInstance(
+	workflow: Awaited<ReturnType<typeof introspectWorkflow>>,
+) {
+	const instances = await workflow.get();
+	if (instances.length !== 1) {
+		throw new Error(`Expected one publish instance, got ${instances.length}`);
 	}
-
-	throw new Error(`Publish ${publishId} did not settle within ${timeoutMs}ms`);
+	return instances[0];
 }
 
 describe('publishing a draft', () => {
 	it('makes the draft live and writes the published locale files', async () => {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
 		await seedLanguage('en', true);
 		await seedLanguage('es', false);
 		await upsertTranslation('home.title', 'en', 'Welcome');
@@ -73,10 +57,11 @@ describe('publishing a draft', () => {
 			publishId: string;
 			versionId: number;
 		};
+		expect(publishId).toEqual(expect.any(String));
 		expect(versionId).toBe(draft.id);
 
-		const settled = await awaitPublish(publishId);
-		expect(settled).toMatchObject({ status: 'complete', error: null });
+		const instance = await introspectedInstance(_workflow);
+		await instance.waitForStatus('complete');
 
 		// The draft is now the live version...
 		expect(await getLatestVersion('live')).toMatchObject({ id: draft.id });
@@ -94,6 +79,9 @@ describe('publishing a draft', () => {
 	});
 
 	it('falls back to the default locale for keys a locale has not translated', async () => {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
 		await seedLanguage('en', true);
 		await seedLanguage('es', false);
 		await upsertTranslation('home.title', 'en', 'Welcome');
@@ -104,7 +92,9 @@ describe('publishing a draft', () => {
 		const { publishId } = (await publish().then(r => r.json())) as {
 			publishId: string;
 		};
-		await awaitPublish(publishId);
+		expect(publishId).toEqual(expect.any(String));
+		const instance = await introspectedInstance(_workflow);
+		await instance.waitForStatus('complete');
 
 		const spanish = await env.BACKUPS_BUCKET.get(`${draft.id}/es.json`);
 		await expect(spanish?.json()).resolves.toEqual({
@@ -163,8 +153,11 @@ describe('publishing a draft', () => {
 	});
 });
 
-describe('polling publish status', () => {
+describe('publish status', () => {
 	it('tracks a real release through to completion', async () => {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
 		await seedLanguage('en', true);
 		await upsertTranslation('home.title', 'en', 'Welcome');
 		await createVersion('some changes');
@@ -172,36 +165,28 @@ describe('polling publish status', () => {
 		const { publishId } = (await publish().then(r => r.json())) as {
 			publishId: string;
 		};
+		expect(publishId).toEqual(expect.any(String));
 
-		const response = await status(publishId);
-		expect(response.status).toBe(200);
-		const body = (await response.json()) as { publishId: string };
-		expect(body.publishId).toBe(publishId);
-
-		await expect(awaitPublish(publishId)).resolves.toMatchObject({
-			status: 'complete',
-		});
+		const instance = await introspectedInstance(_workflow);
+		await expect(instance.waitForStatus('complete')).resolves.toBeUndefined();
 	});
 
-	// Bypasses the endpoint's precondition check by starting the workflow
-	// directly, so the release genuinely fails mid-flight. Proves a failed
-	// release is reported as `errored` with a JSON-safe `error` field, rather
-	// than crashing the status endpoint on whatever shape Workflows hands back.
-	// Slow by nature: the failing step retries 3x with exponential backoff before
-	// the workflow gives up, so this takes ~15s. Kept anyway — it is the only
-	// test proving a broken release surfaces as a failure CI can act on, rather
-	// than hanging or crashing the status endpoint.
 	it('reports a release that failed while running', async () => {
+		await using workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
+		await workflow.modifyAll(async modifier => {
+			await modifier.disableRetryDelays();
+		});
 		await seedLanguage('en', false); // no default -> workflow throws
 		await createVersion('some changes');
-		const publishId = await releaseDraft();
+		await releaseDraft();
 
-		const settled = await awaitPublish(publishId, 40_000);
-
-		expect(settled.status).toBe('errored');
-		// Workflows reports the failure as an Error object, not a string. CI
-		// needs the reason, not just "it failed".
-		expect(settled.error).toContain('No default language found');
+		const instance = await introspectedInstance(workflow);
+		await instance.waitForStatus('errored');
+		await expect(instance.getError()).resolves.toMatchObject({
+			message: expect.stringContaining('No default language found'),
+		});
 	}, 45_000);
 
 	it('requires an id', async () => {
@@ -218,6 +203,9 @@ describe('polling publish status', () => {
 	// few internal "Engine was never started" / "instance.not_found" rejections
 	// while doing so — noise, not failures.
 	it('404s for an unknown publish id', async () => {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
 		const response = await status('does-not-exist');
 
 		expect(response.status).toBe(404);

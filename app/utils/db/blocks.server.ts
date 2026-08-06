@@ -297,6 +297,12 @@ export async function updateBlockCollectionSection(
 	const oldCollection = await getBlockCollectionById(id);
 	if (!oldCollection) return;
 
+	// block_collections.section references sections.name, so moving a
+	// collection must create the destination just like initial creation does.
+	if (section) {
+		await db.insert(sections).values({ name: section }).onConflictDoNothing();
+	}
+
 	await db
 		.update(blockCollections)
 		.set({ section })

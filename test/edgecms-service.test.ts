@@ -1,4 +1,8 @@
-import { createExecutionContext, env } from 'cloudflare:test';
+import {
+	createExecutionContext,
+	env,
+	introspectWorkflow,
+} from 'cloudflare:test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EdgeCMSService } from '../workers/edgecms-service';
 import { getLanguages } from '~/utils/db/languages.server';
@@ -164,17 +168,17 @@ describe('publishing over RPC', () => {
 });
 
 describe('reading published content over RPC', () => {
-	const TERMINAL = ['complete', 'errored', 'terminated'];
-
 	async function publishAndWait(svc: EdgeCMSService) {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
 		const { publishId } = await svc.publish();
-		const deadline = Date.now() + 15_000;
-		while (Date.now() < deadline) {
-			const state = await svc.publishStatus(publishId);
-			if (TERMINAL.includes(state.status)) return state;
-			await scheduler.wait(50);
+		const instances = await _workflow.get();
+		if (instances.length !== 1) {
+			throw new Error(`Expected one publish instance, got ${instances.length}`);
 		}
-		throw new Error('publish did not settle');
+		await instances[0].waitForStatus('complete');
+		return { publishId, status: 'complete' };
 	}
 
 	it('serves the locale file written by a real publish', async () => {

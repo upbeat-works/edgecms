@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	vi.unstubAllGlobals();
+	cms.close();
 	vi.restoreAllMocks();
 });
 

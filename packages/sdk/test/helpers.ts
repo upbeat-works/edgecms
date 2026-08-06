@@ -1,7 +1,8 @@
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
 import type { EdgeCMSConfig } from '../src/config.js';
 
 /**
@@ -98,64 +99,51 @@ export function fakeCMS() {
 		};
 	}
 
-	const fetch = vi.fn(async (url: string, init: RequestInit = {}) => {
-		const path = new URL(url).pathname;
-		const method = init.method ?? 'GET';
-		const body = init.body ? JSON.parse(init.body as string) : undefined;
-
-		let result: { status: number; body: unknown };
-
-		if (path.endsWith('/api/blocks/schemas') && method === 'POST') {
-			result = applySchema(body);
-		} else if (path.endsWith('/api/blocks/collections') && method === 'POST') {
-			result = createCollection(body);
-		} else if (path.endsWith('/api/i18n/pull')) {
-			result = {
-				status: 200,
-				body: {
-					languages: Object.keys(translations).map((locale, index) => ({
-						locale,
-						default: index === 0,
-					})),
-					defaultLocale: Object.keys(translations)[0] ?? null,
-					translations,
-				},
+	const server = setupServer(
+		http.post('*/api/blocks/schemas', async ({ request }) => {
+			const result = applySchema(await request.json());
+			return HttpResponse.json(result.body, { status: result.status });
+		}),
+		http.post('*/api/blocks/collections', async ({ request }) => {
+			const result = createCollection(await request.json());
+			return HttpResponse.json(result.body, { status: result.status });
+		}),
+		http.get('*/api/i18n/pull', () =>
+			HttpResponse.json({
+				languages: Object.keys(translations).map((locale, index) => ({
+					locale,
+					default: index === 0,
+				})),
+				defaultLocale: Object.keys(translations)[0] ?? null,
+				translations,
+			}),
+		),
+		http.delete('*/api/i18n/keys', async ({ request }) => {
+			const body = (await request.json()) as {
+				keys: string[];
+				dryRun: boolean;
 			};
-		} else if (path.endsWith('/api/i18n/keys') && method === 'DELETE') {
 			deleteRequests.push({ keys: body.keys, dryRun: body.dryRun });
 			const held = translations[Object.keys(translations)[0]] ?? {};
-			const present = body.keys.filter((key: string) => key in held);
+			const present = body.keys.filter(key => key in held);
 			if (body.dryRun === false) {
 				for (const key of present) {
 					for (const locale of Object.keys(translations))
 						delete translations[locale][key];
 				}
 			}
-			result = {
-				status: 200,
-				body: {
-					dryRun: body.dryRun,
-					requested: body.keys.length,
-					deleted: present,
-					protected: [],
-					missing: body.keys.filter((key: string) => !(key in held)),
-				},
-			};
-		} else {
-			result = {
-				status: 404,
-				body: { error: `Unhandled ${method} ${path}`, code: 'NOT_FOUND' },
-			};
-		}
 
-		return new Response(JSON.stringify(result.body), {
-			status: result.status,
-			headers: { 'Content-Type': 'application/json' },
-		});
-	});
+			return HttpResponse.json({
+				dryRun: body.dryRun,
+				requested: body.keys.length,
+				deleted: present,
+				protected: [],
+				missing: body.keys.filter(key => !(key in held)),
+			});
+		}),
+	);
 
 	return {
-		fetch,
 		schemas,
 		collections,
 		translations,
@@ -164,7 +152,10 @@ export function fakeCMS() {
 			return (schemas.get(schemaName)?.properties ?? []).map(p => p.name);
 		},
 		install() {
-			vi.stubGlobal('fetch', fetch);
+			server.listen({ onUnhandledRequest: 'error' });
+		},
+		close() {
+			server.close();
 		},
 	};
 }
