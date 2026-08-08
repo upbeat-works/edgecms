@@ -1,0 +1,4 @@
+interface:
+  display_name: "EdgeCMS"
+  short_description: "Manage EdgeCMS content and integrations"
+  default_prompt: "Use $edgecms to safely manage and synchronize this EdgeCMS integration."

@@ -14,4 +14,4 @@ build
 .wrangler
 .dev.vars*
 
-.claude/*
+.claude/settings.local.json

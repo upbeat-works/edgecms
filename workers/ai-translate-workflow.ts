@@ -224,7 +224,7 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 												);
 
 												const { object } = await generateObject({
-													model: openai('gpt-4o-mini'),
+													model: openai('gpt-5.6-luna'),
 													schema: translationSchema,
 													prompt: `Translate the following key-value pairs from ${defaultLanguage.locale} to ${language.locale}.
 
