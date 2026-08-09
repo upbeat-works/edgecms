@@ -27,6 +27,8 @@ import {
 	updateTranslationKey,
 	deleteTranslationsByKeys,
 	updateTranslationKeySection,
+	markTranslationCurrent,
+	createTranslationKey,
 } from '~/utils/db.server';
 
 import { Button } from '~/components/ui/button';
@@ -124,6 +126,14 @@ export async function action({ request }: Route.ActionArgs) {
 			return Response.json({ success: true });
 		}
 
+		case 'mark-translation-current': {
+			const key = formData.get('key') as string;
+			const language = formData.get('language') as string;
+
+			await markTranslationCurrent(key, language);
+			return Response.json({ success: true });
+		}
+
 		case 'add-language': {
 			const locale = formData.get('locale') as string;
 			await createLanguage(locale);
@@ -137,20 +147,37 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 
 		case 'add-translation': {
-			const key = formData.get('key') as string;
+			const key = (formData.get('key') as string | null)?.trim();
 			const section = formData.get('section') as string | null;
 
-			// Add empty translations for all languages
+			if (!key) {
+				return Response.json(
+					{ success: false, error: 'Key cannot be empty' },
+					{ status: 400 },
+				);
+			}
+
+			// Adding a key that already holds translations would blank every
+			// locale's value for it. Refuse, as renaming a key onto an existing one
+			// already does — and judge that by the translations, not the key row: a
+			// rollback leaves keys added since the release with no translations at
+			// all, and those are invisible in the grid and safe to recreate.
+			const existing = await getTranslations({ key });
+			if (existing.length > 0) {
+				return Response.json(
+					{
+						success: false,
+						error: 'A translation with this key already exists',
+					},
+					{ status: 400 },
+				);
+			}
+
 			const languages = await getLanguages();
-			await Promise.all(
-				languages.map(async language => {
-					await upsertTranslation(
-						key,
-						language.locale,
-						'',
-						section || undefined,
-					);
-				}),
+			await createTranslationKey(
+				key,
+				languages.map(language => language.locale),
+				section || undefined,
 			);
 			return { success: true };
 		}
@@ -174,11 +201,9 @@ export async function action({ request }: Route.ActionArgs) {
 			try {
 				const jsonText = await jsonFile.text();
 				const translationsMap = JSON.parse(jsonText) as Record<string, string>;
-				await bulkUpsertTranslations(
-					language,
-					translationsMap,
-					section || undefined,
-				);
+				await bulkUpsertTranslations(language, translationsMap, {
+					section: section || undefined,
+				});
 				return { success: true };
 			} catch (error) {
 				return { error: 'Failed to parse JSON: ' + (error as Error).message };
@@ -190,7 +215,16 @@ export async function action({ request }: Route.ActionArgs) {
 			if (!env.OPENAI_API_KEY) {
 				return { error: 'OpenAI API key is not configured' };
 			}
-			const instanceId = await runAITranslation(auth.user.id);
+			// Retranslating what is merely out of date overwrites work someone
+			// may have done by hand, so it only happens when asked for by name.
+			const scope =
+				formData.get('scope') === 'missing-and-stale'
+					? 'missing-and-stale'
+					: 'missing';
+			const instanceId = await runAITranslation({
+				scope,
+				userId: auth.user.id,
+			});
 			return redirect(`/edge-cms/i18n?aiTranslateId=${instanceId}`);
 		}
 

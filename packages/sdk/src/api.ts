@@ -67,6 +67,15 @@ export interface MissingKey {
 	defaultValue: string;
 }
 
+export interface StaleKey {
+	key: string;
+	section: string | null;
+	/** The default-locale value as it now stands. */
+	defaultValue: string;
+	/** The translation, written against an earlier default value. */
+	currentValue: string;
+}
+
 export interface DeleteKeysResponse {
 	dryRun: boolean;
 	requested: number;
@@ -126,6 +135,12 @@ export interface MissingTranslationsResponse {
 	defaultLocale: string;
 	totalMissing: number;
 	locales: Record<string, { missingCount: number; keys: MissingKey[] }>;
+}
+
+export interface StaleTranslationsResponse {
+	defaultLocale: string;
+	totalStale: number;
+	locales: Record<string, { staleCount: number; keys: StaleKey[] }>;
 }
 
 class EdgeCMSApiError extends Error {
@@ -321,6 +336,18 @@ export class EdgeCMSClient {
 	): Promise<MissingTranslationsResponse> {
 		const query = locale ? `?locale=${encodeURIComponent(locale)}` : '';
 		return this.fetch<MissingTranslationsResponse>(`/api/i18n/missing${query}`);
+	}
+
+	/**
+	 * Report translations written against a default-locale value that has since
+	 * changed. Complements `getMissingTranslations`: these keys are translated,
+	 * just possibly out of date.
+	 */
+	async getStaleTranslations(
+		locale?: string,
+	): Promise<StaleTranslationsResponse> {
+		const query = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+		return this.fetch<StaleTranslationsResponse>(`/api/i18n/stale${query}`);
 	}
 
 	/**

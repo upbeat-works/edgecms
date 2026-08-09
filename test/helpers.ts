@@ -2,8 +2,29 @@ import { env } from 'cloudflare:test';
 import { createAuth } from '~/utils/auth.server';
 
 /**
- * Truncate application + auth tables between tests. Order matters: children
- * before parents, since D1 enforces foreign keys.
+ * Empty the R2 buckets between tests.
+ *
+ * Release artefacts are keyed by version id, and truncating `versions` resets
+ * the autoincrement — so without this, every test's version 1 collides with the
+ * previous test's version 1, and a rollback restores another test's catalogue.
+ */
+export async function resetBuckets() {
+	for (const bucket of [env.BACKUPS_BUCKET, env.MEDIA_BUCKET]) {
+		let cursor: string | undefined;
+		do {
+			const listing = await bucket.list({ cursor });
+			if (listing.objects.length > 0) {
+				await bucket.delete(listing.objects.map(object => object.key));
+			}
+			cursor = listing.truncated ? listing.cursor : undefined;
+		} while (cursor);
+	}
+}
+
+/**
+ * Truncate application + auth tables between tests, and clear the buckets their
+ * rows point at. Order matters: children before parents, since D1 enforces
+ * foreign keys.
  */
 export async function resetDb() {
 	const tables = [
@@ -27,6 +48,8 @@ export async function resetDb() {
 	for (const table of tables) {
 		await env.DB.prepare(`DELETE FROM ${table}`).run();
 	}
+
+	await resetBuckets();
 }
 
 /**
@@ -75,6 +98,47 @@ export function apiRequest(
 		headers: {
 			'x-api-key': apiKey,
 			...(init.body ? { 'Content-Type': 'application/json' } : {}),
+			...(init.headers as Record<string, string>),
+		},
+	});
+}
+
+/**
+ * Sign a new admin user in and return the cookie header that proves it.
+ *
+ * Goes through real sign-up rather than inserting rows: the session token is
+ * HMAC-signed with `AUTH_SECRET`, so a hand-built cookie is rejected, and
+ * `createUser` writes no `account` row for a password to live in.
+ */
+export async function signIn(): Promise<string> {
+	const auth = createAuth(env, 'admin');
+	const email = `user_${crypto.randomUUID()}@example.test`;
+
+	const { headers } = await auth.api.signUpEmail({
+		body: {
+			email,
+			password: 'correct-horse-battery-staple',
+			name: 'Test User',
+		},
+		returnHeaders: true,
+	});
+
+	return headers
+		.getSetCookie()
+		.map(cookie => cookie.split(';')[0])
+		.join('; ');
+}
+
+/** Build a Request carrying a signed-in session. */
+export function authedRequest(
+	url: string,
+	cookie: string,
+	init: RequestInit = {},
+): Request {
+	return new Request(`https://cms.test${url}`, {
+		...init,
+		headers: {
+			cookie,
 			...(init.headers as Record<string, string>),
 		},
 	});

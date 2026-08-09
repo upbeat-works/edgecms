@@ -31,8 +31,10 @@ import {
 import {
 	deleteTranslationKeys,
 	getMissingTranslations,
+	getStaleTranslations,
 	type DeleteKeysResult,
 	type MissingTranslationsResult,
+	type StaleTranslationsResult,
 } from '~/utils/services/translations.server';
 import { unwrap } from '~/utils/services/result';
 
@@ -191,6 +193,14 @@ export class EdgeCMSService extends WorkerEntrypoint<Env> {
 		locale?: string,
 	): Promise<MissingTranslationsResult> {
 		return unwrap(await getMissingTranslations(locale));
+	}
+
+	/**
+	 * Translations written against a default-locale value that has since
+	 * changed — translated, but possibly answering an older question.
+	 */
+	async staleTranslations(locale?: string): Promise<StaleTranslationsResult> {
+		return unwrap(await getStaleTranslations(locale));
 	}
 
 	async createLanguage(

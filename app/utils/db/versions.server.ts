@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, desc, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { versions, user } from '../schema.server';
-import type { Version } from './types';
+import type { TranslationScope, Version } from './types';
 
 const db = drizzle(env.DB);
 
@@ -110,9 +110,15 @@ export async function updateVersionDescription(
 		.where(eq(versions.id, versionId));
 }
 
-export async function runAITranslation(userId?: string): Promise<string> {
+export async function runAITranslation({
+	scope,
+	userId,
+}: {
+	scope: TranslationScope;
+	userId?: string;
+}): Promise<string> {
 	const instance = await env.AI_TRANSLATE_WORKFLOW.create({
-		params: { userId },
+		params: { userId, scope },
 	});
 	console.log('Created AI translate workflow: ', instance);
 	return instance.id;

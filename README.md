@@ -27,8 +27,11 @@ infrastructure on the planet.
 - Multi-language support with fallback to default locale
 - Inline editing with auto-save — no submit buttons, no friction
 - Section-based organization for large translation sets
+- Stale detection — change a default-locale value and every translation written
+  against the old one is flagged for review
 - Draft/live versioning with publish and rollback
-- AI-powered auto-translation for missing keys
+- AI-powered auto-translation, for untranslated keys alone or for outdated ones
+  as well — your call at the point of running it
 - Cached public API endpoints for blazing-fast delivery
 
 ### Content Blocks
@@ -386,7 +389,7 @@ fails with `PROPERTY_CONFLICT` / `COLLECTION_CONFLICT` instead, so content
 already stored under a schema cannot be orphaned by a file edit. Re-running it
 after a partial failure is safe.
 
-What the document *does* keep in sync is the parts that carry no structure: a
+What the document _does_ keep in sync is the parts that carry no structure: a
 property's `description` and a collection's `section` are applied when they
 differ. Anything the document doesn't mention is left as the CMS has it, so
 descriptions written by an editor survive a push that says nothing about them.
@@ -467,6 +470,27 @@ edgecms check --locale es      # Just one
 edgecms check --verbose        # List every key rather than a sample
 ```
 
+#### `edgecms stale`
+
+Report translations written against a default-locale value that has since
+changed. The complement of `check`: these keys are translated, they just answer
+an older question. Exits non-zero when anything is stale.
+
+```bash
+edgecms stale                  # Every non-default locale
+edgecms stale --locale es      # Just one
+edgecms stale --verbose        # List every key rather than a sample
+```
+
+Nothing goes stale on its own — a translation is cleared the moment it is
+rewritten, or when an editor confirms it in the admin UI. Changing which locale
+is the default resets the tracking, since hashes recorded against the old
+default say nothing about the new one.
+
+Push the default locale first when seeding a CMS: a translation pushed before
+the value it translates exists has nothing to record, and is reported stale
+until it is rewritten or confirmed.
+
 ### Programmatic Usage
 
 ```typescript
@@ -536,6 +560,7 @@ someone passes `--yes`.
 | `/edge-cms/api/i18n/languages`     | POST   | Create a language                            |
 | `/edge-cms/api/i18n/languages`     | PATCH  | Set the default language                     |
 | `/edge-cms/api/i18n/missing`       | GET    | Report untranslated keys                     |
+| `/edge-cms/api/i18n/stale`         | GET    | Report translations the source has outrun    |
 | `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
 | `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |
 | `/edge-cms/api/blocks/schemas`     | GET    | List schemas and their properties            |
@@ -568,6 +593,7 @@ const media = await env.EDGECMS.getMedia('logo.png'); // { contentType, size, et
 const { languages, defaultLocale } = await env.EDGECMS.getLanguages();
 const draft = await env.EDGECMS.pullTranslations();
 const missing = await env.EDGECMS.missingTranslations();
+const stale = await env.EDGECMS.staleTranslations();
 
 // Writes
 await env.EDGECMS.createLanguage('pt-BR', { makeDefault: false });
@@ -600,6 +626,20 @@ call the same service layer, so validation and preconditions cannot drift apart.
 3. Add languages and sections as needed
 4. Add translation keys and edit inline — changes auto-save
 5. Use versions to publish drafts or rollback changes
+
+Cells flagged in amber were translated from a default-locale value that has
+since changed. Rewrite one to clear the flag, or confirm it with the ⚠ button to
+keep the text as it stands.
+
+**AI Translate** offers two scopes, because they are not the same decision:
+
+| Scope                          | Covers                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| Untranslated keys              | Keys a locale never answered, or answered with an empty value                 |
+| Untranslated and outdated keys | The above, plus translations whose source text changed — **overwriting them** |
+
+The second scope replaces existing translations, including ones written by hand,
+so it is never the default and never implied.
 
 ### Consuming Translations
 
@@ -664,14 +704,20 @@ const { items } = await response.json();
 
 ### Translations
 
-| Field      | Description                |
-| ---------- | -------------------------- |
-| `key`      | Translation key            |
-| `language` | Language code              |
-| `value`    | Translated text            |
-| `section`  | Optional section reference |
-| `state`    | `draft` or `live`          |
-| `version`  | Version number             |
+| Field        | Description                                                   |
+| ------------ | ------------------------------------------------------------- |
+| `key`        | Translation key                                               |
+| `language`   | Language code                                                 |
+| `value`      | Translated text                                               |
+| `sourceHash` | Fingerprint of the default-locale value this was written from |
+| `section`    | Optional section reference                                    |
+| `state`      | `draft` or `live`                                             |
+| `version`    | Version number                                                |
+
+A translation is stale when its `sourceHash` no longer matches the one the
+default-locale row carries. Only the row being edited is ever written, so
+changing a default value costs one write no matter how many locales it
+invalidates.
 
 ### Media
 

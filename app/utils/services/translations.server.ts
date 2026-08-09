@@ -4,8 +4,10 @@ import {
 	deleteTranslationsByKeys,
 	getExistingTranslationKeys,
 	getMissingTranslationsForLanguage,
+	getStaleTranslationsForLanguage,
 } from '../db/translations.server';
 import { ensureDraftVersion } from '../ensure-draft-version.server';
+import type { TranslationScope } from '../db/types';
 import { err, ok, type ServiceResult } from './result';
 
 export interface DeleteKeysResult {
@@ -75,14 +77,19 @@ export interface MissingTranslationsResult {
 	locales: Record<string, { missingCount: number; keys: MissingKey[] }>;
 }
 
+interface LocaleScope {
+	defaultLocale: string;
+	/** The locales to report on: one if asked for, every non-default otherwise. */
+	targets: string[];
+}
+
 /**
- * Report keys that exist in the default locale but are absent — or present and
- * empty — in a target locale. Without `locale`, covers every non-default
- * locale.
+ * Resolve which locales a report covers, refusing the two ways the request can
+ * be unanswerable: nothing to compare against, or a locale that does not exist.
  */
-export async function getMissingTranslations(
+async function resolveLocaleScope(
 	locale?: string,
-): Promise<ServiceResult<MissingTranslationsResult>> {
+): Promise<ServiceResult<LocaleScope>> {
 	const languages = await getLanguages();
 	const defaultLocale = languages.find(l => l.default)?.locale;
 
@@ -94,24 +101,40 @@ export async function getMissingTranslations(
 		);
 	}
 
-	let targets: string[];
 	if (locale == null) {
-		targets = languages.filter(l => !l.default).map(l => l.locale);
-	} else {
-		const match = languages.find(
-			l => l.locale.toLowerCase() === locale.toLowerCase(),
-		);
-		if (!match) {
-			return err(
-				'LOCALE_NOT_FOUND',
-				`Locale "${locale}" does not exist. Available locales: ${languages
-					.map(l => l.locale)
-					.join(', ')}`,
-				404,
-			);
-		}
-		targets = [match.locale];
+		return ok({
+			defaultLocale,
+			targets: languages.filter(l => !l.default).map(l => l.locale),
+		});
 	}
+
+	const match = languages.find(
+		l => l.locale.toLowerCase() === locale.toLowerCase(),
+	);
+	if (!match) {
+		return err(
+			'LOCALE_NOT_FOUND',
+			`Locale "${locale}" does not exist. Available locales: ${languages
+				.map(l => l.locale)
+				.join(', ')}`,
+			404,
+		);
+	}
+
+	return ok({ defaultLocale, targets: [match.locale] });
+}
+
+/**
+ * Report keys that exist in the default locale but are absent — or present and
+ * empty — in a target locale. Without `locale`, covers every non-default
+ * locale.
+ */
+export async function getMissingTranslations(
+	locale?: string,
+): Promise<ServiceResult<MissingTranslationsResult>> {
+	const scope = await resolveLocaleScope(locale);
+	if (!scope.ok) return scope;
+	const { defaultLocale, targets } = scope.data;
 
 	const locales: MissingTranslationsResult['locales'] = {};
 	let totalMissing = 0;
@@ -134,4 +157,94 @@ export async function getMissingTranslations(
 	}
 
 	return ok({ defaultLocale, totalMissing, locales });
+}
+
+export interface KeyToTranslate {
+	key: string;
+	/** The default-locale text to translate from. */
+	value: string;
+}
+
+/**
+ * The default-locale values a target locale has no usable translation for.
+ *
+ * Under `missing` that is only the keys it never answered; `missing-and-stale`
+ * adds the ones whose source text changed after they were translated, which
+ * read as complete but no longer say what the source says.
+ */
+export async function getKeysToTranslate({
+	defaultLocale,
+	targetLocale,
+	scope,
+}: {
+	defaultLocale: string;
+	targetLocale: string;
+	scope: TranslationScope;
+}): Promise<KeyToTranslate[]> {
+	const missing = await getMissingTranslationsForLanguage(
+		defaultLocale,
+		targetLocale,
+	);
+	const work = new Map(missing.map(row => [row.key, row.value]));
+
+	if (scope === 'missing-and-stale') {
+		const stale = await getStaleTranslationsForLanguage(
+			defaultLocale,
+			targetLocale,
+		);
+		// A key emptied after its source changed answers to both rules, and is
+		// one unit of work either way.
+		for (const row of stale) work.set(row.key, row.defaultValue);
+	}
+
+	return [...work].map(([key, value]) => ({ key, value }));
+}
+
+export interface StaleKey {
+	key: string;
+	section: string | null;
+	/** The default-locale value as it now stands. */
+	defaultValue: string;
+	/** The translation, written against an earlier default value. */
+	currentValue: string;
+}
+
+export interface StaleTranslationsResult {
+	defaultLocale: string;
+	totalStale: number;
+	locales: Record<string, { staleCount: number; keys: StaleKey[] }>;
+}
+
+/**
+ * Report translations whose default-locale value changed after they were
+ * written. They still read as complete — `missing` will never mention them —
+ * but they answer a question the source no longer asks. Without `locale`,
+ * covers every non-default locale.
+ */
+export async function getStaleTranslations(
+	locale?: string,
+): Promise<ServiceResult<StaleTranslationsResult>> {
+	const scope = await resolveLocaleScope(locale);
+	if (!scope.ok) return scope;
+	const { defaultLocale, targets } = scope.data;
+
+	const locales: StaleTranslationsResult['locales'] = {};
+	let totalStale = 0;
+
+	for (const target of targets) {
+		const stale = await getStaleTranslationsForLanguage(defaultLocale, target);
+
+		locales[target] = {
+			staleCount: stale.length,
+			keys: stale.map(row => ({
+				key: row.key,
+				section: row.section,
+				defaultValue: row.defaultValue,
+				currentValue: row.value,
+			})),
+		};
+		totalStale += stale.length;
+	}
+
+	return ok({ defaultLocale, totalStale, locales });
 }

@@ -92,7 +92,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Bulk upsert translations (same function as UI import)
-	await bulkUpsertTranslations(locale, translations, section);
+	await bulkUpsertTranslations(locale, translations, { section });
 
 	const keysUpdated = Object.keys(translations).length;
 

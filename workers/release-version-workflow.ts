@@ -12,6 +12,7 @@ import {
 	getBlocksBackupData,
 } from '~/utils/db.server';
 import type { Language } from '~/utils/db/types';
+import type { TranslationsBackup } from '~/utils/db/translations.server';
 import { gzipString } from '~/utils/gzip';
 
 type Params = {};
@@ -211,7 +212,27 @@ export class ReleaseVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log('[ReleaseVersionWorkflow] Generating backup file');
-				const backup = [defaultTranslations, ...restTranslations];
+				// Locales come from the language list rather than from the rows, so
+				// the default locale survives holding no translations, and so does
+				// any other empty locale. `stale` is left out: it is derived from
+				// `sourceHash` and recomputed on restore.
+				const backup: TranslationsBackup = {
+					formatVersion: 2,
+					defaultLocale: defaultLanguage.locale,
+					locales: [
+						defaultLanguage.locale,
+						...restLanguages.map(language => language.locale),
+					],
+					translations: [defaultTranslations, ...restTranslations]
+						.flat()
+						.map(({ key, language, value, section, sourceHash }) => ({
+							key,
+							language,
+							value,
+							section,
+							sourceHash,
+						})),
+				};
 
 				const compressed = await gzipString(JSON.stringify(backup));
 				await this.env.BACKUPS_BUCKET.put(

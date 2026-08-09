@@ -43,7 +43,18 @@ export function TranslationCell({
 		}
 	};
 
-	return (
+	const confirmCurrent = () => {
+		fetcher.submit(
+			{
+				intent: 'mark-translation-current',
+				key: translationKey,
+				language,
+			},
+			{ method: 'post' },
+		);
+	};
+
+	const textarea = (
 		<SmartTextarea
 			key={resetKey} // Force reset when resetKey changes
 			value={translation?.value || ''}
@@ -52,5 +63,24 @@ export function TranslationCell({
 			placeholder="Enter translation..."
 			disabled={fetcher.state === 'submitting'}
 		/>
+	);
+
+	if (!translation?.stale) {
+		return textarea;
+	}
+
+	return (
+		<div className="flex w-full items-start gap-1 rounded-md bg-amber-50 ring-1 ring-amber-300">
+			{textarea}
+			<button
+				type="button"
+				onClick={confirmCurrent}
+				title="The source text changed after this translation was written. Editing it clears this; use this button to keep it as is."
+				aria-label="Keep this translation and clear the outdated marker"
+				className="cursor-pointer px-1 py-1 text-amber-600 hover:text-amber-800"
+			>
+				⚠
+			</button>
+		</div>
 	);
 }

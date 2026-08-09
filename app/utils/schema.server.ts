@@ -131,6 +131,12 @@ export const translations = sqliteTable(
 				onUpdate: 'cascade',
 			}),
 		value: text('value').notNull(),
+		/**
+		 * Hash of the default-locale value this row was last written against.
+		 * The default-locale row holds the hash of its own value, so a row is
+		 * potentially stale whenever its hash differs from that one.
+		 */
+		sourceHash: text('sourceHash'),
 	},
 	table => [primaryKey({ columns: [table.language, table.key] })],
 );

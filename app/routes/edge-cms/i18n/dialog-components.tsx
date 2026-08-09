@@ -15,9 +15,15 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '~/components/ui/tooltip';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { Progress } from '~/components/ui/progress';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
-import type { Language, Section } from '~/utils/db.server';
+import type { Language, Section, TranslationScope } from '~/utils/db.server';
 
 export function AddLanguageDialog({
 	open,
@@ -128,6 +134,11 @@ export function AddTranslationDialog({
 								))}
 							</select>
 						</div>
+						{addTranslationFetcher.data?.error && (
+							<p className="text-destructive text-sm">
+								{addTranslationFetcher.data.error}
+							</p>
+						)}
 					</div>
 					<DialogFooter>
 						<Button
@@ -254,19 +265,47 @@ export function AiTranslateButton({
 }) {
 	const aiTranslateFetcher = useFetcher();
 
+	const translate = (scope: TranslationScope) => {
+		aiTranslateFetcher.submit(
+			{ intent: 'ai-translate', scope },
+			{ method: 'post' },
+		);
+	};
+
 	return (
-		<aiTranslateFetcher.Form method="post">
-			<input type="hidden" name="intent" value="ai-translate" />
+		<>
 			{isAiAvailable ? (
-				<Button
-					type="submit"
-					disabled={aiTranslateFetcher.state === 'submitting'}
-					variant="outline"
-				>
-					{aiTranslateFetcher.state === 'submitting'
-						? 'Translating...'
-						: 'AI Translate'}
-				</Button>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							disabled={aiTranslateFetcher.state === 'submitting'}
+							variant="outline"
+						>
+							{aiTranslateFetcher.state === 'submitting'
+								? 'Translating...'
+								: 'AI Translate'}
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="max-w-xs">
+						<DropdownMenuItem onClick={() => translate('missing')}>
+							<div>
+								<div>Untranslated keys</div>
+								<div className="text-muted-foreground text-xs">
+									Fill in what each locale is missing
+								</div>
+							</div>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => translate('missing-and-stale')}>
+							<div>
+								<div>Untranslated and outdated keys</div>
+								<div className="text-muted-foreground text-xs">
+									Also rewrite translations whose source text has changed,
+									replacing what is there
+								</div>
+							</div>
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			) : (
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -286,7 +325,7 @@ export function AiTranslateButton({
 					</TooltipContent>
 				</Tooltip>
 			)}
-		</aiTranslateFetcher.Form>
+		</>
 	);
 }
 

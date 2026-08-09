@@ -12,6 +12,7 @@ import {
 } from './commands/languages.js';
 import { publish, publishStatus } from './commands/publish.js';
 import { check } from './commands/check.js';
+import { stale } from './commands/stale.js';
 import { deleteKeys, prune } from './commands/keys.js';
 import { listCollections, listSchemas, pushBlocks } from './commands/blocks.js';
 
@@ -244,6 +245,26 @@ program
 				verbose: options.verbose,
 			});
 			if (missing > 0) process.exit(1);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('stale')
+	.description(
+		'Report translations the default locale has changed out from under. Exits non-zero if any are stale, for use as a CI gate.',
+	)
+	.option('--locale <locale>', 'Only check a single locale')
+	.option('--verbose', 'List every stale key instead of a sample')
+	.action(async options => {
+		try {
+			const count = await stale(await loadConfig(), {
+				locale: options.locale,
+				verbose: options.verbose,
+			});
+			if (count > 0) process.exit(1);
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);

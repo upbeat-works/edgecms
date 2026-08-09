@@ -4,8 +4,13 @@ import {
 	type WorkflowEvent,
 } from 'cloudflare:workers';
 import { eq } from 'drizzle-orm';
-import { languages, translations, versions } from '~/utils/schema.server';
-import { promoteVersion, restoreBlocksFromBackup } from '~/utils/db.server';
+import { versions } from '~/utils/schema.server';
+import {
+	getDefaultLocale,
+	promoteVersion,
+	restoreBlocksFromBackup,
+	restoreTranslationsFromBackup,
+} from '~/utils/db.server';
 import { drizzle } from 'drizzle-orm/d1';
 import { gunzipString } from '~/utils/gzip';
 
@@ -46,101 +51,26 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 		);
 
-		const backupData = await step.do(
-			'get backup data',
-			{
-				retries: {
-					limit: 5,
-					delay: '3 seconds',
-					backoff: 'exponential',
-				},
-				timeout: '2 minutes',
-			},
-			async () => {
-				console.log('[RollbackVersionWorkflow] Getting backup data');
-				try {
-					const file = await this.env.BACKUPS_BUCKET.get(
-						`${versionId}/backup.gz`,
-					);
-					if (!file) {
-						throw new Error('Backup file not found');
-					}
-
-					const data = await file.bytes();
-					const backup = await gunzipString(data);
-					const backupData = JSON.parse(backup);
-					return backupData;
-				} catch (error) {
-					console.error(error);
-					throw new Error('Failed to get backup data');
-				}
-			},
-		);
-
-		await step.do(
-			'delete translations and languages',
+		// Read before the restore wipes it: a backup written before the format
+		// recorded its default locale can only fall back to the current one.
+		const fallbackDefaultLocale = await step.do(
+			'read current default locale',
 			{
 				retries: {
 					limit: 3,
 					delay: '2 seconds',
 					backoff: 'exponential',
 				},
-				timeout: '1 minute',
+				timeout: '30 seconds',
 			},
-			async () => {
-				console.log(
-					'[RollbackVersionWorkflow] Deleting translations and languages',
-				);
-				try {
-					await db.delete(translations);
-					await db.delete(languages);
-				} catch (error) {
-					console.error(error);
-					throw new Error('Failed to delete translations and languages');
-				}
-			},
+			async () => getDefaultLocale(),
 		);
 
+		// Fetching, wiping and restoring belong to one step: they are a single
+		// logical replacement, and splitting them lets a failure land between the
+		// delete and the insert, leaving the CMS with no content at all.
 		await step.do(
-			'insert languages from backup data',
-			{
-				retries: {
-					limit: 3,
-					delay: '2 seconds',
-					backoff: 'exponential',
-				},
-				timeout: '1 minute',
-			},
-			async () => {
-				console.log(
-					'[RollbackVersionWorkflow] Inserting languages from backup data',
-				);
-				try {
-					const availableLanguages = backupData
-						.map((item: any) => item[0])
-						// backwards compatibility with old backup format
-						.filter((item: any) => item != null)
-						.map((item: any) => item.language);
-
-					if (availableLanguages.length === 0) {
-						return;
-					}
-
-					await db.insert(languages).values(
-						availableLanguages.map((language: string, index: number) => ({
-							locale: language,
-							default: index === 0,
-						})),
-					);
-				} catch (error) {
-					console.error(error);
-					throw new Error('Failed to insert languages');
-				}
-			},
-		);
-
-		await step.do(
-			'insert translations from backup data',
+			'restore translations from backup',
 			{
 				retries: {
 					limit: 5,
@@ -151,29 +81,19 @@ export class RollbackVersionWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log(
-					'[RollbackVersionWorkflow] Inserting translations from backup data',
+					'[RollbackVersionWorkflow] Restoring translations from backup',
 				);
-				try {
-					await Promise.all(
-						backupData
-							// backwards compatibility with old backup format
-							.filter((values: any) => values.length > 0)
-							.flatMap((values: any) => {
-								const BATCH_SIZE = 25;
-								const batches = [];
 
-								for (let i = 0; i < values.length; i += BATCH_SIZE) {
-									batches.push(values.slice(i, i + BATCH_SIZE));
-								}
-								return batches.map((batch: any) =>
-									db.insert(translations).values(batch),
-								);
-							}),
-					);
-				} catch (error) {
-					console.error(error);
-					throw new Error('Failed to insert translations from backup data');
+				const file = await this.env.BACKUPS_BUCKET.get(
+					`${versionId}/backup.gz`,
+				);
+				if (!file) {
+					throw new Error('Backup file not found');
 				}
+
+				const backup = JSON.parse(await gunzipString(await file.bytes()));
+
+				await restoreTranslationsFromBackup(backup, { fallbackDefaultLocale });
 			},
 		);
 

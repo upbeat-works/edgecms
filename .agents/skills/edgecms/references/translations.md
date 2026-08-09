@@ -23,6 +23,28 @@ edit default locale -> push -> translate/review draft -> publish -> pull --all
 Push is additive: removing a local key does not delete it remotely. Use the
 prune workflow for removals.
 
+## Stale translations
+
+Changing a default-locale value marks every translation written against the old
+one as potentially stale. Nothing is rewritten and no other row is touched; the
+flag is a review signal. It clears when the translation is rewritten, when an
+editor confirms it in the admin grid, or when the default locale itself changes.
+
+Report staleness with `edgecms stale` or `GET /api/i18n/stale`. Empty
+translations are reported as missing, never stale, so `check` and `stale` never
+name the same key.
+
+**AI Translate** in the admin UI asks which backlog to take on, and the choice
+belongs to the user — never assume it:
+
+- _Untranslated keys_ — only what a locale never answered. Adds nothing over
+  existing text.
+- _Untranslated and outdated keys_ — also regenerates stale translations,
+  **overwriting existing values**, including hand-written ones.
+
+Never pick the second scope on a user's behalf, and say plainly that it
+overwrites when proposing it. Both scopes land in draft and need publication.
+
 ## Draft versus live
 
 - `edgecms pull` defaults to the live default locale.
@@ -42,6 +64,12 @@ Use `edgecms check` as the translation-completeness gate. It reports keys
 present in the default locale but missing or empty in non-default locales and
 exits non-zero when gaps exist. Use `--locale` to target one locale and
 `--verbose` for the complete list.
+
+Use `edgecms stale` as the translation-freshness gate. It reports translations
+written against a default-locale value that has since changed — present and
+non-empty, so `check` stays silent about them — and exits non-zero when any
+exist. Editing the translation, or confirming it in the admin UI, clears it.
+Changing which locale is the default resets the tracking.
 
 Tests should protect real outcomes: valid keys, matching interpolation
 placeholders, safe fallback behavior, and important claims across supported

@@ -365,3 +365,33 @@ describe('missing translations over RPC', () => {
 		expect(() => structuredClone(result)).not.toThrow();
 	});
 });
+
+describe('stale translations over RPC', () => {
+	it('reports translations the default locale has moved on from', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await upsertTranslation('home.title', 'es', 'Bienvenido');
+
+		await upsertTranslation('home.title', 'en', 'Welcome back');
+
+		const result = await service().staleTranslations();
+
+		expect(result).toMatchObject({
+			defaultLocale: 'en',
+			totalStale: 1,
+			locales: {
+				es: {
+					staleCount: 1,
+					keys: [
+						{
+							key: 'home.title',
+							defaultValue: 'Welcome back',
+							currentValue: 'Bienvenido',
+						},
+					],
+				},
+			},
+		});
+	});
+});

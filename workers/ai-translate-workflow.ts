@@ -6,19 +6,19 @@ import {
 import {
 	getLanguages,
 	getLatestVersion,
-	getTranslations,
-	getMissingTranslationsForLanguage,
 	createVersion,
 	bulkUpsertTranslations,
 	type Language,
-	type Translation,
+	type TranslationScope,
 } from '~/utils/db.server';
+import { getKeysToTranslate } from '~/utils/services/translations.server';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
 type Params = {
 	userId?: string;
+	scope?: TranslationScope;
 };
 
 // Schema for AI translation response
@@ -28,7 +28,7 @@ const translationSchema = z.object({
 
 export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 	async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
-		const { userId } = event.payload;
+		const { userId, scope = 'missing' } = event.payload;
 
 		// Step 1: Get all languages and identify default
 		const { defaultLanguage, otherLanguages } = await step.do(
@@ -71,9 +71,9 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 		);
 
-		// Step 2: Collect all missing translations data in parallel with nested steps
-		const languagesWithMissingTranslations = await step.do(
-			'identify all missing translations',
+		// Step 2: Collect the backlog for every language in parallel with nested steps
+		const languagesToTranslate = await step.do(
+			`identify ${scope} translations`,
 			{
 				retries: {
 					limit: 3,
@@ -84,14 +84,14 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 			},
 			async () => {
 				console.log(
-					'[AITranslateWorkflow] Identifying missing translations for all languages in parallel',
+					`[AITranslateWorkflow] Identifying ${scope} translations for all languages in parallel`,
 				);
 
-				// Use Promise.all to parallelize missing translation detection
+				// Use Promise.all to parallelize backlog detection
 				const allResults = await Promise.all(
 					otherLanguages.map(async language => {
 						return await step.do(
-							`identify missing translations for ${language.locale}`,
+							`identify ${scope} translations for ${language.locale}`,
 							{
 								retries: {
 									limit: 3,
@@ -102,42 +102,43 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 							},
 							async () => {
 								console.log(
-									`[AITranslateWorkflow] Identifying missing translations for ${language.locale}`,
+									`[AITranslateWorkflow] Identifying ${scope} translations for ${language.locale}`,
 								);
 
-								const missing = await getMissingTranslationsForLanguage(
-									defaultLanguage.locale,
-									language.locale,
-								);
+								const keysToTranslate = await getKeysToTranslate({
+									defaultLocale: defaultLanguage.locale,
+									targetLocale: language.locale,
+									scope,
+								});
 
 								console.log(
-									`[AITranslateWorkflow] Found ${missing.length} missing translations for ${language.locale}`,
+									`[AITranslateWorkflow] Found ${keysToTranslate.length} ${scope} translations for ${language.locale}`,
 								);
 
 								return {
 									language,
-									missingTranslations: missing,
+									keysToTranslate,
 								};
 							},
 						);
 					}),
 				);
 
-				// Filter out languages with no missing translations
+				// Filter out languages with nothing to translate
 				const results = allResults.filter(
-					result => result.missingTranslations.length > 0,
+					result => result.keysToTranslate.length > 0,
 				);
 
 				console.log(
-					`[AITranslateWorkflow] Completed parallel missing translation detection for ${otherLanguages.length} languages, ${results.length} need translations`,
+					`[AITranslateWorkflow] Completed parallel detection for ${otherLanguages.length} languages, ${results.length} need translations`,
 				);
 				return results;
 			},
 		);
 
-		if (languagesWithMissingTranslations.length === 0) {
+		if (languagesToTranslate.length === 0) {
 			console.log(
-				'[AITranslateWorkflow] No missing translations found. Workflow completed.',
+				`[AITranslateWorkflow] No ${scope} translations found. Workflow completed.`,
 			);
 			return;
 		}
@@ -160,73 +161,71 @@ export class AITranslateWorkflow extends WorkflowEntrypoint<Env, Params> {
 
 				// Use Promise.all to parallelize language translations
 				const results = await Promise.all(
-					languagesWithMissingTranslations.map(
-						async ({ language, missingTranslations }) => {
-							// Nested step for each language translation
-							return await step.do(
-								`ai translate for ${language.locale}`,
-								{
-									retries: {
-										limit: 5,
-										delay: '5 seconds',
-										backoff: 'exponential',
-									},
-									timeout: '10 minutes',
+					languagesToTranslate.map(async ({ language, keysToTranslate }) => {
+						// Nested step for each language translation
+						return await step.do(
+							`ai translate for ${language.locale}`,
+							{
+								retries: {
+									limit: 5,
+									delay: '5 seconds',
+									backoff: 'exponential',
 								},
-								async () => {
-									console.log(
-										`[AITranslateWorkflow] Generating AI translations for ${language.locale} (${missingTranslations.length} keys)`,
-									);
+								timeout: '10 minutes',
+							},
+							async () => {
+								console.log(
+									`[AITranslateWorkflow] Generating AI translations for ${language.locale} (${keysToTranslate.length} keys)`,
+								);
 
-									// Create OpenAI client inside the step to avoid external state dependency
-									const openai = createOpenAI({
-										apiKey: this.env.OPENAI_API_KEY,
-									});
+								// Create OpenAI client inside the step to avoid external state dependency
+								const openai = createOpenAI({
+									apiKey: this.env.OPENAI_API_KEY,
+								});
 
-									// Convert missing translations to key-value pairs for translation
-									const translationsToTranslate: Record<string, string> = {};
-									for (const translation of missingTranslations) {
-										translationsToTranslate[translation.key] =
-											translation.value;
-									}
+								// Convert the backlog to key-value pairs for translation
+								const translationsToTranslate: Record<string, string> = {};
+								for (const translation of keysToTranslate) {
+									translationsToTranslate[translation.key] = translation.value;
+								}
 
-									// Generate AI translations in batches with nested steps and parallelization
-									const batchSize = 300;
-									const keys = Object.keys(translationsToTranslate);
+								// Generate AI translations in batches with nested steps and parallelization
+								const batchSize = 300;
+								const keys = Object.keys(translationsToTranslate);
 
-									// Create batch promises for parallel execution
-									const batchPromises: Promise<Record<string, string>>[] = [];
+								// Create batch promises for parallel execution
+								const batchPromises: Promise<Record<string, string>>[] = [];
 
-									for (let i = 0; i < keys.length; i += batchSize) {
-										const batchIndex = Math.floor(i / batchSize) + 1;
-										const batchKeys = keys.slice(i, i + batchSize);
+								for (let i = 0; i < keys.length; i += batchSize) {
+									const batchIndex = Math.floor(i / batchSize) + 1;
+									const batchKeys = keys.slice(i, i + batchSize);
 
-										// Create promise for each batch
-										const batchPromise = step.do(
-											`ai translate batch ${batchIndex} for ${language.locale}`,
-											{
-												retries: {
-													limit: 3,
-													delay: '3 seconds',
-													backoff: 'exponential',
-												},
-												timeout: '5 minutes',
+									// Create promise for each batch
+									const batchPromise = step.do(
+										`ai translate batch ${batchIndex} for ${language.locale}`,
+										{
+											retries: {
+												limit: 3,
+												delay: '3 seconds',
+												backoff: 'exponential',
 											},
-											async () => {
-												const batchTranslations: Record<string, string> = {};
+											timeout: '5 minutes',
+										},
+										async () => {
+											const batchTranslations: Record<string, string> = {};
 
-												for (const key of batchKeys) {
-													batchTranslations[key] = translationsToTranslate[key];
-												}
+											for (const key of batchKeys) {
+												batchTranslations[key] = translationsToTranslate[key];
+											}
 
-												console.log(
-													`[AITranslateWorkflow] Translating batch ${batchIndex} (${batchKeys.length} keys) for ${language.locale}`,
-												);
+											console.log(
+												`[AITranslateWorkflow] Translating batch ${batchIndex} (${batchKeys.length} keys) for ${language.locale}`,
+											);
 
-												const { object } = await generateObject({
-													model: openai('gpt-5.6-luna'),
-													schema: translationSchema,
-													prompt: `Translate the following key-value pairs from ${defaultLanguage.locale} to ${language.locale}.
+											const { object } = await generateObject({
+												model: openai('gpt-5.6-luna'),
+												schema: translationSchema,
+												prompt: `Translate the following key-value pairs from ${defaultLanguage.locale} to ${language.locale}.
 
 Preserve the structure of the values and maintain any placeholders, variables, or formatting.
 For technical terms, maintain consistency across all translations.
@@ -240,38 +239,43 @@ Translations to translate:
 ${JSON.stringify(batchTranslations, null, 2)}
 
 Return the translations with the same keys but translated values.`,
-												});
+											});
 
-												console.log(
-													`[AITranslateWorkflow] Successfully translated batch ${batchIndex} (${Object.keys(object.translations).length} keys) for ${language.locale}`,
-												);
-												return object.translations;
-											},
-										);
-
-										batchPromises.push(batchPromise);
-									}
-
-									// Execute all batches in parallel and merge results
-									const batchResults = await Promise.all(batchPromises);
-									const allTranslatedValues: Record<string, string> = {};
-
-									for (const batchResult of batchResults) {
-										Object.assign(allTranslatedValues, batchResult);
-									}
-
-									console.log(
-										`[AITranslateWorkflow] Successfully translated ${Object.keys(allTranslatedValues).length} keys for ${language.locale}`,
+											console.log(
+												`[AITranslateWorkflow] Successfully translated batch ${batchIndex} (${Object.keys(object.translations).length} keys) for ${language.locale}`,
+											);
+											return object.translations;
+										},
 									);
 
-									return {
-										language,
-										translations: allTranslatedValues,
-									};
-								},
-							);
-						},
-					),
+									batchPromises.push(batchPromise);
+								}
+
+								// Execute all batches in parallel and merge results
+								const batchResults = await Promise.all(batchPromises);
+								const allTranslatedValues: Record<string, string> = {};
+
+								for (const batchResult of batchResults) {
+									Object.assign(allTranslatedValues, batchResult);
+								}
+
+								console.log(
+									`[AITranslateWorkflow] Successfully translated ${Object.keys(allTranslatedValues).length} keys for ${language.locale}`,
+								);
+
+								return {
+									language,
+									translations: allTranslatedValues,
+									// Carried to the write so the translations record the
+									// source text they were made from. An editor can change
+									// a default value while this run is in flight, and
+									// re-reading it at write time would file a translation
+									// of superseded text as up to date.
+									translatedFrom: translationsToTranslate,
+								};
+							},
+						);
+					}),
 				);
 
 				console.log(
@@ -340,13 +344,19 @@ Return the translations with the same keys but translated values.`,
 				let totalTranslated = 0;
 				const results: Array<{ locale: string; count: number }> = [];
 
-				for (const { language, translations } of allTranslationResults) {
+				for (const {
+					language,
+					translations,
+					translatedFrom,
+				} of allTranslationResults) {
 					if (Object.keys(translations).length > 0) {
 						console.log(
 							`[AITranslateWorkflow] Bulk upserting ${Object.keys(translations).length} translations for ${language.locale}`,
 						);
 
-						await bulkUpsertTranslations(language.locale, translations);
+						await bulkUpsertTranslations(language.locale, translations, {
+							translatedFrom,
+						});
 
 						const count = Object.keys(translations).length;
 						totalTranslated += count;

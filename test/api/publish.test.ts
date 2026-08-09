@@ -7,6 +7,7 @@ import {
 	releaseDraft,
 } from '~/utils/db/versions.server';
 import { upsertTranslation } from '~/utils/db/translations.server';
+import { gunzipString } from '~/utils/gzip';
 import { apiRequest, createApiKey, resetDb, seedLanguage } from '../helpers';
 
 let apiKey: string;
@@ -76,6 +77,35 @@ describe('publishing a draft', () => {
 		await expect(spanish?.json()).resolves.toEqual({
 			'home.title': 'Bienvenido',
 		});
+	});
+
+	it('snapshots which locale everything was translated from', async () => {
+		await using _workflow = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		// A locale carrying no translations at all, which the backup has to
+		// record for a rollback to bring it back.
+		await seedLanguage('fr', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await upsertTranslation('home.title', 'es', 'Bienvenido');
+		const draft = await createVersion('some changes');
+
+		await publish();
+		const instance = await introspectedInstance(_workflow);
+		await instance.waitForStatus('complete');
+
+		const object = await env.BACKUPS_BUCKET.get(`${draft.id}/backup.gz`);
+		const backup = JSON.parse(await gunzipString(await object!.bytes()));
+
+		expect(backup).toMatchObject({
+			formatVersion: 2,
+			defaultLocale: 'en',
+			locales: ['en', 'es', 'fr'],
+		});
+		expect(backup.translations).toHaveLength(2);
+		expect(backup.translations[0]).not.toHaveProperty('stale');
 	});
 
 	it('falls back to the default locale for keys a locale has not translated', async () => {

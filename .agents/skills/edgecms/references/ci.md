@@ -11,27 +11,26 @@
 
 ## Choose the CI contract
 
-Decide whether CI builds from committed locale snapshots or the latest
-published EdgeCMS content:
+Decide whether CI builds from committed locale snapshots or the latest published
+EdgeCMS content:
 
 - **Pull live content in CI** when previews and deployments must include the
   latest publication without waiting for a repository snapshot commit.
 - **Build committed snapshots** when reproducibility and forked-PR coverage are
   more important than immediate CMS updates.
 - **Use both deliberately** by pulling when credentials are available and
-  falling back to committed snapshots only when the repository explicitly
-  treats them as a supported runtime/build fallback. Make the fallback visible
-  in logs; do not silently turn an authentication outage into a stale build.
+  falling back to committed snapshots only when the repository explicitly treats
+  them as a supported runtime/build fallback. Make the fallback visible in logs;
+  do not silently turn an authentication outage into a stale build.
 
 Inspect `edgecms.config.json`, package scripts, supported locales, generated
 types, and the installed SDK version before choosing `pull` or `pull --all`.
-Older projects may intentionally pull only the default locale. Applications
-that bundle every locale for fallback generally need `--all`.
+Older projects may intentionally pull only the default locale. Applications that
+bundle every locale for fallback generally need `--all`.
 
 ## Place the pull correctly
 
-In every clean CI job that consumes locale files or generated translation
-types:
+In every clean CI job that consumes locale files or generated translation types:
 
 1. Check out the repository.
 2. Set up the project's supported Node version.
@@ -82,15 +81,21 @@ Ordinary lint, typecheck, test, preview, and deployment-build jobs may pull
 published content and run `edgecms check`. They must not push, publish, import
 blocks, change languages/schemas, prune with `--yes`, or delete keys.
 
-Treat a workflow that mutates EdgeCMS as a separate release/operations
-workflow with protected environments, narrow permissions, concurrency control,
-an explicit trigger, and human approval where appropriate. Remember that
-publishing releases the whole shared draft.
+Treat a workflow that mutates EdgeCMS as a separate release/operations workflow
+with protected environments, narrow permissions, concurrency control, an
+explicit trigger, and human approval where appropriate. Remember that publishing
+releases the whole shared draft.
 
 Run `edgecms check` when translation completeness is a release requirement. It
 exits non-zero for missing or empty non-default translations. Check the
-installed SDK before expecting draft selection: current `check` operates on
-the server state exposed by that SDK and does not accept `--from`.
+installed SDK before expecting draft selection: current `check` operates on the
+server state exposed by that SDK and does not accept `--from`.
+
+Run `edgecms stale` when translation freshness is also a release requirement. It
+exits non-zero for translations written against a default-locale value that has
+since changed — keys `check` considers complete. Add it as a separate gate
+rather than assuming `check` covers it; a repository that edits source copy
+frequently may want it as a warning step instead of a blocking one.
 
 ## Avoid nondeterministic surprises
 
@@ -100,8 +105,8 @@ editor publishes. Mitigate this intentionally:
 - Pull once per job before all content-dependent validation.
 - Do not publish concurrently from the same validation workflow.
 - Use workflow concurrency controls for previews/deployments where appropriate.
-- Review whether generated locale/type changes should fail a drift check,
-  become a committed synchronization change, or remain ephemeral build input.
+- Review whether generated locale/type changes should fail a drift check, become
+  a committed synchronization change, or remain ephemeral build input.
 - Keep committed snapshots current when they are the runtime or fork-PR
   fallback.
 
@@ -127,7 +132,7 @@ jobs:
       - run: npm test
 ```
 
-Adapt the command and secret availability to the repository rather than
-copying this example blindly. Deployment jobs need their own pull after their
-own dependency installation unless generated files are deliberately passed as
-an artifact from a trusted upstream job.
+Adapt the command and secret availability to the repository rather than copying
+this example blindly. Deployment jobs need their own pull after their own
+dependency installation unless generated files are deliberately passed as an
+artifact from a trusted upstream job.

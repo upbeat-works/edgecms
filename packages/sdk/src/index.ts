@@ -13,6 +13,8 @@ export {
 	type PublishStatusResponse,
 	type MissingTranslationsResponse,
 	type MissingKey,
+	type StaleTranslationsResponse,
+	type StaleKey,
 	type DeleteKeysResponse,
 	type BlockProperty,
 	type BlockPropertyType,
@@ -40,6 +42,7 @@ export {
 	type PublishOptions,
 } from './commands/publish.js';
 export { check, type CheckOptions } from './commands/check.js';
+export { stale, type StaleOptions } from './commands/stale.js';
 export {
 	deleteKeys,
 	prune,

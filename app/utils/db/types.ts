@@ -40,6 +40,33 @@ export interface Translation {
 	language: string;
 	value: string;
 	section: string | null;
+	/** Hash of the default-locale value this translation was written against. */
+	sourceHash: string | null;
+	/**
+	 * The default-locale value has changed since this translation was last
+	 * written, so it may no longer say the same thing.
+	 */
+	stale: boolean;
+}
+
+/** A key holding a default-locale value that a target locale does not answer. */
+export interface UntranslatedKey {
+	key: string;
+	section: string | null;
+	value: string;
+}
+
+/** How much of a locale's backlog a translation run takes on. */
+export type TranslationScope = 'missing' | 'missing-and-stale';
+
+/** A translation left behind by a change to the default-locale value. */
+export interface StaleTranslation {
+	key: string;
+	section: string | null;
+	/** The default-locale value as it now stands. */
+	defaultValue: string;
+	/** The translation, written against an earlier default value. */
+	value: string;
 }
 
 export interface Media {
