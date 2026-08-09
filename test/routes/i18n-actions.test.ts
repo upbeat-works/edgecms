@@ -99,6 +99,32 @@ describe('choosing which locale is the source', () => {
 	});
 });
 
+describe('deleting a language from the admin', () => {
+	it('deletes a non-default locale and its translations', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await upsertTranslation('home.title', 'es', 'Bienvenido');
+
+		const response = await submit({ intent: 'delete-language', locale: 'es' });
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ locale: 'es' });
+		expect(await getLanguages()).toEqual([{ locale: 'en', default: true }]);
+	});
+
+	it('refuses to delete the default locale', async () => {
+		await seedLanguage('en', true);
+
+		const response = await submit({ intent: 'delete-language', locale: 'en' });
+
+		expect(response.status).toBe(409);
+		await expect(response.json()).resolves.toMatchObject({
+			code: 'DEFAULT_LOCALE_DELETE',
+		});
+	});
+});
+
 describe('adding a translation key', () => {
 	it('gives every locale an empty value to fill in', async () => {
 		await seedLanguage('en', true);

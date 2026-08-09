@@ -1,5 +1,6 @@
 import {
 	createLanguage as createLanguageRow,
+	deleteLanguage as deleteLanguageRow,
 	getLanguages,
 	setDefaultLanguage as setDefaultLanguageRow,
 } from '../db/languages.server';
@@ -105,6 +106,38 @@ export async function setDefaultLanguage(
 	await setDefaultLanguageRow(match.locale);
 
 	return ok({ locale: match.locale, default: true });
+}
+
+export async function deleteLanguage(
+	locale: string,
+	options: { userId?: string } = {},
+): Promise<ServiceResult<{ locale: string }>> {
+	const canonical = canonicalizeLocale(locale);
+	if (canonical == null) {
+		return err(
+			'INVALID_LOCALE',
+			`"${locale}" is not a valid locale tag. Expected a BCP-47 tag such as "en" or "pt-BR".`,
+			400,
+		);
+	}
+
+	const existing = await getLanguages();
+	const match = findExisting(existing, canonical);
+	if (!match) {
+		return err('LOCALE_NOT_FOUND', `Locale "${canonical}" does not exist`, 404);
+	}
+	if (match.default) {
+		return err(
+			'DEFAULT_LOCALE_DELETE',
+			`Locale "${match.locale}" is the default. Choose another default before deleting it.`,
+			409,
+		);
+	}
+
+	await ensureDraftVersion(options.userId);
+	await deleteLanguageRow(match.locale);
+
+	return ok({ locale: match.locale });
 }
 
 export async function listLanguages(): Promise<

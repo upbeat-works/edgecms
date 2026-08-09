@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireApiKey } from '~/utils/auth.middleware';
 import {
 	createLanguage,
+	deleteLanguage,
 	listLanguages,
 	setDefaultLanguage,
 } from '~/utils/services/languages.server';
@@ -47,11 +48,21 @@ export async function loader({ request }: Route.LoaderArgs) {
  * Marks an existing language as the default.
  * Body: { locale: string }
  * Response: 200 { locale: string, default: true }
+ *
+ * DELETE /edge-cms/api/i18n/languages
+ *
+ * Deletes a non-default language and its translations.
+ * Body: { locale: string }
+ * Response: 200 { locale: string }
  */
 export async function action({ request }: Route.ActionArgs) {
 	const { key } = await requireApiKey(request, env);
 
-	if (request.method !== 'POST' && request.method !== 'PATCH') {
+	if (
+		request.method !== 'POST' &&
+		request.method !== 'PATCH' &&
+		request.method !== 'DELETE'
+	) {
 		return Response.json(
 			{ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' },
 			{ status: 405 },
@@ -85,6 +96,12 @@ export async function action({ request }: Route.ActionArgs) {
 	if (request.method === 'PATCH') {
 		return toResponse(
 			await setDefaultLanguage(parsed.data.locale, { userId: key.userId }),
+		);
+	}
+
+	if (request.method === 'DELETE') {
+		return toResponse(
+			await deleteLanguage(parsed.data.locale, { userId: key.userId }),
 		);
 	}
 

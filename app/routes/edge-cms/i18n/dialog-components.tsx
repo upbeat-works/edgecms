@@ -8,6 +8,7 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
+	DialogDescription,
 	DialogFooter,
 } from '~/components/ui/dialog';
 import {
@@ -78,6 +79,80 @@ export function AddLanguageDialog({
 						</Button>
 					</DialogFooter>
 				</addLanguageFetcher.Form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+export function DeleteLanguageDialog({
+	open,
+	onOpenChange,
+	languages,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	languages: Language[];
+}) {
+	const deleteLanguageFetcher = useFetcher();
+	const deletableLanguages = languages.filter(language => !language.default);
+
+	useEffect(() => {
+		if (deleteLanguageFetcher.data?.locale) {
+			onOpenChange(false);
+		}
+	}, [deleteLanguageFetcher.data, onOpenChange]);
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Delete language</DialogTitle>
+					<DialogDescription>
+						This removes the locale and all of its translations from the draft.
+						The default language cannot be deleted.
+					</DialogDescription>
+				</DialogHeader>
+				<deleteLanguageFetcher.Form method="post">
+					<input type="hidden" name="intent" value="delete-language" />
+					<div className="grid gap-2 py-4">
+						<Label htmlFor="deleteLocale">Language</Label>
+						<select
+							id="deleteLocale"
+							name="locale"
+							className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+							required
+						>
+							{deletableLanguages.map(language => (
+								<option key={language.locale} value={language.locale}>
+									{language.locale}
+								</option>
+							))}
+						</select>
+						{deleteLanguageFetcher.data?.error && (
+							<p className="text-destructive text-sm">
+								{deleteLanguageFetcher.data.error}
+							</p>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => onOpenChange(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="submit"
+							variant="destructive"
+							disabled={deleteLanguageFetcher.state !== 'idle'}
+						>
+							{deleteLanguageFetcher.state !== 'idle'
+								? 'Deleting...'
+								: 'Delete language'}
+						</Button>
+					</DialogFooter>
+				</deleteLanguageFetcher.Form>
 			</DialogContent>
 		</Dialog>
 	);

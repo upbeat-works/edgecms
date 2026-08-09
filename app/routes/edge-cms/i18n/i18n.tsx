@@ -12,6 +12,8 @@ import { debounce } from 'lodash-es';
 import { FixedSizeGrid } from 'react-window';
 import { requireAuth } from '~/utils/auth.middleware';
 import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
+import { deleteLanguage as deleteLanguageService } from '~/utils/services/languages.server';
+import { toResponse } from '~/utils/services/result';
 import {
 	getLanguages,
 	getSections,
@@ -41,6 +43,7 @@ import { VirtualizedCell } from './virtualized-cell';
 import { KeyCell } from './key-cell';
 import {
 	AddLanguageDialog,
+	DeleteLanguageDialog,
 	AddTranslationDialog,
 	ImportJsonDialog,
 	AiTranslateButton,
@@ -144,6 +147,13 @@ export async function action({ request }: Route.ActionArgs) {
 			const locale = formData.get('locale') as string;
 			await setDefaultLanguage(locale);
 			return { success: true };
+		}
+
+		case 'delete-language': {
+			const locale = formData.get('locale') as string;
+			return toResponse(
+				await deleteLanguageService(locale, { userId: auth.user.id }),
+			);
 		}
 
 		case 'add-translation': {
@@ -316,6 +326,7 @@ export default function I18n() {
 		isAiAvailable,
 	} = useLoaderData<typeof loader>();
 	const [showAddLanguage, setShowAddLanguage] = useState(false);
+	const [showDeleteLanguage, setShowDeleteLanguage] = useState(false);
 	const [showAddTranslation, setShowAddTranslation] = useState(false);
 	const [showImportJson, setShowImportJson] = useState(false);
 	const [showAiTranslationProgress, setShowAiTranslationProgress] =
@@ -562,6 +573,13 @@ export default function I18n() {
 							>
 								Add Language
 							</Button>
+							<Button
+								onClick={() => setShowDeleteLanguage(true)}
+								variant="outline"
+								disabled={!languages.some(language => !language.default)}
+							>
+								Delete Language
+							</Button>
 						</div>
 
 						<div className="ml-auto flex gap-2">
@@ -590,6 +608,12 @@ export default function I18n() {
 				<AddLanguageDialog
 					open={showAddLanguage}
 					onOpenChange={setShowAddLanguage}
+				/>
+
+				<DeleteLanguageDialog
+					open={showDeleteLanguage}
+					onOpenChange={setShowDeleteLanguage}
+					languages={languages}
 				/>
 
 				<AddTranslationDialog

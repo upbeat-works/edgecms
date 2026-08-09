@@ -36,6 +36,10 @@ export async function createLanguage(locale: string) {
 	});
 }
 
+export async function deleteLanguage(locale: string): Promise<void> {
+	await db.delete(languages).where(eq(languages.locale, locale));
+}
+
 export async function setDefaultLanguage(locale: string) {
 	if ((await getDefaultLocale()) === locale) return;
 

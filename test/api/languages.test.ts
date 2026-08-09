@@ -2,6 +2,7 @@ import { env } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { action, loader } from '~/routes/edge-cms/api/i18n.languages';
 import { getLanguages } from '~/utils/db/languages.server';
+import { upsertTranslation } from '~/utils/db/translations.server';
 import { getLatestVersion } from '~/utils/db/versions.server';
 import { apiRequest, createApiKey, resetDb, seedLanguage } from '../helpers';
 
@@ -25,6 +26,15 @@ function patch(body: unknown) {
 	return action({
 		request: apiRequest('/edge-cms/api/i18n/languages', apiKey, {
 			method: 'PATCH',
+			body: JSON.stringify(body),
+		}),
+	} as never);
+}
+
+function del(body: unknown) {
+	return action({
+		request: apiRequest('/edge-cms/api/i18n/languages', apiKey, {
+			method: 'DELETE',
 			body: JSON.stringify(body),
 		}),
 	} as never);
@@ -187,6 +197,58 @@ describe('setting the default language', () => {
 	});
 });
 
+describe('deleting a language', () => {
+	it('deletes a non-default locale and its translations', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await upsertTranslation('home.title', 'es', 'Bienvenido');
+
+		const response = await del({ locale: 'es' });
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ locale: 'es' });
+		expect(await getLanguages()).toEqual([{ locale: 'en', default: true }]);
+		const spanishRows = await env.DB.prepare(
+			`SELECT key FROM translations WHERE language = 'es'`,
+		).all();
+		expect(spanishRows.results).toEqual([]);
+	});
+
+	it('refuses to delete the default locale', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+
+		const response = await del({ locale: 'en' });
+
+		expect(response.status).toBe(409);
+		await expect(response.json()).resolves.toMatchObject({
+			code: 'DEFAULT_LOCALE_DELETE',
+		});
+		expect(await getLanguages()).toHaveLength(2);
+	});
+
+	it('404s for a locale that does not exist', async () => {
+		await seedLanguage('en', true);
+
+		const response = await del({ locale: 'es' });
+
+		expect(response.status).toBe(404);
+		await expect(response.json()).resolves.toMatchObject({
+			code: 'LOCALE_NOT_FOUND',
+		});
+	});
+
+	it('opens a draft so the deletion can be published', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es', false);
+
+		await del({ locale: 'es' });
+
+		expect(await getLatestVersion('draft')).not.toBeNull();
+	});
+});
+
 describe('listing languages', () => {
 	it('returns languages and the default locale', async () => {
 		await seedLanguage('en', false);
@@ -236,7 +298,7 @@ describe('authentication', () => {
 	it('rejects unsupported methods', async () => {
 		const response = await action({
 			request: apiRequest('/edge-cms/api/i18n/languages', apiKey, {
-				method: 'DELETE',
+				method: 'PUT',
 				body: JSON.stringify({ locale: 'en' }),
 			}),
 		} as never);
