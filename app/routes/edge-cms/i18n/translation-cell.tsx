@@ -3,6 +3,12 @@ import { useEffect, useState } from 'react';
 import type { Translation } from '~/utils/db.server';
 import { SmartTextarea } from './smart-textarea';
 import { toast } from 'sonner';
+import { RefreshCw } from 'lucide-react';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '~/components/ui/tooltip';
 
 export function TranslationCell({
 	translationKey,
@@ -18,9 +24,8 @@ export function TranslationCell({
 	const fetcher = useFetcher({
 		key: `update-translation-${translationKey}-${language}`,
 	});
-	const [resetKey, setResetKey] = useState(0); // Force reset by changing key
+	const [resetKey, setResetKey] = useState(0);
 
-	// Handle fetcher response - reset cell on error
 	useEffect(() => {
 		if (fetcher.state === 'idle' && fetcher.data?.success === false) {
 			setResetKey(prev => prev + 1);
@@ -56,9 +61,9 @@ export function TranslationCell({
 
 	const textarea = (
 		<SmartTextarea
-			key={resetKey} // Force reset when resetKey changes
+			key={resetKey}
 			value={translation?.value || ''}
-			onValueChange={() => {}} // No need to track changes locally
+			onValueChange={() => {}}
 			onSubmit={handleSubmit}
 			placeholder="Enter translation..."
 			disabled={fetcher.state === 'submitting'}
@@ -72,15 +77,23 @@ export function TranslationCell({
 	return (
 		<div className="flex w-full items-start gap-1 rounded-md bg-amber-50 ring-1 ring-amber-300">
 			{textarea}
-			<button
-				type="button"
-				onClick={confirmCurrent}
-				title="The source text changed after this translation was written. Editing it clears this; use this button to keep it as is."
-				aria-label="Keep this translation and clear the outdated marker"
-				className="cursor-pointer px-1 py-1 text-amber-600 hover:text-amber-800"
-			>
-				⚠
-			</button>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						onClick={confirmCurrent}
+						disabled={fetcher.state === 'submitting'}
+						aria-label="Keep this translation and mark it current"
+						className="cursor-pointer rounded-sm p-1 text-amber-600 transition-colors hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-600 disabled:cursor-wait disabled:opacity-50"
+					>
+						<RefreshCw className="size-4" aria-hidden="true" />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="top" sideOffset={6} className="max-w-64">
+					The source text changed. Review this translation, or click to keep it
+					unchanged and mark it current.
+				</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 }

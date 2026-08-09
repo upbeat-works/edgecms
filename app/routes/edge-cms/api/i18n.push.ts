@@ -78,6 +78,18 @@ export async function action({ request }: Route.ActionArgs) {
 		);
 	}
 
+	const defaultLocale = languages.find(language => language.default)?.locale;
+	if (locale !== defaultLocale) {
+		return Response.json(
+			{
+				error: `Locale "${locale}" is not the CMS default locale. Configure the CLI to push "${defaultLocale}".`,
+				code: 'DEFAULT_LOCALE_MISMATCH',
+				defaultLocale,
+			},
+			{ status: 409 },
+		);
+	}
+
 	// Ensure a draft version exists (same pattern as UI import)
 	const [draftVersion, liveVersion] = await Promise.all([
 		getLatestVersion('draft'),
