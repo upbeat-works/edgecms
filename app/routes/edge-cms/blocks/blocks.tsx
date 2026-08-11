@@ -138,7 +138,7 @@ export default function Blocks() {
 										Schemas
 									</Link>
 								</Button>
-								<Button asChild variant="brand">
+								<Button asChild>
 									<Link to="/edge-cms/blocks/new">
 										<Plus className="mr-2 h-4 w-4" />
 										New block
@@ -157,7 +157,7 @@ export default function Blocks() {
 									: 'Create a block to start managing reusable content.'
 							}
 							action={
-								<Button asChild variant="brand" size="sm">
+								<Button asChild size="sm">
 									<Link
 										to={
 											schemas.length === 0

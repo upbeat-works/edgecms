@@ -226,7 +226,7 @@ export default function BlockDetailPage() {
 										to={`/edge-cms/blocks/${block.id}/instances/new`}
 										className="flex-1"
 									>
-										<Button variant="brand" className="w-full">
+										<Button className="w-full">
 											<Plus className="mr-2 h-4 w-4" />
 											Add item
 										</Button>

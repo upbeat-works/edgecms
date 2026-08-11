@@ -152,9 +152,7 @@ function NewKeyDisplay({
 				</div>
 			</div>
 			<div className="flex justify-end">
-				<Button variant="brand" onClick={onClose}>
-					Done
-				</Button>
+				<Button onClick={onClose}>Done</Button>
 			</div>
 		</div>
 	);
@@ -187,7 +185,7 @@ function CreateApiKeyDialog() {
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogTrigger asChild>
-				<Button variant="brand">
+				<Button>
 					<Key className="mr-2 h-4 w-4" />
 					Create key
 				</Button>
@@ -225,11 +223,7 @@ function CreateApiKeyDialog() {
 							>
 								Cancel
 							</Button>
-							<Button
-								type="submit"
-								variant="brand"
-								disabled={fetcher.state === 'submitting'}
-							>
+							<Button type="submit" disabled={fetcher.state === 'submitting'}>
 								{fetcher.state === 'submitting' ? 'Creating...' : 'Create key'}
 							</Button>
 						</DialogFooter>

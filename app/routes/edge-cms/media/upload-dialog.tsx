@@ -118,7 +118,6 @@ export function UploadDialog({
 						</Button>
 						<Button
 							type="submit"
-							variant="brand"
 							disabled={uploadFetcher.state === 'submitting'}
 						>
 							{uploadFetcher.state === 'submitting' ? loadingText : submitText}

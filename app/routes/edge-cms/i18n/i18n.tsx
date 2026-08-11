@@ -545,7 +545,6 @@ export default function I18n() {
 									</Button>
 								</div>
 								<Button
-									variant="brand"
 									className="ml-2"
 									onClick={() => setShowAddTranslation(true)}
 								>

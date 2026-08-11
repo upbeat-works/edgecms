@@ -360,7 +360,7 @@ export default function BlockInstancePage() {
 						before you can edit this block.
 					</p>
 					<Link to="/edge-cms/i18n">
-						<Button variant="brand">Go to translations</Button>
+						<Button>Go to translations</Button>
 					</Link>
 				</div>
 			</div>
@@ -680,11 +680,7 @@ function BlockInstanceForm({
 				)}
 
 				<SheetFooter>
-					<Button
-						type="submit"
-						variant="brand"
-						disabled={fetcher.state === 'submitting'}
-					>
+					<Button type="submit" disabled={fetcher.state === 'submitting'}>
 						{fetcher.state === 'submitting' ? 'Creating...' : 'Create item'}
 					</Button>
 				</SheetFooter>

@@ -155,7 +155,7 @@ export default function UsersPage() {
 				actions={
 					<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 						<DialogTrigger asChild>
-							<Button variant="brand">
+							<Button>
 								<UserPlus className="mr-2 h-4 w-4" />
 								Add user
 							</Button>
@@ -204,7 +204,7 @@ export default function UsersPage() {
 									>
 										Cancel
 									</Button>
-									<Button type="submit" variant="brand" disabled={isSubmitting}>
+									<Button type="submit" disabled={isSubmitting}>
 										{isSubmitting ? 'Adding...' : 'Add user'}
 									</Button>
 								</DialogFooter>
@@ -281,11 +281,7 @@ export default function UsersPage() {
 										title="Invite your team"
 										description="Add someone who needs access to this EdgeCMS workspace."
 										action={
-											<Button
-												variant="brand"
-												size="sm"
-												onClick={() => setDialogOpen(true)}
-											>
+											<Button size="sm" onClick={() => setDialogOpen(true)}>
 												<UserPlus className="mr-2 h-4 w-4" />
 												Add user
 											</Button>

@@ -105,7 +105,7 @@ export default function SchemasPage() {
 							<div className="mt-6">
 								<div className="mb-6 flex items-center justify-end">
 									<Link to="/edge-cms/blocks/schemas/new">
-										<Button variant="brand">
+										<Button>
 											<Plus className="mr-2 h-4 w-4" />
 											New schema
 										</Button>

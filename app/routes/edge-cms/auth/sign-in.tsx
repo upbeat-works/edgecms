@@ -131,7 +131,7 @@ export default function SignIn() {
 							</div>
 						)}
 
-						<Button type="submit" variant="brand" className="h-11 w-full">
+						<Button type="submit" className="h-11 w-full">
 							Sign in
 							<ArrowRight className="ml-2 h-4 w-4" />
 						</Button>

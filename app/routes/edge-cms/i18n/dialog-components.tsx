@@ -76,7 +76,6 @@ export function AddLanguageDialog({
 						</Button>
 						<Button
 							type="submit"
-							variant="brand"
 							disabled={addLanguageFetcher.state === 'submitting'}
 						>
 							{addLanguageFetcher.state === 'submitting'
@@ -229,7 +228,6 @@ export function AddTranslationDialog({
 						</Button>
 						<Button
 							type="submit"
-							variant="brand"
 							disabled={addTranslationFetcher.state === 'submitting'}
 						>
 							{addTranslationFetcher.state === 'submitting'
@@ -327,7 +325,6 @@ export function ImportJsonDialog({
 						</Button>
 						<Button
 							type="submit"
-							variant="brand"
 							disabled={importJsonFetcher.state === 'submitting'}
 						>
 							{importJsonFetcher.state === 'submitting'
@@ -464,9 +461,7 @@ export function AiTranslationProgressDialog({
 				<DialogFooter>
 					{aiTranslateStatus &&
 					terminalStates.includes(aiTranslateStatus.status) ? (
-						<Button variant="brand" onClick={() => onOpenChange(false)}>
-							Close
-						</Button>
+						<Button onClick={() => onOpenChange(false)}>Close</Button>
 					) : (
 						<Button variant="outline" onClick={() => onOpenChange(false)}>
 							Hide progress

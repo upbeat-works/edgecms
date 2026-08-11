@@ -161,7 +161,7 @@ export default function MediaManagement() {
 									</>
 								)}
 							</Button>
-							<Button onClick={() => setShowUpload(true)} variant="brand">
+							<Button onClick={() => setShowUpload(true)}>
 								<Upload className="mr-2 h-4 w-4" />
 								Upload
 							</Button>
@@ -187,11 +187,7 @@ export default function MediaManagement() {
 								: 'Upload an image, video, or document to use across your content.'
 						}
 						action={
-							<Button
-								variant="brand"
-								size="sm"
-								onClick={() => setShowUpload(true)}
-							>
+							<Button size="sm" onClick={() => setShowUpload(true)}>
 								<Upload className="mr-2 h-4 w-4" />
 								Upload media
 							</Button>

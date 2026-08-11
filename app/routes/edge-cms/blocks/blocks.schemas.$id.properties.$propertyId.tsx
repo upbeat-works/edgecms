@@ -107,11 +107,7 @@ export default function EditPropertyPage() {
 					)}
 
 					<SheetFooter>
-						<Button
-							type="submit"
-							variant="brand"
-							disabled={fetcher.state === 'submitting'}
-						>
+						<Button type="submit" disabled={fetcher.state === 'submitting'}>
 							{fetcher.state === 'submitting' ? 'Saving...' : 'Save'}
 						</Button>
 					</SheetFooter>

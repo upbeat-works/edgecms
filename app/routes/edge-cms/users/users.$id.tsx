@@ -375,11 +375,7 @@ export default function UserDetailPage() {
 										>
 											Cancel
 										</Button>
-										<Button
-											type="submit"
-											variant="brand"
-											disabled={isSubmitting}
-										>
+										<Button type="submit" disabled={isSubmitting}>
 											{isSubmitting ? 'Updating...' : 'Update role'}
 										</Button>
 									</DialogFooter>
@@ -462,11 +458,7 @@ export default function UserDetailPage() {
 										>
 											Cancel
 										</Button>
-										<Button
-											type="submit"
-											variant="brand"
-											disabled={isSubmitting}
-										>
+										<Button type="submit" disabled={isSubmitting}>
 											{isSubmitting ? 'Updating...' : 'Update password'}
 										</Button>
 									</DialogFooter>

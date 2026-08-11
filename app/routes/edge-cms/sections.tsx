@@ -143,7 +143,7 @@ export default function Sections() {
 					actions={
 						<Dialog open={showAddSection} onOpenChange={setShowAddSection}>
 							<DialogTrigger asChild>
-								<Button variant="brand">
+								<Button>
 									<Plus className="mr-2 h-4 w-4" />
 									New section
 								</Button>
@@ -173,7 +173,6 @@ export default function Sections() {
 										</Button>
 										<Button
 											type="submit"
-											variant="brand"
 											disabled={addSectionFetcher.state === 'submitting'}
 										>
 											{addSectionFetcher.state === 'submitting'
@@ -292,7 +291,6 @@ export default function Sections() {
 											description="Group translations and media into a clear area of your site."
 											action={
 												<Button
-													variant="brand"
 													size="sm"
 													onClick={() => setShowAddSection(true)}
 												>

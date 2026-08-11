@@ -68,9 +68,7 @@ export function PublishProgressDialog({
 				</div>
 				<DialogFooter>
 					{isTerminal ? (
-						<Button variant="brand" onClick={() => onOpenChange(false)}>
-							Close
-						</Button>
+						<Button onClick={() => onOpenChange(false)}>Close</Button>
 					) : (
 						<Button variant="outline" onClick={() => onOpenChange(false)}>
 							Hide progress

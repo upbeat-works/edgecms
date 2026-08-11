@@ -171,7 +171,6 @@ export default function VersionsPage() {
 										<Button
 											onClick={() => handlePublishVersion(version.id)}
 											size="sm"
-											variant="brand"
 										>
 											<Rocket className="mr-2 h-4 w-4" />
 											Publish

@@ -171,11 +171,7 @@ export default function NewBlockPage() {
 									Cancel
 								</Button>
 							</Link>
-							<Button
-								type="submit"
-								variant="brand"
-								disabled={fetcher.state === 'submitting'}
-							>
+							<Button type="submit" disabled={fetcher.state === 'submitting'}>
 								{fetcher.state === 'submitting'
 									? 'Creating...'
 									: 'Create block'}
