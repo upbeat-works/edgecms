@@ -22,6 +22,9 @@ export {
 	type BlockSchemasResponse,
 	type BlockCollectionResponse,
 	type BlockCollectionsResponse,
+	type MediaItem,
+	type MediaListResponse,
+	type SetBlockMediaResponse,
 } from './api.js';
 export { generateTypes } from './codegen.js';
 export { pull, type PullOptions } from './commands/pull.js';
@@ -55,6 +58,13 @@ export {
 	listCollections,
 	type PushBlocksOptions,
 } from './commands/blocks.js';
+export {
+	listMedia,
+	uploadMediaFile,
+	replaceMediaFile,
+	attachBlockMedia,
+	type ListMediaOptions,
+} from './commands/media.js';
 export {
 	parseBlocksDocument,
 	planSchemaApplication,

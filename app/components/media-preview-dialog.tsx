@@ -7,6 +7,7 @@ import {
 } from '~/components/ui/dialog';
 import { MediaPreview } from '~/components/media-preview';
 import { MarkdownEditor } from '~/components/markdown-editor';
+import { cn } from '~/utils/misc';
 
 interface MediaPreviewDialogProps {
 	media: {
@@ -15,16 +16,25 @@ interface MediaPreviewDialogProps {
 		version?: number;
 	};
 	mediaId?: number;
+	variant?: 'default' | 'gallery';
 }
 
 export function MediaPreviewDialog({
 	media,
 	mediaId,
+	variant = 'default',
 }: MediaPreviewDialogProps) {
 	return (
 		<Dialog>
 			<DialogTrigger asChild>
-				<div className="group border-border relative flex aspect-video cursor-pointer items-center justify-center overflow-hidden rounded border bg-gray-100 transition-colors hover:bg-gray-200">
+				<div
+					className={cn(
+						'group relative flex aspect-video cursor-zoom-in items-center justify-center overflow-hidden bg-gray-100 transition duration-300 dark:bg-slate-900',
+						variant === 'gallery'
+							? 'rounded-t-xl group-hover/card:bg-sky-50 dark:group-hover/card:bg-slate-800'
+							: 'border-border rounded border hover:bg-gray-200',
+					)}
+				>
 					<MediaPreview
 						version={media.version}
 						filename={media.filename}
@@ -36,6 +46,7 @@ export function MediaPreviewDialog({
 				</div>
 			</DialogTrigger>
 			<DialogContent
+				size="media"
 				dismissible={false}
 				className="min-w-[90vw] border-0 p-0 outline-none"
 			>

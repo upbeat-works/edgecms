@@ -30,6 +30,10 @@ the correct environment file. Run commands from the project root.
 | `edgecms schemas`                                      | List block schemas                                                        |
 | `edgecms blocks`                                       | List collections and item counts                                          |
 | `edgecms import-blocks file collection [--locale tag]` | Bulk-import block instances into draft                                    |
+| `edgecms media [--search text] [--section name] [--state live\|archived] [--all-versions]` | List and search media revisions |
+| `edgecms media:upload file [--section name]` | Upload live media and print its ID and canonical URL |
+| `edgecms media:replace id file` | Replace media under its existing canonical URL |
+| `edgecms blocks:set-media collection instance property media-id` | Attach media to a block property in draft |
 
 Check the installed SDK's `edgecms --help` before using commands absent from an
 older project version.
@@ -57,6 +61,11 @@ updates non-structural descriptions/sections, but never deletes or retypes a
 property or rebinds a collection. Conflicting structure fails rather than
 orphaning stored content. New block instances and changes remain draft until
 published.
+
+Media has a separate lifecycle: uploads are live immediately, replacement
+archives the selected revision and creates a new live revision, and the
+canonical URL remains stable. Block properties store a revision ID but resolve
+through that canonical URL, so replacement does not break existing references.
 
 ## New-instance order
 

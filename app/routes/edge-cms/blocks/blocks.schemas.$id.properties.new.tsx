@@ -24,6 +24,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
+	SheetFooter,
 } from '~/components/ui/sheet';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.$id.properties.new';
@@ -80,7 +81,7 @@ export default function AddPropertyPage() {
 					</Button>
 				</Link>
 				<SheetHeader className="flex-1 space-y-1">
-					<SheetTitle>Add Property</SheetTitle>
+					<SheetTitle>Add property</SheetTitle>
 					<SheetDescription>Add a new property to the schema</SheetDescription>
 				</SheetHeader>
 			</div>
@@ -156,9 +157,15 @@ export default function AddPropertyPage() {
 						<p className="text-destructive text-sm">{fetcher.data.error}</p>
 					)}
 
-					<Button type="submit" disabled={fetcher.state === 'submitting'}>
-						{fetcher.state === 'submitting' ? 'Adding...' : 'Add Property'}
-					</Button>
+					<SheetFooter>
+						<Button
+							type="submit"
+							variant="brand"
+							disabled={fetcher.state === 'submitting'}
+						>
+							{fetcher.state === 'submitting' ? 'Adding...' : 'Add property'}
+						</Button>
+					</SheetFooter>
 				</fetcher.Form>
 			</div>
 		</>

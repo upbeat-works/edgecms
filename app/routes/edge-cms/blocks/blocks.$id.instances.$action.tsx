@@ -49,6 +49,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
+	SheetFooter,
 } from '~/components/ui/sheet';
 import type { Route } from './+types/blocks.$id.instances.$action';
 
@@ -359,7 +360,7 @@ export default function BlockInstancePage() {
 						before you can edit this block.
 					</p>
 					<Link to="/edge-cms/i18n">
-						<Button>Go to Translations</Button>
+						<Button variant="brand">Go to translations</Button>
 					</Link>
 				</div>
 			</div>
@@ -386,7 +387,7 @@ export default function BlockInstancePage() {
 					</Button>
 				)}
 				<SheetHeader className="flex-1 space-y-1">
-					<SheetTitle>{mode === 'create' ? 'New Item' : block.name}</SheetTitle>
+					<SheetTitle>{mode === 'create' ? 'New item' : block.name}</SheetTitle>
 					<SheetDescription>
 						{mode === 'create'
 							? `${block.schemaName} • Create new instance`
@@ -678,9 +679,15 @@ function BlockInstanceForm({
 					<p className="text-destructive text-sm">{fetcher.data.error}</p>
 				)}
 
-				<Button type="submit" disabled={fetcher.state === 'submitting'}>
-					{fetcher.state === 'submitting' ? 'Creating...' : 'Create Item'}
-				</Button>
+				<SheetFooter>
+					<Button
+						type="submit"
+						variant="brand"
+						disabled={fetcher.state === 'submitting'}
+					>
+						{fetcher.state === 'submitting' ? 'Creating...' : 'Create item'}
+					</Button>
+				</SheetFooter>
 			</form>
 		);
 	}

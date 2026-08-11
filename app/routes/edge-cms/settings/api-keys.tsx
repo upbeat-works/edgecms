@@ -1,6 +1,6 @@
 import { useLoaderData, useFetcher } from 'react-router';
 import { useState, useEffect } from 'react';
-import { Trash2, Copy, Check, Key } from 'lucide-react';
+import { Check, Copy, Key, ShieldCheck, Terminal, Trash2 } from 'lucide-react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	Table,
@@ -12,10 +12,13 @@ import {
 } from '~/components/ui/table';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
+import { WorkspacePageHeader } from '~/components/ui/workspace';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Label } from '~/components/ui/label';
 import {
 	Dialog,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -46,12 +49,10 @@ interface ApiKeyInfo {
 export async function loader({ request }: Route.LoaderArgs) {
 	const { auth, user } = await requireAuth(request, env);
 
-	// List API keys for the current user
 	const result = await auth.api.listApiKeys({
 		headers: request.headers,
 	});
 
-	// better-auth >=1.5 returns { apiKeys, total, limit, offset } instead of an array
 	const apiKeys: ApiKeyInfo[] = result.apiKeys.map(key => ({
 		id: key.id,
 		name: key.name,
@@ -80,7 +81,6 @@ export async function action({ request }: Route.ActionArgs) {
 				headers: request.headers,
 			});
 
-			// Return the full key - this is the only time it will be shown
 			return {
 				success: true,
 				newKey: result.key,
@@ -118,6 +118,7 @@ function CopyButton({ text }: { text: string }) {
 		<Button
 			variant="ghost"
 			size="icon"
+			aria-label="Copy API key"
 			onClick={handleCopy}
 			className="h-8 w-8"
 		>
@@ -139,9 +140,9 @@ function NewKeyDisplay({
 }) {
 	return (
 		<div className="space-y-4">
-			<div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
-				<p className="mb-2 text-sm font-medium text-yellow-600 dark:text-yellow-400">
-					Make sure to copy your API key now. You won't be able to see it again!
+			<div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-500/20 dark:bg-amber-950/30">
+				<p className="mb-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+					Copy this key now. It won't be shown again.
 				</p>
 				<div className="flex items-center gap-2">
 					<code className="bg-muted flex-1 rounded px-3 py-2 font-mono text-sm break-all">
@@ -151,7 +152,9 @@ function NewKeyDisplay({
 				</div>
 			</div>
 			<div className="flex justify-end">
-				<Button onClick={onClose}>Done</Button>
+				<Button variant="brand" onClick={onClose}>
+					Done
+				</Button>
 			</div>
 		</div>
 	);
@@ -184,19 +187,20 @@ function CreateApiKeyDialog() {
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogTrigger asChild>
-				<Button>
+				<Button variant="brand">
 					<Key className="mr-2 h-4 w-4" />
-					Create API Key
+					Create key
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-[500px]">
+			<DialogContent size="md">
 				<DialogHeader>
 					<DialogTitle>
-						{newKey ? 'API Key Created' : 'Create New API Key'}
+						{newKey ? 'API key created' : 'Create API key'}
 					</DialogTitle>
 					{!newKey && (
 						<DialogDescription>
-							Create an API key to use with the EdgeCMS SDK.
+							Create a credential for the EdgeCMS SDK or your deployment
+							pipeline.
 						</DialogDescription>
 					)}
 				</DialogHeader>
@@ -207,17 +211,13 @@ function CreateApiKeyDialog() {
 					<fetcher.Form method="post" className="space-y-4">
 						<input type="hidden" name="intent" value="create-api-key" />
 						<div className="space-y-2">
-							<Label htmlFor="name">Key Name (optional)</Label>
-							<Input
-								id="name"
-								name="name"
-								placeholder="e.g., Development, CI/CD, Production"
-							/>
+							<Label htmlFor="name">Key name (optional)</Label>
+							<Input id="name" name="name" placeholder="Production deploy" />
 							<p className="text-muted-foreground text-xs">
 								Give your key a descriptive name to help you identify it later.
 							</p>
 						</div>
-						<div className="flex justify-end space-x-2">
+						<DialogFooter>
 							<Button
 								type="button"
 								variant="outline"
@@ -225,10 +225,14 @@ function CreateApiKeyDialog() {
 							>
 								Cancel
 							</Button>
-							<Button type="submit" disabled={fetcher.state === 'submitting'}>
-								{fetcher.state === 'submitting' ? 'Creating...' : 'Create'}
+							<Button
+								type="submit"
+								variant="brand"
+								disabled={fetcher.state === 'submitting'}
+							>
+								{fetcher.state === 'submitting' ? 'Creating...' : 'Create key'}
 							</Button>
-						</div>
+						</DialogFooter>
 					</fetcher.Form>
 				)}
 			</DialogContent>
@@ -251,6 +255,7 @@ function DeleteApiKeyButton({
 				<Button
 					variant="ghost"
 					size="icon"
+					aria-label={`Delete ${keyName || 'API key'}`}
 					className="text-destructive hover:text-destructive hover:bg-destructive/10"
 				>
 					<Trash2 className="h-4 w-4" />
@@ -258,7 +263,7 @@ function DeleteApiKeyButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete API Key</AlertDialogTitle>
+					<AlertDialogTitle>Delete API key?</AlertDialogTitle>
 					<AlertDialogDescription>
 						Are you sure you want to delete the API key
 						{keyName ? ` "${keyName}"` : ''}? This action cannot be undone. Any
@@ -270,10 +275,7 @@ function DeleteApiKeyButton({
 					<fetcher.Form method="post">
 						<input type="hidden" name="intent" value="delete-api-key" />
 						<input type="hidden" name="keyId" value={keyId} />
-						<AlertDialogAction
-							type="submit"
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-						>
+						<AlertDialogAction type="submit">
 							{fetcher.state === 'submitting' ? 'Deleting...' : 'Delete'}
 						</AlertDialogAction>
 					</fetcher.Form>
@@ -299,53 +301,65 @@ export default function ApiKeysSettings() {
 
 	return (
 		<main>
-			<div className="container mx-auto py-8">
-				<div className="mb-8 flex items-center justify-between">
-					<div>
-						<h1 className="text-3xl font-bold">API Keys</h1>
-						<p className="text-muted-foreground mt-1">
-							Manage API keys for the EdgeCMS SDK
-						</p>
-					</div>
-					<CreateApiKeyDialog />
-				</div>
+			<div className="container mx-auto px-4 py-4 lg:py-5">
+				<WorkspacePageHeader
+					density="compact"
+					eyebrow="Developer access"
+					title="API keys"
+					description="Create and revoke credentials used by the SDK and automated workflows."
+					actions={<CreateApiKeyDialog />}
+				/>
 
-				{/* Usage instructions */}
-				<div className="bg-muted/50 mb-6 rounded-lg border p-4">
-					<h2 className="mb-2 font-semibold">Quick Start</h2>
-					<p className="text-muted-foreground mb-3 text-sm">
-						Use API keys to authenticate with the EdgeCMS SDK. Add your key to
-						your project's{' '}
-						<code className="bg-muted rounded px-1">edgecms.config.json</code>:
-					</p>
-					<pre className="bg-muted overflow-x-auto rounded p-3 text-sm">
-						{`{
+				<div className="mb-6 overflow-hidden rounded-xl bg-amber-100 shadow-[0_1px_2px_rgb(15_23_42/0.04)] ring-1 ring-amber-300/80">
+					<div className="flex items-center justify-between border-b border-amber-300/80 px-4 py-3">
+						<div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-600 uppercase">
+							<Terminal className="h-3.5 w-3.5 text-sky-600" />
+							Quick start
+						</div>
+						<ShieldCheck className="h-4 w-4 text-fuchsia-500" />
+					</div>
+					<div className="p-4">
+						<p className="mb-3 text-sm text-slate-600">
+							Use API keys to authenticate with the EdgeCMS SDK. Add your key to
+							your project's{' '}
+							<code className="rounded bg-sky-100 px-1 text-sky-700">
+								edgecms.config.json
+							</code>
+							:
+						</p>
+						<pre className="overflow-x-auto rounded-lg bg-white p-3 font-mono text-sm text-slate-700 ring-1 ring-slate-200">
+							{`{
   "apiKey": "\${EDGECMS_API_KEY}",
   ...
 }`}
-					</pre>
-					<p className="text-muted-foreground mt-2 text-xs">
-						Then set the{' '}
-						<code className="bg-muted rounded px-1">EDGECMS_API_KEY</code>{' '}
-						environment variable to your API key value.
-					</p>
+						</pre>
+						<p className="mt-3 text-xs text-slate-500">
+							Then set the{' '}
+							<code className="rounded bg-sky-100 px-1 text-sky-700">
+								EDGECMS_API_KEY
+							</code>{' '}
+							environment variable to your API key value.
+						</p>
+					</div>
 				</div>
 
-				{/* API Keys Table */}
-				<div className="overflow-hidden rounded-lg border">
+				<div className="bg-card overflow-hidden rounded-xl shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5 dark:ring-white/10">
 					<Table>
-						<TableHeader>
+						<TableHeader className="bg-muted/45">
 							<TableRow>
 								<TableHead>Name</TableHead>
 								<TableHead>Key</TableHead>
-								<TableHead>Created</TableHead>
-								<TableHead>Last Used</TableHead>
+								<TableHead className="hidden md:table-cell">Created</TableHead>
+								<TableHead>Last used</TableHead>
 								<TableHead className="w-[60px]" />
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{apiKeys.map(key => (
-								<TableRow key={key.id}>
+								<TableRow
+									key={key.id}
+									className="transition-colors hover:bg-sky-50/60 dark:hover:bg-sky-950/20"
+								>
 									<TableCell className="font-medium">
 										{key.name || (
 											<span className="text-muted-foreground italic">
@@ -358,7 +372,7 @@ export default function ApiKeysSettings() {
 											{key.start}...
 										</code>
 									</TableCell>
-									<TableCell className="text-muted-foreground text-sm">
+									<TableCell className="text-muted-foreground hidden text-sm md:table-cell">
 										{formatDate(key.createdAt)}
 									</TableCell>
 									<TableCell className="text-muted-foreground text-sm">
@@ -371,15 +385,13 @@ export default function ApiKeysSettings() {
 							))}
 							{apiKeys.length === 0 && (
 								<TableRow>
-									<TableCell
-										colSpan={5}
-										className="text-muted-foreground py-12 text-center"
-									>
-										<Key className="mx-auto mb-3 h-8 w-8 opacity-50" />
-										<p>No API keys created yet.</p>
-										<p className="text-sm">
-											Create an API key to start using the EdgeCMS SDK.
-										</p>
+									<TableCell colSpan={5} className="p-0">
+										<EmptyState
+											density="compact"
+											title="Connect your first integration"
+											description="Create an API key to use EdgeCMS from the SDK or an automated workflow."
+											action={<CreateApiKeyDialog />}
+										/>
 									</TableCell>
 								</TableRow>
 							)}

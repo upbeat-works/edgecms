@@ -206,7 +206,7 @@ export default function BlockDetailPage() {
 					!open && navigate('/edge-cms/blocks', { replace: true })
 				}
 			>
-				<SheetContent side="right" className="w-[600px] overflow-y-auto">
+				<SheetContent side="right" size="md">
 					{isViewingInstance ? (
 						// Show instance detail when viewing a specific instance
 						<Outlet />
@@ -226,9 +226,9 @@ export default function BlockDetailPage() {
 										to={`/edge-cms/blocks/${block.id}/instances/new`}
 										className="flex-1"
 									>
-										<Button className="w-full">
+										<Button variant="brand" className="w-full">
 											<Plus className="mr-2 h-4 w-4" />
-											Add Item
+											Add item
 										</Button>
 									</Link>
 									<Button

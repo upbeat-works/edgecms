@@ -47,6 +47,33 @@ export interface BlocksResponse {
 export interface ImportBlocksResponse {
 	success: boolean;
 	instancesCreated: number;
+	state: 'draft';
+	draftVersionId: number;
+}
+
+export interface MediaItem {
+	id: number;
+	filename: string;
+	mimeType: string;
+	sizeBytes: number;
+	section: string | null;
+	state: 'live' | 'archived';
+	uploadedAt: string;
+	version: number;
+	canonicalUrl: string;
+}
+
+export interface MediaListResponse {
+	media: MediaItem[];
+}
+
+export interface SetBlockMediaResponse {
+	collection: string;
+	instanceId: number;
+	property: string;
+	mediaId: number | null;
+	state: 'draft';
+	draftVersionId: number;
 }
 
 export interface PublishResponse {
@@ -266,6 +293,64 @@ export class EdgeCMSClient {
 	 */
 	async getBlockCollections(): Promise<BlockCollectionsResponse> {
 		return this.fetch<BlockCollectionsResponse>('/api/blocks/collections');
+	}
+
+	async getMedia(
+		options: {
+			search?: string;
+			section?: string;
+			state?: 'live' | 'archived';
+			allVersions?: boolean;
+		} = {},
+	): Promise<MediaListResponse> {
+		const query = new URLSearchParams();
+		if (options.search) query.set('search', options.search);
+		if (options.section) query.set('section', options.section);
+		if (options.state) query.set('state', options.state);
+		if (options.allVersions) query.set('allVersions', 'true');
+		const suffix = query.size > 0 ? `?${query}` : '';
+		return this.fetch<MediaListResponse>(`/api/media${suffix}`);
+	}
+
+	async uploadMedia(
+		file: Blob,
+		filename: string,
+		section?: string,
+	): Promise<MediaItem> {
+		const body = new FormData();
+		body.set('file', file, filename);
+		if (section) body.set('section', section);
+		return this.fetch<MediaItem>('/api/media', { method: 'POST', body });
+	}
+
+	async replaceMedia(
+		id: number,
+		file: Blob,
+		filename: string,
+	): Promise<MediaItem> {
+		const body = new FormData();
+		body.set('file', file, filename);
+		return this.fetch<MediaItem>(`/api/media/${id}`, { method: 'PUT', body });
+	}
+
+	async setBlockMedia(input: {
+		collection: string;
+		instanceId: number;
+		property: string;
+		mediaId: number | null;
+	}): Promise<SetBlockMediaResponse> {
+		const path = [
+			'/api/blocks/collections',
+			encodeURIComponent(input.collection),
+			'instances',
+			String(input.instanceId),
+			'properties',
+			encodeURIComponent(input.property),
+		].join('/');
+		return this.fetch<SetBlockMediaResponse>(path, {
+			method: 'PATCH',
+			body: JSON.stringify({ mediaId: input.mediaId }),
+		});
 	}
 
 	/**

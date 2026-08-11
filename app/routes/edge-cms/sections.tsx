@@ -1,13 +1,12 @@
 import { useLoaderData, Form, useFetcher } from 'react-router';
 import { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { FolderTree, Plus, Trash2 } from 'lucide-react';
 import { requireAuth } from '~/utils/auth.middleware';
 import {
 	getSectionsWithCounts,
 	createSection,
 	updateSection,
 	deleteSection,
-	type SectionWithCounts,
 	getLanguages,
 } from '~/utils/db.server';
 import {
@@ -20,6 +19,8 @@ import {
 } from '~/components/ui/table';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
+import { WorkspacePageHeader } from '~/components/ui/workspace';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
 import {
@@ -30,6 +31,7 @@ import {
 import {
 	Dialog,
 	DialogContent,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -39,8 +41,10 @@ import { env } from 'cloudflare:workers';
 export async function loader({ request }: { request: Request }) {
 	await requireAuth(request, env);
 
-	const sections = await getSectionsWithCounts();
-	const languages = await getLanguages();
+	const [sections, languages] = await Promise.all([
+		getSectionsWithCounts(),
+		getLanguages(),
+	]);
 
 	return { sections, languages };
 }
@@ -97,7 +101,6 @@ function EditableSectionName({ sectionName }: { sectionName: string }) {
 				{ method: 'post' },
 			);
 		} else if (value.trim() === '') {
-			// Reset to original value if empty
 			setValue(sectionName);
 			setIsDirty(false);
 		}
@@ -105,14 +108,15 @@ function EditableSectionName({ sectionName }: { sectionName: string }) {
 
 	return (
 		<Input
+			aria-label={`Rename ${sectionName}`}
 			value={value}
-			onChange={e => {
-				setValue(e.target.value);
+			onChange={event => {
+				setValue(event.target.value);
 				setIsDirty(true);
 			}}
 			onBlur={handleBlur}
-			className="h-auto border-0 p-1 font-medium focus:ring-1"
-			placeholder="Section name..."
+			className="hover:bg-muted/60 h-auto border-0 bg-transparent px-2 py-1.5 font-semibold tracking-tight shadow-none transition-colors focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-sky-500"
+			placeholder="Section name"
 		/>
 	);
 }
@@ -122,7 +126,6 @@ export default function Sections() {
 	const [showAddSection, setShowAddSection] = useState(false);
 	const addSectionFetcher = useFetcher();
 
-	// Hide the form after successful submission
 	useEffect(() => {
 		if (addSectionFetcher.data?.success) {
 			setShowAddSection(false);
@@ -131,151 +134,173 @@ export default function Sections() {
 
 	return (
 		<main>
-			<div className="container mx-auto py-8">
-				<h1 className="mb-8 text-3xl font-bold">Sections Management</h1>
+			<div className="container mx-auto px-4 py-4 lg:py-5">
+				<WorkspacePageHeader
+					density="compact"
+					eyebrow="Content structure"
+					title="Sections"
+					description="Group related translations and media into clear areas of your site."
+					actions={
+						<Dialog open={showAddSection} onOpenChange={setShowAddSection}>
+							<DialogTrigger asChild>
+								<Button variant="brand">
+									<Plus className="mr-2 h-4 w-4" />
+									New section
+								</Button>
+							</DialogTrigger>
+							<DialogContent size="sm">
+								<DialogHeader>
+									<DialogTitle>New section</DialogTitle>
+								</DialogHeader>
+								<addSectionFetcher.Form method="post" className="space-y-4">
+									<input type="hidden" name="intent" value="add-section" />
+									<div className="space-y-2">
+										<Label htmlFor="name">Section name</Label>
+										<Input
+											id="name"
+											name="name"
+											placeholder="Homepage"
+											required
+										/>
+									</div>
+									<DialogFooter>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => setShowAddSection(false)}
+										>
+											Cancel
+										</Button>
+										<Button
+											type="submit"
+											variant="brand"
+											disabled={addSectionFetcher.state === 'submitting'}
+										>
+											{addSectionFetcher.state === 'submitting'
+												? 'Creating...'
+												: 'Create section'}
+										</Button>
+									</DialogFooter>
+								</addSectionFetcher.Form>
+							</DialogContent>
+						</Dialog>
+					}
+				/>
 
-				<div className="mb-6 flex justify-end">
-					<Dialog open={showAddSection} onOpenChange={setShowAddSection}>
-						<DialogTrigger asChild>
-							<Button>Add Section</Button>
-						</DialogTrigger>
-						<DialogContent className="sm:max-w-[425px]">
-							<DialogHeader>
-								<DialogTitle>Add New Section</DialogTitle>
-							</DialogHeader>
-							<addSectionFetcher.Form method="post" className="space-y-4">
-								<input type="hidden" name="intent" value="add-section" />
-								<div className="space-y-2">
-									<Label htmlFor="name">Section Name</Label>
-									<Input
-										id="name"
-										name="name"
-										placeholder="e.g., homepage, dashboard"
-										required
-									/>
-								</div>
-								<div className="flex justify-end space-x-2">
-									<Button
-										type="button"
-										variant="outline"
-										onClick={() => setShowAddSection(false)}
-									>
-										Cancel
-									</Button>
-									<Button
-										type="submit"
-										disabled={addSectionFetcher.state === 'submitting'}
-									>
-										{addSectionFetcher.state === 'submitting'
-											? 'Adding...'
-											: 'Add'}
-									</Button>
-								</div>
-							</addSectionFetcher.Form>
-						</DialogContent>
-					</Dialog>
-				</div>
-
-				{/* Sections Table */}
-				<div className="overflow-hidden rounded-lg border">
+				<div className="bg-card overflow-hidden rounded-xl shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5">
 					<Table>
-						<TableHeader>
+						<TableHeader className="bg-muted/45">
 							<TableRow>
-								<TableHead>Section Name</TableHead>
+								<TableHead>Section</TableHead>
 								<TableHead className="text-center">Media</TableHead>
-								<TableHead className="text-center">Translations</TableHead>
-								<TableHead className="w-[100px]" />
+								<TableHead className="w-[38%]">Translation coverage</TableHead>
+								<TableHead className="w-[60px]" />
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{sections.map(section => (
-								<TableRow key={section.name}>
-									<TableCell className="p-2">
-										{section.name !== '-' ? (
-											<EditableSectionName sectionName={section.name} />
-										) : (
-											<span className="text-muted-foreground px-2">
-												{section.name}
-											</span>
-										)}
-									</TableCell>
-									<TableCell className="text-center">
-										{section.mediaCount}
-									</TableCell>
-									<TableCell className="text-center">
-										<div className="space-y-2">
-											<Tooltip>
-												<TooltipTrigger asChild>
-													<div className="cursor-help">
-														{languages.length * section.translationKeysCount ===
-														0
-															? '0%'
-															: Math.round(
-																	(section.translationCount /
-																		(languages.length *
-																			section.translationKeysCount)) *
-																		100,
-																) + '%'}
-													</div>
-												</TooltipTrigger>
-												<TooltipContent>
-													{section.translationCount} /{' '}
-													{languages.length * section.translationKeysCount}
-												</TooltipContent>
-											</Tooltip>
-											<div className="mx-auto w-1/3">
-												<Progress
-													value={
-														languages.length * section.translationKeysCount ===
-														0
-															? 0
-															: (section.translationCount /
-																	(languages.length *
-																		section.translationKeysCount)) *
-																100
-													}
-													className="w-full"
-												/>
+							{sections.map(section => {
+								const translationTotal =
+									languages.length * section.translationKeysCount;
+								const translationPercentage =
+									translationTotal === 0
+										? 0
+										: Math.round(
+												(section.translationCount / translationTotal) * 100,
+											);
+
+								return (
+									<TableRow
+										key={section.name}
+										className="transition-colors hover:bg-sky-50/60"
+									>
+										<TableCell className="p-2">
+											<div className="flex items-center gap-2">
+												<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+													<FolderTree className="h-4 w-4" />
+												</span>
+												{section.name !== '-' ? (
+													<EditableSectionName sectionName={section.name} />
+												) : (
+													<span className="text-muted-foreground px-2 text-sm font-medium">
+														Unsorted
+													</span>
+												)}
 											</div>
-										</div>
-									</TableCell>
-									<TableCell>
-										<Form method="post" className="inline">
-											<input
-												type="hidden"
-												name="intent"
-												value="delete-section"
-											/>
-											<input type="hidden" name="name" value={section.name} />
-											<Button
-												type="submit"
-												variant="ghost"
-												size="icon"
-												onClick={e => {
-													if (
-														!confirm(
-															`Are you sure you want to delete the section "${section.name}"? This will remove the section from all associated media and translations.`,
-														)
-													) {
-														e.preventDefault();
-													}
-												}}
-												className="text-destructive hover:text-destructive hover:bg-destructive/10"
-											>
-												<Trash2 className="h-4 w-4" />
-											</Button>
-										</Form>
-									</TableCell>
-								</TableRow>
-							))}
+										</TableCell>
+										<TableCell className="text-center text-sm font-semibold tabular-nums">
+											<span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-700">
+												{section.mediaCount}
+											</span>
+										</TableCell>
+										<TableCell>
+											<div className="flex items-center gap-3">
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<div className="w-11 shrink-0 cursor-help text-right text-sm font-semibold tabular-nums">
+															{translationPercentage}%
+														</div>
+													</TooltipTrigger>
+													<TooltipContent>
+														{section.translationCount} / {translationTotal}
+													</TooltipContent>
+												</Tooltip>
+												<div className="min-w-20 flex-1">
+													<Progress
+														value={translationPercentage}
+														className="h-1.5 w-full"
+													/>
+												</div>
+											</div>
+										</TableCell>
+										<TableCell>
+											<Form method="post" className="inline">
+												<input
+													type="hidden"
+													name="intent"
+													value="delete-section"
+												/>
+												<input type="hidden" name="name" value={section.name} />
+												<Button
+													type="submit"
+													variant="ghost"
+													size="icon"
+													aria-label={`Delete ${section.name === '-' ? 'unsorted section' : section.name}`}
+													onClick={event => {
+														if (
+															!confirm(
+																`Are you sure you want to delete the section "${section.name}"? This will remove the section from all associated media and translations.`,
+															)
+														) {
+															event.preventDefault();
+														}
+													}}
+													className="text-destructive hover:text-destructive hover:bg-destructive/10"
+												>
+													<Trash2 className="h-4 w-4" />
+												</Button>
+											</Form>
+										</TableCell>
+									</TableRow>
+								);
+							})}
 							{sections.length === 0 && (
 								<TableRow>
-									<TableCell
-										colSpan={4}
-										className="text-muted-foreground py-8 text-center"
-									>
-										No sections created yet. Click "Add Section" to create your
-										first section.
+									<TableCell colSpan={4} className="p-0">
+										<EmptyState
+											density="compact"
+											title="Create your first section"
+											description="Group translations and media into a clear area of your site."
+											action={
+												<Button
+													variant="brand"
+													size="sm"
+													onClick={() => setShowAddSection(true)}
+												>
+													<Plus className="mr-2 h-4 w-4" />
+													New section
+												</Button>
+											}
+										/>
 									</TableCell>
 								</TableRow>
 							)}

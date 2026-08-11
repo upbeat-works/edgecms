@@ -18,7 +18,10 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<DialogPrimitive.Overlay
 		ref={ref}
-		className={cn('fixed inset-0 z-50 bg-black/80', className)}
+		className={cn(
+			'fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[2px]',
+			className,
+		)}
 		{...props}
 	/>
 ));
@@ -28,21 +31,26 @@ const DialogContent = React.forwardRef<
 	React.ElementRef<typeof DialogPrimitive.Content>,
 	React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
 		dismissible?: boolean;
+		size?: 'sm' | 'md' | 'lg' | 'media';
 	}
->(({ className, children, dismissible = true, ...props }, ref) => (
+>(({ className, children, dismissible = true, size = 'md', ...props }, ref) => (
 	<DialogPortal>
 		<DialogOverlay />
 		<DialogPrimitive.Content
 			ref={ref}
 			className={cn(
-				'bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg',
+				'fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgb(15_23_42/0.28)] ring-1 ring-white/60',
+				size === 'sm' && 'sm:max-w-md',
+				size === 'md' && 'sm:max-w-lg',
+				size === 'lg' && 'sm:max-w-2xl',
+				size === 'media' && 'max-h-[95vh] sm:max-w-[95vw]',
 				className,
 			)}
 			{...props}
 		>
 			{children}
 			{dismissible && (
-				<DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:pointer-events-none">
+				<DialogPrimitive.Close className="absolute top-4 right-4 rounded-full p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none">
 					<X className="h-4 w-4" />
 					<span className="sr-only">Close</span>
 				</DialogPrimitive.Close>
@@ -57,10 +65,7 @@ const DialogHeader = ({
 	...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
 	<div
-		className={cn(
-			'flex flex-col space-y-1.5 text-center sm:text-left',
-			className,
-		)}
+		className={cn('flex flex-col space-y-1.5 pr-8 text-left', className)}
 		{...props}
 	/>
 );
@@ -72,7 +77,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
 	<div
 		className={cn(
-			'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
+			'flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end',
 			className,
 		)}
 		{...props}
@@ -87,7 +92,7 @@ const DialogTitle = React.forwardRef<
 	<DialogPrimitive.Title
 		ref={ref}
 		className={cn(
-			'text-lg leading-none font-semibold tracking-tight',
+			'text-xl leading-tight font-semibold tracking-tight',
 			className,
 		)}
 		{...props}
@@ -107,6 +112,39 @@ const DialogDescription = React.forwardRef<
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
+function DialogStatus({
+	children,
+	tone,
+}: {
+	children: React.ReactNode;
+	tone: 'success' | 'danger' | 'warning';
+}) {
+	return (
+		<div
+			role="status"
+			className={cn(
+				'rounded-lg px-3 py-2.5 text-sm font-medium ring-1',
+				tone === 'success' && 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+				tone === 'danger' && 'bg-red-50 text-red-800 ring-red-200',
+				tone === 'warning' && 'bg-yellow-50 text-yellow-900 ring-yellow-200',
+			)}
+		>
+			{children}
+		</div>
+	);
+}
+
+function DialogError({ children }: { children: React.ReactNode }) {
+	return (
+		<p
+			role="alert"
+			className="rounded-lg bg-red-50 px-3 py-2.5 text-sm font-medium text-red-800 ring-1 ring-red-200"
+		>
+			{children}
+		</p>
+	);
+}
+
 export {
 	Dialog,
 	DialogPortal,
@@ -118,4 +156,6 @@ export {
 	DialogFooter,
 	DialogTitle,
 	DialogDescription,
+	DialogStatus,
+	DialogError,
 };

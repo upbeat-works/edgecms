@@ -696,7 +696,15 @@ export async function importBlockItems(
 						booleanValue: Boolean(value),
 					});
 					break;
-				// media — skip
+				case 'media': {
+					if (value == null || value === '') break;
+					await upsertBlockInstanceValue({
+						instanceId: instance.id,
+						propertyId: prop.id,
+						mediaId: Number(value),
+					});
+					break;
+				}
 			}
 		}
 
@@ -704,6 +712,32 @@ export async function importBlockItems(
 	}
 
 	return created;
+}
+
+export async function validateBlockImportMedia(
+	collectionId: number,
+	items: Record<string, unknown>[],
+): Promise<string | null> {
+	const collection = await getBlockCollectionById(collectionId);
+	if (!collection) return 'Collection not found';
+	const properties = await getBlockSchemaProperties(collection.schemaId);
+	const mediaProperties = properties.filter(
+		property => property.type === 'media',
+	);
+
+	for (const item of items) {
+		for (const property of mediaProperties) {
+			const value = item[property.name];
+			if (value == null || value === '') continue;
+			if (!Number.isInteger(value) || Number(value) < 1) {
+				return `Media property "${property.name}" must be a positive integer media ID`;
+			}
+			if (!(await getMediaById(Number(value)))) {
+				return `Media ${value} not found for property "${property.name}"`;
+			}
+		}
+	}
+	return null;
 }
 
 // Get all block collections data for snapshotting.

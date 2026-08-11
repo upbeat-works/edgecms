@@ -33,7 +33,10 @@ function AlertDialogOverlay({
 	return (
 		<AlertDialogPrimitive.Overlay
 			data-slot="alert-dialog-overlay"
-			className={cn('fixed inset-0 z-50 bg-black/50', className)}
+			className={cn(
+				'fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[2px]',
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -49,7 +52,7 @@ function AlertDialogContent({
 			<AlertDialogPrimitive.Content
 				data-slot="alert-dialog-content"
 				className={cn(
-					'bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg',
+					'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgb(15_23_42/0.28)] ring-1 ring-white/60 sm:max-w-lg',
 					className,
 				)}
 				{...props}
@@ -65,7 +68,7 @@ function AlertDialogHeader({
 	return (
 		<div
 			data-slot="alert-dialog-header"
-			className={cn('flex flex-col gap-2 text-center sm:text-left', className)}
+			className={cn('flex flex-col gap-2 text-left', className)}
 			{...props}
 		/>
 	);
@@ -94,7 +97,10 @@ function AlertDialogTitle({
 	return (
 		<AlertDialogPrimitive.Title
 			data-slot="alert-dialog-title"
-			className={cn('text-lg font-semibold', className)}
+			className={cn(
+				'text-xl leading-tight font-semibold tracking-tight',
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -119,7 +125,7 @@ function AlertDialogAction({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
 	return (
 		<AlertDialogPrimitive.Action
-			className={cn(buttonVariants(), className)}
+			className={cn(buttonVariants({ variant: 'destructive' }), className)}
 			{...props}
 		/>
 	);

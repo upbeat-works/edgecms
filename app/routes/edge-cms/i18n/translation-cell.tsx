@@ -75,7 +75,7 @@ export function TranslationCell({
 	}
 
 	return (
-		<div className="flex w-full items-start gap-1 rounded-md bg-amber-50 ring-1 ring-amber-300">
+		<div className="flex w-full items-start gap-1 rounded-md bg-yellow-50 ring-1 ring-yellow-300">
 			{textarea}
 			<Tooltip>
 				<TooltipTrigger asChild>
@@ -84,7 +84,7 @@ export function TranslationCell({
 						onClick={confirmCurrent}
 						disabled={fetcher.state === 'submitting'}
 						aria-label="Keep this translation and mark it current"
-						className="cursor-pointer rounded-sm p-1 text-amber-600 transition-colors hover:bg-amber-100 hover:text-amber-800 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-600 disabled:cursor-wait disabled:opacity-50"
+						className="cursor-pointer rounded-sm p-1 text-yellow-700 transition-colors hover:bg-yellow-100 hover:text-yellow-900 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-yellow-600 disabled:cursor-wait disabled:opacity-50"
 					>
 						<RefreshCw className="size-4" aria-hidden="true" />
 					</button>

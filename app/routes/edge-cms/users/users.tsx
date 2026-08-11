@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
-import {
-	useLoaderData,
-	useNavigate,
-	Form,
-	useFetcher,
-	redirect,
-} from 'react-router';
+import { useLoaderData, useNavigate, useFetcher } from 'react-router';
 import type { Route } from './+types/users';
 import { Button } from '~/components/ui/button';
+import { WorkspacePageHeader } from '~/components/ui/workspace';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
 	Table,
 	TableBody,
@@ -28,7 +24,7 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { createAuth } from '~/utils/auth.server';
-import { Plus, Users } from 'lucide-react';
+import { ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { useServerToast } from '~/hooks/use-server-toast';
 import {
@@ -62,7 +58,6 @@ export async function action({ request }: Route.ActionArgs) {
 	const formData = await request.formData();
 	const action = formData.get('action');
 
-	// Check if user is authenticated and is admin
 	const session = await auth.api.getSession({
 		headers: request.headers,
 	});
@@ -78,7 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
 					email,
 					password,
 					name,
-					role: 'user', // Default role
+					role: 'user',
 				},
 				headers: request.headers,
 			});
@@ -111,6 +106,25 @@ export async function action({ request }: Route.ActionArgs) {
 	return { success: false };
 }
 
+function formatDate(date: string | number | Date | null | undefined) {
+	if (!date) return 'Never';
+	try {
+		return new Date(date).toLocaleString();
+	} catch {
+		return 'Never';
+	}
+}
+
+function getInitials(name: string | null | undefined, email: string) {
+	const source = name?.trim() || email;
+	return source
+		.split(/[\s@._-]+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map(part => part[0]?.toUpperCase())
+		.join('');
+}
+
 export default function UsersPage() {
 	const { users, currentUserId } = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
@@ -119,7 +133,6 @@ export default function UsersPage() {
 
 	useServerToast();
 
-	// Handle modal dismissal on successful form submissions
 	useEffect(() => {
 		if (fetcher.state === 'idle' && fetcher.data?.success) {
 			setDialogOpen(false);
@@ -130,136 +143,154 @@ export default function UsersPage() {
 		navigate(`/edge-cms/users/${userId}`);
 	};
 
-	const formatDate = (date: string | number | Date | null | undefined) => {
-		if (!date) return 'Never';
-		try {
-			return new Date(date).toLocaleString();
-		} catch {
-			return 'Never';
-		}
-	};
-
 	const isSubmitting = fetcher.state === 'submitting';
 
 	return (
-		<div className="container mx-auto py-8">
-			<div className="mb-8 flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					<Users className="h-6 w-6" />
-					<h1 className="text-3xl font-bold">User Management</h1>
-				</div>
-				<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-					<DialogTrigger asChild>
-						<Button>
-							<Plus className="mr-2 h-4 w-4" />
-							Create New User
-						</Button>
-					</DialogTrigger>
-					<DialogContent className="sm:max-w-[425px]">
-						<DialogHeader>
-							<DialogTitle>Create New User</DialogTitle>
-							<DialogDescription>
-								Add a new user to the system. They will receive the default user
-								role.
-							</DialogDescription>
-						</DialogHeader>
-						<fetcher.Form method="post">
-							<input type="hidden" name="action" value="create" />
-							<div className="grid gap-4 py-4">
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="email" className="text-right">
-										Email
-									</Label>
-									<Input
-										id="email"
-										name="email"
-										type="email"
-										required
-										className="col-span-3"
-										placeholder="user@example.com"
-									/>
+		<div className="container mx-auto px-4 py-4 lg:py-5">
+			<WorkspacePageHeader
+				density="compact"
+				eyebrow="Workspace access"
+				title="Users"
+				description="Manage who can access and edit this EdgeCMS workspace."
+				actions={
+					<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+						<DialogTrigger asChild>
+							<Button variant="brand">
+								<UserPlus className="mr-2 h-4 w-4" />
+								Add user
+							</Button>
+						</DialogTrigger>
+						<DialogContent size="sm">
+							<DialogHeader>
+								<DialogTitle>Add user</DialogTitle>
+								<DialogDescription>
+									Create credentials for someone who needs access to this
+									workspace.
+								</DialogDescription>
+							</DialogHeader>
+							<fetcher.Form method="post">
+								<input type="hidden" name="action" value="create" />
+								<div className="grid gap-4 py-5">
+									<div className="space-y-2">
+										<Label htmlFor="email">Email</Label>
+										<Input
+											id="email"
+											name="email"
+											type="email"
+											required
+											placeholder="user@example.com"
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="name">Name</Label>
+										<Input id="name" name="name" required placeholder="Name" />
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="password">Password</Label>
+										<Input
+											id="password"
+											name="password"
+											type="password"
+											required
+											placeholder="••••••••"
+										/>
+									</div>
 								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="name" className="text-right">
-										Name
-									</Label>
-									<Input
-										id="name"
-										name="name"
-										required
-										className="col-span-3"
-										placeholder="John Doe"
-									/>
-								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="password" className="text-right">
-										Password
-									</Label>
-									<Input
-										id="password"
-										name="password"
-										type="password"
-										required
-										className="col-span-3"
-										placeholder="••••••••"
-									/>
-								</div>
-							</div>
-							<DialogFooter>
-								<Button type="submit" disabled={isSubmitting}>
-									{isSubmitting ? 'Creating...' : 'Create User'}
-								</Button>
-							</DialogFooter>
-						</fetcher.Form>
-					</DialogContent>
-				</Dialog>
-			</div>
+								<DialogFooter>
+									<Button
+										type="button"
+										variant="outline"
+										onClick={() => setDialogOpen(false)}
+									>
+										Cancel
+									</Button>
+									<Button type="submit" variant="brand" disabled={isSubmitting}>
+										{isSubmitting ? 'Adding...' : 'Add user'}
+									</Button>
+								</DialogFooter>
+							</fetcher.Form>
+						</DialogContent>
+					</Dialog>
+				}
+			/>
 
-			<div className="rounded-md border">
+			<div className="bg-card overflow-hidden rounded-xl shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5 dark:ring-white/10">
 				<Table>
-					<TableHeader>
+					<TableHeader className="bg-muted/45">
 						<TableRow>
-							<TableHead>ID</TableHead>
-							<TableHead>Email</TableHead>
-							<TableHead>Name</TableHead>
+							<TableHead>Person</TableHead>
 							<TableHead>Role</TableHead>
-							<TableHead>Last Logged In</TableHead>
+							<TableHead>Last active</TableHead>
+							<TableHead className="hidden lg:table-cell">User ID</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{users.map(user => (
 							<TableRow
 								key={user.id}
-								className="hover:bg-muted/50 cursor-pointer"
+								className="cursor-pointer transition-colors hover:bg-sky-50/60 dark:hover:bg-sky-950/20"
 								onClick={() => handleRowClick(user.id)}
 							>
-								<TableCell className="font-mono text-xs">
-									{user.id.slice(0, 8)}...
-								</TableCell>
-								<TableCell>{user.email}</TableCell>
-								<TableCell>{user.name || '-'}</TableCell>
 								<TableCell>
-									<Badge
-										variant={user.role === 'admin' ? 'destructive' : 'default'}
-									>
-										{user.role || 'user'}
-									</Badge>
-									{user.id === currentUserId && (
-										<Badge variant="outline" className="ml-2">
-											You
+									<div className="flex items-center gap-3">
+										<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-fuchsia-100 text-xs font-bold text-slate-700 dark:from-sky-950 dark:to-fuchsia-950 dark:text-slate-200">
+											{getInitials(user.name, user.email)}
+										</div>
+										<div className="min-w-0">
+											<p className="truncate text-sm font-semibold">
+												{user.name || 'Unnamed user'}
+											</p>
+											<p className="text-muted-foreground truncate text-xs">
+												{user.email}
+											</p>
+										</div>
+									</div>
+								</TableCell>
+								<TableCell>
+									<div className="flex items-center gap-2">
+										<Badge
+											className={
+												user.role === 'admin'
+													? 'h-5 border-0 bg-fuchsia-50 text-fuchsia-700 shadow-none'
+													: 'h-5 border-0 bg-sky-50 text-sky-700 shadow-none'
+											}
+										>
+											{user.role === 'admin' && (
+												<ShieldCheck className="mr-1 h-3 w-3" />
+											)}
+											{user.role || 'user'}
 										</Badge>
-									)}
+										{user.id === currentUserId && (
+											<Badge variant="outline" className="h-5 text-[10px]">
+												You
+											</Badge>
+										)}
+									</div>
 								</TableCell>
 								<TableCell>{formatDate(user.updatedAt)}</TableCell>
+								<TableCell className="text-muted-foreground hidden font-mono text-xs lg:table-cell">
+									{user.id.slice(0, 8)}…
+								</TableCell>
 							</TableRow>
 						))}
 						{users.length === 0 && (
 							<TableRow>
-								<TableCell
-									colSpan={5}
-									className="text-muted-foreground text-center"
-								>
-									No users found
+								<TableCell colSpan={4} className="p-0">
+									<EmptyState
+										density="compact"
+										title="Invite your team"
+										description="Add someone who needs access to this EdgeCMS workspace."
+										action={
+											<Button
+												variant="brand"
+												size="sm"
+												onClick={() => setDialogOpen(true)}
+											>
+												<UserPlus className="mr-2 h-4 w-4" />
+												Add user
+											</Button>
+										}
+									/>
 								</TableCell>
 							</TableRow>
 						)}

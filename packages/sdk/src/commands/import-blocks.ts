@@ -47,7 +47,7 @@ export async function importBlocks(
 
 	if (response.success) {
 		console.log(
-			`\nImport complete! ${response.instancesCreated} instances created.`,
+			`\nImport complete! ${response.instancesCreated} instances created (${response.state} v${response.draftVersionId}).`,
 		);
 	} else {
 		throw new Error('Import failed: unexpected response');

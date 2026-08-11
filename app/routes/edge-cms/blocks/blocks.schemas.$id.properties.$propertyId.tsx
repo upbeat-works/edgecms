@@ -14,6 +14,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
+	SheetFooter,
 } from '~/components/ui/sheet';
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/blocks.schemas.$id.properties.$propertyId';
@@ -69,7 +70,7 @@ export default function EditPropertyPage() {
 					</Button>
 				</Link>
 				<SheetHeader className="flex-1 space-y-1">
-					<SheetTitle>Edit Property</SheetTitle>
+					<SheetTitle>Edit property</SheetTitle>
 					<SheetDescription>{property.name}</SheetDescription>
 				</SheetHeader>
 			</div>
@@ -105,9 +106,15 @@ export default function EditPropertyPage() {
 						<p className="text-destructive text-sm">{fetcher.data.error}</p>
 					)}
 
-					<Button type="submit" disabled={fetcher.state === 'submitting'}>
-						{fetcher.state === 'submitting' ? 'Saving...' : 'Save'}
-					</Button>
+					<SheetFooter>
+						<Button
+							type="submit"
+							variant="brand"
+							disabled={fetcher.state === 'submitting'}
+						>
+							{fetcher.state === 'submitting' ? 'Saving...' : 'Save'}
+						</Button>
+					</SheetFooter>
 				</fetcher.Form>
 			</div>
 		</>

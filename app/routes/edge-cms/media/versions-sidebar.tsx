@@ -183,7 +183,7 @@ export function VersionsSidebar({
 			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Version</AlertDialogTitle>
+						<AlertDialogTitle>Delete version?</AlertDialogTitle>
 						<AlertDialogDescription>
 							Are you sure you want to delete version {versionToDelete?.version}{' '}
 							of "{filename}"? This action cannot be undone and will permanently
@@ -194,11 +194,8 @@ export function VersionsSidebar({
 						<AlertDialogCancel onClick={() => setVersionToDelete(null)}>
 							Cancel
 						</AlertDialogCancel>
-						<AlertDialogAction
-							onClick={handleDeleteConfirm}
-							className="bg-red-600 hover:bg-red-700"
-						>
-							Delete Version
+						<AlertDialogAction onClick={handleDeleteConfirm}>
+							Delete version
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

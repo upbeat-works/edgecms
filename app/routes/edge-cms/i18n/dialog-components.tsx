@@ -6,7 +6,9 @@ import { Label } from '~/components/ui/label';
 import {
 	Dialog,
 	DialogContent,
+	DialogError,
 	DialogHeader,
+	DialogStatus,
 	DialogTitle,
 	DialogDescription,
 	DialogFooter,
@@ -23,6 +25,7 @@ import {
 	DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { Progress } from '~/components/ui/progress';
+import { Sparkles } from 'lucide-react';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import type { Language, Section, TranslationScope } from '~/utils/db.server';
 
@@ -35,7 +38,6 @@ export function AddLanguageDialog({
 }) {
 	const addLanguageFetcher = useFetcher();
 
-	// Hide the form after successful submission
 	useEffect(() => {
 		if (addLanguageFetcher.data?.success) {
 			onOpenChange(false);
@@ -44,15 +46,18 @@ export function AddLanguageDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
-					<DialogTitle>Add New Language</DialogTitle>
+					<DialogTitle>Add language</DialogTitle>
+					<DialogDescription>
+						Add a locale to this translation workspace.
+					</DialogDescription>
 				</DialogHeader>
 				<addLanguageFetcher.Form method="post">
 					<input type="hidden" name="intent" value="add-language" />
 					<div className="grid gap-4 py-4">
-						<div>
-							<Label htmlFor="locale">Language Code</Label>
+						<div className="space-y-2">
+							<Label htmlFor="locale">Language code</Label>
 							<Input
 								id="locale"
 								name="locale"
@@ -71,11 +76,12 @@ export function AddLanguageDialog({
 						</Button>
 						<Button
 							type="submit"
+							variant="brand"
 							disabled={addLanguageFetcher.state === 'submitting'}
 						>
 							{addLanguageFetcher.state === 'submitting'
 								? 'Adding...'
-								: 'Add Language'}
+								: 'Add language'}
 						</Button>
 					</DialogFooter>
 				</addLanguageFetcher.Form>
@@ -104,7 +110,7 @@ export function DeleteLanguageDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
 					<DialogTitle>Delete language</DialogTitle>
 					<DialogDescription>
@@ -119,7 +125,7 @@ export function DeleteLanguageDialog({
 						<select
 							id="deleteLocale"
 							name="locale"
-							className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+							className="border-input bg-background h-10 w-full rounded-md border px-3 py-2 text-sm"
 							required
 						>
 							{deletableLanguages.map(language => (
@@ -129,9 +135,7 @@ export function DeleteLanguageDialog({
 							))}
 						</select>
 						{deleteLanguageFetcher.data?.error && (
-							<p className="text-destructive text-sm">
-								{deleteLanguageFetcher.data.error}
-							</p>
+							<DialogError>{deleteLanguageFetcher.data.error}</DialogError>
 						)}
 					</div>
 					<DialogFooter>
@@ -169,7 +173,6 @@ export function AddTranslationDialog({
 }) {
 	const addTranslationFetcher = useFetcher();
 
-	// Hide the form after successful submission
 	useEffect(() => {
 		if (addTranslationFetcher.data?.success) {
 			onOpenChange(false);
@@ -178,15 +181,18 @@ export function AddTranslationDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
-					<DialogTitle>Add New Translation</DialogTitle>
+					<DialogTitle>Add translation</DialogTitle>
+					<DialogDescription>
+						Create a key across every configured language.
+					</DialogDescription>
 				</DialogHeader>
 				<addTranslationFetcher.Form method="post">
 					<input type="hidden" name="intent" value="add-translation" />
 					<div className="grid gap-4 py-4">
-						<div>
-							<Label htmlFor="key">Translation Key</Label>
+						<div className="space-y-2">
+							<Label htmlFor="key">Translation key</Label>
 							<Input
 								id="key"
 								name="key"
@@ -194,12 +200,12 @@ export function AddTranslationDialog({
 								required
 							/>
 						</div>
-						<div>
+						<div className="space-y-2">
 							<Label htmlFor="section">Section (optional)</Label>
 							<select
 								id="section"
 								name="section"
-								className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+								className="border-input bg-background h-10 w-full rounded-md border px-3 py-2 text-sm"
 							>
 								<option value="">-</option>
 								{sections.map(section => (
@@ -210,9 +216,7 @@ export function AddTranslationDialog({
 							</select>
 						</div>
 						{addTranslationFetcher.data?.error && (
-							<p className="text-destructive text-sm">
-								{addTranslationFetcher.data.error}
-							</p>
+							<DialogError>{addTranslationFetcher.data.error}</DialogError>
 						)}
 					</div>
 					<DialogFooter>
@@ -225,11 +229,12 @@ export function AddTranslationDialog({
 						</Button>
 						<Button
 							type="submit"
+							variant="brand"
 							disabled={addTranslationFetcher.state === 'submitting'}
 						>
 							{addTranslationFetcher.state === 'submitting'
 								? 'Adding...'
-								: 'Add Translation'}
+								: 'Add translation'}
 						</Button>
 					</DialogFooter>
 				</addTranslationFetcher.Form>
@@ -251,7 +256,6 @@ export function ImportJsonDialog({
 }) {
 	const importJsonFetcher = useFetcher();
 
-	// Hide the form after successful submission
 	useEffect(() => {
 		if (importJsonFetcher.data?.success) {
 			onOpenChange(false);
@@ -260,19 +264,22 @@ export function ImportJsonDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
-					<DialogTitle>Import JSON Translations</DialogTitle>
+					<DialogTitle>Import JSON translations</DialogTitle>
+					<DialogDescription>
+						Import translation values into one language and section.
+					</DialogDescription>
 				</DialogHeader>
 				<importJsonFetcher.Form method="post" encType="multipart/form-data">
 					<input type="hidden" name="intent" value="import-json" />
 					<div className="grid gap-4 py-4">
-						<div>
+						<div className="space-y-2">
 							<Label htmlFor="language">Language</Label>
 							<select
 								id="language"
 								name="language"
-								className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+								className="border-input bg-background h-10 w-full rounded-md border px-3 py-2 text-sm"
 								required
 							>
 								<option value="">Select language</option>
@@ -284,12 +291,12 @@ export function ImportJsonDialog({
 								))}
 							</select>
 						</div>
-						<div>
+						<div className="space-y-2">
 							<Label htmlFor="section">Section (optional)</Label>
 							<select
 								id="section"
 								name="section"
-								className="border-input bg-background h-10 rounded-md border px-3 py-2 text-sm"
+								className="border-input bg-background h-10 w-full rounded-md border px-3 py-2 text-sm"
 							>
 								<option value="">-</option>
 								{sections.map(section => (
@@ -299,8 +306,8 @@ export function ImportJsonDialog({
 								))}
 							</select>
 						</div>
-						<div>
-							<Label htmlFor="jsonFile">JSON File</Label>
+						<div className="space-y-2">
+							<Label htmlFor="jsonFile">JSON file</Label>
 							<Input
 								id="jsonFile"
 								name="jsonFile"
@@ -320,6 +327,7 @@ export function ImportJsonDialog({
 						</Button>
 						<Button
 							type="submit"
+							variant="brand"
 							disabled={importJsonFetcher.state === 'submitting'}
 						>
 							{importJsonFetcher.state === 'submitting'
@@ -355,7 +363,10 @@ export function AiTranslateButton({
 						<Button
 							disabled={aiTranslateFetcher.state === 'submitting'}
 							variant="outline"
+							size="sm"
+							className="h-9 border-fuchsia-200 px-3 text-fuchsia-700 hover:bg-fuchsia-50 hover:text-fuchsia-800"
 						>
+							<Sparkles className="size-4" />
 							{aiTranslateFetcher.state === 'submitting'
 								? 'Translating...'
 								: 'AI Translate'}
@@ -389,8 +400,10 @@ export function AiTranslateButton({
 								type="button"
 								disabled={true}
 								variant="outline"
-								className="cursor-not-allowed"
+								size="sm"
+								className="h-9 cursor-not-allowed border-fuchsia-100 px-3 text-fuchsia-400"
 							>
+								<Sparkles className="size-4" />
 								AI Translate
 							</Button>
 						</span>
@@ -419,9 +432,9 @@ export function AiTranslationProgressDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
-					<DialogTitle>AI Translation in Progress</DialogTitle>
+					<DialogTitle>AI translation in progress</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-4">
 					<div className="text-muted-foreground text-sm">
@@ -435,29 +448,28 @@ export function AiTranslationProgressDialog({
 						className="w-full"
 					/>
 					{aiTranslateStatus &&
-						terminalStates.includes(aiTranslateStatus.status) && (
-							<div className="text-sm">
-								{aiTranslateStatus.status === 'complete' ? (
-									<span className="text-green-600">
-										✅ Translation completed successfully!
-									</span>
-								) : aiTranslateStatus.status === 'errored' ? (
-									<span className="text-red-600">❌ Translation failed</span>
-								) : (
-									<span className="text-yellow-600">
-										⚠️ Translation {aiTranslateStatus.status}
-									</span>
-								)}
-							</div>
-						)}
+						terminalStates.includes(aiTranslateStatus.status) &&
+						(aiTranslateStatus.status === 'complete' ? (
+							<DialogStatus tone="success">
+								Translation completed successfully
+							</DialogStatus>
+						) : aiTranslateStatus.status === 'errored' ? (
+							<DialogStatus tone="danger">Translation failed</DialogStatus>
+						) : (
+							<DialogStatus tone="warning">
+								Translation {aiTranslateStatus.status}
+							</DialogStatus>
+						))}
 				</div>
 				<DialogFooter>
 					{aiTranslateStatus &&
 					terminalStates.includes(aiTranslateStatus.status) ? (
-						<Button onClick={() => onOpenChange(false)}>Close</Button>
+						<Button variant="brand" onClick={() => onOpenChange(false)}>
+							Close
+						</Button>
 					) : (
 						<Button variant="outline" onClick={() => onOpenChange(false)}>
-							Hide Progress
+							Hide progress
 						</Button>
 					)}
 				</DialogFooter>

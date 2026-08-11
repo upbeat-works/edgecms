@@ -15,6 +15,7 @@ import {
 	deleteBlockSchema,
 } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from './components/confirm-dialog';
 import {
@@ -65,7 +66,6 @@ export default function SchemasPage() {
 	const navigate = useNavigate();
 	const outlet = useOutlet();
 
-	// Check if we're viewing a specific schema or creating a new one (nested route is active)
 	const isViewingSchema = outlet !== null;
 	const [deleteSchema, setDeleteSchema] = useState<{
 		id: number;
@@ -90,12 +90,10 @@ export default function SchemasPage() {
 					!open && navigate('/edge-cms/blocks', { replace: true })
 				}
 			>
-				<SheetContent side="right" className="w-[800px] overflow-y-auto">
+				<SheetContent side="right" size="sm">
 					{isViewingSchema ? (
-						// Show schema detail when viewing a specific schema
 						<Outlet />
 					) : (
-						// Show schemas list
 						<>
 							<SheetHeader className="mb-6 space-y-1">
 								<SheetTitle>Schemas</SheetTitle>
@@ -107,20 +105,19 @@ export default function SchemasPage() {
 							<div className="mt-6">
 								<div className="mb-6 flex items-center justify-end">
 									<Link to="/edge-cms/blocks/schemas/new">
-										<Button>
+										<Button variant="brand">
 											<Plus className="mr-2 h-4 w-4" />
-											New Schema
+											New schema
 										</Button>
 									</Link>
 								</div>
 
 								{schemas.length === 0 ? (
-									<div className="text-muted-foreground rounded-lg border p-12 text-center">
-										<p className="mb-4">
-											No schemas defined yet. Create a schema to define the
-											structure of your blocks.
-										</p>
-									</div>
+									<EmptyState
+										density="compact"
+										title="Shape your first schema"
+										description="Define the fields that give a block its structure."
+									/>
 								) : (
 									<div className="space-y-2">
 										{schemas.map(schema => (

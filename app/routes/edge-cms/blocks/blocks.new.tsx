@@ -28,6 +28,7 @@ import {
 import {
 	Sheet,
 	SheetContent,
+	SheetFooter,
 	SheetHeader,
 	SheetTitle,
 } from '~/components/ui/sheet';
@@ -84,9 +85,9 @@ export default function NewBlockPage() {
 				!open && navigate('/edge-cms/blocks', { replace: true })
 			}
 		>
-			<SheetContent side="right" className="w-[500px] overflow-y-auto">
+			<SheetContent side="right" size="sm">
 				<SheetHeader>
-					<SheetTitle>Create Block</SheetTitle>
+					<SheetTitle>Create block</SheetTitle>
 				</SheetHeader>
 
 				<div className="mt-6">
@@ -164,18 +165,22 @@ export default function NewBlockPage() {
 							<p className="text-destructive text-sm">{fetcher.data.error}</p>
 						)}
 
-						<div className="flex gap-2">
-							<Button type="submit" disabled={fetcher.state === 'submitting'}>
-								{fetcher.state === 'submitting'
-									? 'Creating...'
-									: 'Create Block'}
-							</Button>
+						<SheetFooter>
 							<Link to="/edge-cms/blocks">
 								<Button type="button" variant="outline">
 									Cancel
 								</Button>
 							</Link>
-						</div>
+							<Button
+								type="submit"
+								variant="brand"
+								disabled={fetcher.state === 'submitting'}
+							>
+								{fetcher.state === 'submitting'
+									? 'Creating...'
+									: 'Create block'}
+							</Button>
+						</SheetFooter>
 					</fetcher.Form>
 				</div>
 			</SheetContent>

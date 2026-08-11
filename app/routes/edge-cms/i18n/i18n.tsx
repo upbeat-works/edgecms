@@ -10,6 +10,15 @@ import {
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { debounce } from 'lodash-es';
 import { FixedSizeGrid } from 'react-window';
+import {
+	FileJson,
+	History,
+	Languages,
+	Layers3,
+	Plus,
+	Search,
+	Trash2,
+} from 'lucide-react';
 import { requireAuth } from '~/utils/auth.middleware';
 import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import { deleteLanguage as deleteLanguageService } from '~/utils/services/languages.server';
@@ -37,6 +46,17 @@ import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Input } from '~/components/ui/input';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
+import {
+	FloatingSelectionBar,
+	WorkspacePageHeader,
+	WorkspaceToolbar,
+} from '~/components/ui/workspace';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { env } from 'cloudflare:workers';
 import { VirtualizedCell } from './virtualized-cell';
@@ -483,47 +503,82 @@ export default function I18n() {
 	};
 
 	return (
-		<main className="flex h-[calc(100vh-70px)] flex-col">
-			<div className="container mx-auto flex flex-1 flex-col py-8">
+		<main className="flex h-[calc(100vh-70px)] flex-col bg-slate-50/50">
+			<div className="container mx-auto flex flex-1 flex-col py-4 lg:py-5">
 				<div className="flex flex-col">
-					<div className="mb-8 flex items-center justify-between">
-						<h1 className="text-3xl font-bold">Translations Management</h1>
-						<div className="flex items-center gap-4">
-							{activeVersion && (
-								<div className="text-muted-foreground text-sm">
-									Version:
-									<span className="ml-2 text-xs">
-										{activeVersion.description ?? `v${activeVersion.id}`}
-									</span>
+					<WorkspacePageHeader
+						density="compact"
+						eyebrow="Localisation workspace"
+						title="Translations"
+						actions={
+							<>
+								{activeVersion && (
+									<div className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-500 ring-1 ring-slate-200">
+										Live version
+										<span className="ml-2 text-slate-900">
+											{activeVersion.description ?? `v${activeVersion.id}`}
+										</span>
+									</div>
+								)}
+								<div className="flex items-center gap-0">
+									<Button
+										asChild
+										variant="ghost"
+										size="sm"
+										className="px-2 text-slate-600"
+									>
+										<Link to="/edge-cms/sections">
+											<Layers3 className="size-4" />
+											Sections
+										</Link>
+									</Button>
+									<Button
+										asChild
+										variant="ghost"
+										size="sm"
+										className="px-2 text-slate-600"
+									>
+										<Link to="/edge-cms/i18n/versions">
+											<History className="size-4" />
+											Versions
+										</Link>
+									</Button>
 								</div>
-							)}
-						</div>
-					</div>
+								<Button
+									variant="brand"
+									className="ml-2"
+									onClick={() => setShowAddTranslation(true)}
+								>
+									<Plus className="size-4" />
+									Add translation
+								</Button>
+							</>
+						}
+					/>
 
-					{/* Search Input Row */}
-					<div className="mb-4 flex items-center gap-4">
-						<Input
-							placeholder="Search translations..."
-							defaultValue={queryFilter || ''}
-							className="max-w-md"
-							onChange={e => debouncedSearch(e.target.value)}
-						/>
-						<div className="ml-auto flex gap-2">
-							<Button asChild variant="outline">
-								<Link to="/edge-cms/sections">Manage Sections</Link>
-							</Button>
-							<Button asChild variant="outline" size="sm">
-								<Link to="/edge-cms/i18n/versions">Manage Versions</Link>
-							</Button>
+					<WorkspaceToolbar
+						label="Translation filters and actions"
+						className="gap-x-4 gap-y-2.5 px-3 py-2.5"
+					>
+						<div className="relative min-w-52 flex-1 xl:max-w-xs">
+							<Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-slate-400" />
+							<Input
+								placeholder="Search translations..."
+								defaultValue={queryFilter || ''}
+								className="h-9 border-0 bg-slate-50 pr-3 pl-8 text-sm ring-1 ring-slate-200 focus-visible:ring-2 focus-visible:ring-sky-400"
+								onChange={e => debouncedSearch(e.target.value)}
+							/>
 						</div>
-					</div>
 
-					<div className="mb-6 flex flex-wrap gap-4">
-						<Form method="get" className="flex gap-2">
+						<Form method="get">
+							<Label htmlFor="sectionFilter" className="sr-only">
+								Filter by section
+							</Label>
 							<select
+								id="sectionFilter"
 								name="section"
 								defaultValue={sectionFilter || ''}
-								className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+								className="h-9 min-w-36 rounded-md border-0 bg-slate-50 px-3 text-sm text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-sky-400"
 								onChange={e => e.target.form?.submit()}
 							>
 								<option value="">All sections</option>
@@ -536,7 +591,7 @@ export default function I18n() {
 							<input type="hidden" name="query" value={queryFilter || ''} />
 						</Form>
 
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-3 xl:border-l xl:border-slate-200 xl:pl-4">
 							<defaultLanguageFetcher.Form
 								method="post"
 								className="flex items-center gap-2"
@@ -548,16 +603,16 @@ export default function I18n() {
 								/>
 								<Label
 									htmlFor="defaultLanguage"
-									className="text-sm font-medium whitespace-nowrap"
+									className="text-xs font-medium text-slate-500"
 								>
-									Default Language:
+									Default
 								</Label>
 								<select
 									id="defaultLanguage"
 									name="locale"
 									value={currentDefaultLanguage}
 									onChange={e => e.target.form?.submit()}
-									className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+									className="h-9 min-w-24 rounded-md border-0 bg-sky-50 px-3 text-sm font-medium text-sky-950 ring-1 ring-sky-200 outline-none focus:ring-2 focus:ring-sky-400"
 								>
 									<option value="">No default</option>
 									{languages.map(language => (
@@ -567,42 +622,47 @@ export default function I18n() {
 									))}
 								</select>
 							</defaultLanguageFetcher.Form>
-							<Button
-								onClick={() => setShowAddLanguage(true)}
-								variant="outline"
-							>
-								Add Language
-							</Button>
-							<Button
-								onClick={() => setShowDeleteLanguage(true)}
-								variant="outline"
-								disabled={!languages.some(language => !language.default)}
-							>
-								Delete Language
-							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-9 px-3 text-slate-600"
+									>
+										<Languages className="size-4" />
+										Languages
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start">
+									<DropdownMenuItem onSelect={() => setShowAddLanguage(true)}>
+										<Plus className="size-4" />
+										Add language
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										variant="destructive"
+										disabled={!languages.some(language => !language.default)}
+										onSelect={() => setShowDeleteLanguage(true)}
+									>
+										<Trash2 className="size-4" />
+										Delete language
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						</div>
 
-						<div className="ml-auto flex gap-2">
-							{selectedKeys.length > 0 && (
-								<Button
-									onClick={handleDeleteSelected}
-									variant="destructive"
-									disabled={deleteFetcher.state !== 'idle'}
-								>
-									{deleteFetcher.state !== 'idle'
-										? 'Deleting...'
-										: `Delete selected (${selectedKeys.length})`}
-								</Button>
-							)}
+						<div className="ml-auto flex flex-wrap items-center gap-2 xl:border-l xl:border-slate-200 xl:pl-4">
 							<AiTranslateButton isAiAvailable={isAiAvailable} />
-							<Button onClick={() => setShowAddTranslation(true)}>
-								Add Translation
-							</Button>
-							<Button onClick={() => setShowImportJson(true)}>
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-9 px-3"
+								onClick={() => setShowImportJson(true)}
+							>
+								<FileJson className="size-4" />
 								Import JSON
 							</Button>
 						</div>
-					</div>
+					</WorkspaceToolbar>
 				</div>
 
 				<AddLanguageDialog
@@ -636,11 +696,24 @@ export default function I18n() {
 					aiTranslationPoller={aiTranslationPoller}
 				/>
 
-				<div className="flex flex-1 flex-col overflow-hidden rounded-lg border">
+				<FloatingSelectionBar count={selectedKeys.length} itemLabel="key">
+					<Button
+						onClick={handleDeleteSelected}
+						variant="destructive"
+						size="sm"
+						className="h-8"
+						disabled={deleteFetcher.state !== 'idle'}
+					>
+						<Trash2 className="size-4" />
+						{deleteFetcher.state !== 'idle' ? 'Deleting...' : 'Delete'}
+					</Button>
+				</FloatingSelectionBar>
+
+				<div className="flex flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
 					{/* Sticky header */}
 					<div className="bg-background sticky top-0 z-20 flex border-b">
 						{/* Top-left corner cell with checkbox */}
-						<div className="bg-muted/50 z-30 flex w-[250px] min-w-[250px] flex-shrink-0 items-center gap-3 border-r p-4 font-medium">
+						<div className="z-30 flex w-[250px] min-w-[250px] flex-shrink-0 items-center gap-3 border-r bg-slate-50 p-4 font-medium text-slate-700">
 							<Checkbox
 								checked={
 									selectedKeys.length === translationKeys.length &&
@@ -669,13 +742,13 @@ export default function I18n() {
 								className="flex"
 								style={{ width: `${200 + sortedLanguages.length * 200}px` }}
 							>
-								<div className="bg-muted/50 w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium">
+								<div className="w-[200px] min-w-[200px] flex-shrink-0 border-r bg-slate-50 p-4 font-medium text-slate-700">
 									Section
 								</div>
 								{sortedLanguages.map(lang => (
 									<div
 										key={lang.locale}
-										className={`${lang.default ? 'bg-blue-100' : 'bg-muted/50'} w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium`}
+										className={`${lang.default ? 'bg-sky-100 text-sky-950' : 'bg-slate-50 text-slate-700'} w-[200px] min-w-[200px] flex-shrink-0 border-r p-4 font-medium`}
 									>
 										{lang.locale}
 										{lang.default && ' (default)'}

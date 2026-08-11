@@ -106,9 +106,9 @@ export default function SchemaDetailPage() {
 					<div className="mt-6">
 						<div className="mb-4 flex items-center justify-end">
 							<Link to={`/edge-cms/blocks/schemas/${schema.id}/properties/new`}>
-								<Button size="sm">
+								<Button variant="brand" size="sm">
 									<Plus className="mr-2 h-4 w-4" />
-									Add Property
+									Add property
 								</Button>
 							</Link>
 						</div>

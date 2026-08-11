@@ -54,11 +54,17 @@ export default [
 		route('api/i18n/missing', 'routes/edge-cms/api/i18n.missing.ts'),
 		route('api/i18n/stale', 'routes/edge-cms/api/i18n.stale.ts'),
 		route('api/i18n/keys', 'routes/edge-cms/api/i18n.keys.ts'),
+		route('api/media', 'routes/edge-cms/api/media.ts'),
+		route('api/media/:id', 'routes/edge-cms/api/media.$id.ts'),
 		route('api/blocks/import', 'routes/edge-cms/api/blocks.import.ts'),
 		route('api/blocks/schemas', 'routes/edge-cms/api/blocks.schemas.ts'),
 		route(
 			'api/blocks/collections',
 			'routes/edge-cms/api/blocks.collections.ts',
+		),
+		route(
+			'api/blocks/collections/:collection/instances/:instanceId/properties/:property',
+			'routes/edge-cms/api/blocks.media.ts',
 		),
 		route('api/publish', 'routes/edge-cms/api/publish.ts'),
 		// Public routes

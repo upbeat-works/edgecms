@@ -6,6 +6,9 @@ import {
 	updateVersionDescription,
 } from '~/utils/db.server';
 import { Button } from '~/components/ui/button';
+import { Badge } from '~/components/ui/badge';
+import { WorkspacePageHeader } from '~/components/ui/workspace';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
 	Table,
 	TableBody,
@@ -17,6 +20,7 @@ import {
 import { requireAuth } from '~/utils/auth.middleware';
 import { env } from 'cloudflare:workers';
 import { SmartTextarea } from './i18n/smart-textarea';
+import { History, RotateCcw, Rocket } from 'lucide-react';
 
 function DescriptionCell({
 	versionId,
@@ -43,7 +47,7 @@ function DescriptionCell({
 	return (
 		<SmartTextarea
 			value={description || ''}
-			onValueChange={() => {}} // No need to track changes locally
+			onValueChange={() => {}}
 			onSubmit={handleSubmit}
 			placeholder="Enter description..."
 			disabled={fetcher.state === 'submitting'}
@@ -104,39 +108,49 @@ export default function VersionsPage() {
 	};
 
 	return (
-		<div className="container mx-auto py-8">
-			<div className="mb-8 flex items-center justify-between">
-				<h1 className="text-3xl font-bold">Version Management</h1>
-			</div>
+		<div className="container mx-auto px-4 py-4 lg:py-5">
+			<WorkspacePageHeader
+				density="compact"
+				eyebrow="Release history"
+				title="Versions"
+				description="Review drafts, document releases, and restore an earlier version of your content."
+			/>
 
-			<div className="rounded-lg border">
+			<div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5">
 				<Table>
-					<TableHeader>
+					<TableHeader className="bg-slate-50/80">
 						<TableRow>
 							<TableHead>Version</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Description</TableHead>
-							<TableHead>Created</TableHead>
-							<TableHead>Created By</TableHead>
-							<TableHead>Actions</TableHead>
+							<TableHead className="hidden md:table-cell">Created</TableHead>
+							<TableHead className="hidden lg:table-cell">Created by</TableHead>
+							<TableHead className="text-right">Actions</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{versions.map((version: any) => (
-							<TableRow key={version.id}>
-								<TableCell className="font-medium">v{version.id}</TableCell>
+							<TableRow
+								key={version.id}
+								className="transition-colors hover:bg-sky-50/40"
+							>
 								<TableCell>
-									<span
-										className={`rounded-full px-2 py-1 text-xs ${
+									<div className="flex items-center gap-2 font-semibold tabular-nums">
+										<History className="h-4 w-4 text-sky-600" />v{version.id}
+									</div>
+								</TableCell>
+								<TableCell>
+									<Badge
+										className={`h-5 border-0 capitalize shadow-none ${
 											version.status === 'live'
-												? 'bg-green-100 text-green-800'
+												? 'bg-fuchsia-50 text-fuchsia-700'
 												: version.status === 'draft'
-													? 'bg-blue-100 text-blue-800'
-													: 'bg-gray-100 text-gray-800'
+													? 'bg-sky-50 text-sky-700'
+													: 'bg-slate-100 text-slate-600'
 										}`}
 									>
 										{version.status}
-									</span>
+									</Badge>
 								</TableCell>
 								<TableCell>
 									<DescriptionCell
@@ -144,21 +158,22 @@ export default function VersionsPage() {
 										description={version.description}
 									/>
 								</TableCell>
-								<TableCell>
+								<TableCell className="hidden text-sm text-slate-600 md:table-cell">
 									{new Date(version.createdAt).toLocaleDateString()}
 								</TableCell>
-								<TableCell>
+								<TableCell className="hidden text-sm lg:table-cell">
 									{version.createdBy || (
-										<span className="text-gray-400 italic">Unknown</span>
+										<span className="text-muted-foreground">Unknown</span>
 									)}
 								</TableCell>
-								<TableCell>
+								<TableCell className="text-right">
 									{version.status === 'draft' && (
 										<Button
 											onClick={() => handlePublishVersion(version.id)}
 											size="sm"
-											className="bg-green-600 hover:bg-green-700"
+											variant="brand"
 										>
+											<Rocket className="mr-2 h-4 w-4" />
 											Publish
 										</Button>
 									)}
@@ -168,15 +183,29 @@ export default function VersionsPage() {
 											size="sm"
 											variant="outline"
 										>
+											<RotateCcw className="mr-2 h-4 w-4" />
 											Rollback
 										</Button>
 									)}
 									{version.status === 'live' && (
-										<span className="text-sm text-gray-500">Current Live</span>
+										<span className="text-muted-foreground text-sm font-medium">
+											Current live
+										</span>
 									)}
 								</TableCell>
 							</TableRow>
 						))}
+						{versions.length === 0 && (
+							<TableRow>
+								<TableCell colSpan={6} className="p-0">
+									<EmptyState
+										density="compact"
+										title="No releases yet"
+										description="Your release history will appear here after the first publish."
+									/>
+								</TableCell>
+							</TableRow>
+						)}
 					</TableBody>
 				</Table>
 			</div>

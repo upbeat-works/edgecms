@@ -15,6 +15,12 @@ import { check } from './commands/check.js';
 import { stale } from './commands/stale.js';
 import { deleteKeys, prune } from './commands/keys.js';
 import { listCollections, listSchemas, pushBlocks } from './commands/blocks.js';
+import {
+	attachBlockMedia,
+	listMedia,
+	replaceMediaFile,
+	uploadMediaFile,
+} from './commands/media.js';
 
 // '../package.json' resolves correctly from both src/ and dist/.
 const { version } = createRequire(import.meta.url)('../package.json') as {
@@ -29,6 +35,94 @@ program
 		'CLI for EdgeCMS — manage translations, languages, blocks, and releases',
 	)
 	.version(version);
+
+program
+	.command('media')
+	.description('List and search media')
+	.option('--search <text>', 'Search filenames')
+	.option('--section <section>', 'Filter by section')
+	.option('--state <state>', 'Filter by "live" or "archived"')
+	.option('--all-versions', 'Include every revision')
+	.action(async options => {
+		try {
+			if (
+				options.state &&
+				options.state !== 'live' &&
+				options.state !== 'archived'
+			) {
+				throw new Error('State must be "live" or "archived"');
+			}
+			await listMedia(await loadConfig(), {
+				search: options.search,
+				section: options.section,
+				state: options.state,
+				allVersions: options.allVersions,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('media:upload')
+	.description('Upload a media file')
+	.argument('<file>', 'File to upload')
+	.option('--section <section>', 'Media section')
+	.action(async (file, options) => {
+		try {
+			await uploadMediaFile(await loadConfig(), file, {
+				section: options.section,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('media:replace')
+	.description('Replace a media revision without changing its canonical URL')
+	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.argument('<file>', 'Replacement file')
+	.action(async (mediaId, file) => {
+		try {
+			if (!Number.isInteger(mediaId) || mediaId < 1)
+				throw new Error('Invalid media ID');
+			await replaceMediaFile(await loadConfig(), mediaId, file);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('blocks:set-media')
+	.description('Attach a media ID to a block instance property')
+	.argument('<collection>', 'Block collection name')
+	.argument('<instance-id>', 'Block instance ID', value => Number(value))
+	.argument('<property>', 'Media property name')
+	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.action(async (collection, instanceId, property, mediaId) => {
+		try {
+			if (
+				![instanceId, mediaId].every(
+					value => Number.isInteger(value) && value > 0,
+				)
+			) {
+				throw new Error('Instance and media IDs must be positive integers');
+			}
+			await attachBlockMedia(await loadConfig(), {
+				collection,
+				instanceId,
+				property,
+				mediaId,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
 
 program
 	.command('pull')

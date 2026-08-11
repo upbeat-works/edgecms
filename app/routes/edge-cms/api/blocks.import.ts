@@ -6,6 +6,7 @@ import {
 	getLatestVersion,
 	createVersion,
 	importBlockItems,
+	validateBlockImportMedia,
 	getLanguages,
 } from '~/utils/db.server';
 import type { Route } from './+types/blocks.import';
@@ -93,6 +94,14 @@ export async function action({ request }: Route.ActionArgs) {
 		);
 	}
 
+	const mediaError = await validateBlockImportMedia(collection.id, items);
+	if (mediaError) {
+		return Response.json(
+			{ error: mediaError, code: 'INVALID_MEDIA' },
+			{ status: 400 },
+		);
+	}
+
 	// Ensure a draft version exists for translations
 	const [draftVersion, liveVersion] = await Promise.all([
 		getLatestVersion('draft'),
@@ -107,9 +116,12 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	const instancesCreated = await importBlockItems(collection.id, items, locale);
+	const currentDraft = await getLatestVersion('draft');
 
 	return Response.json({
 		success: true,
 		instancesCreated,
+		state: 'draft',
+		draftVersionId: currentDraft!.id,
 	});
 }

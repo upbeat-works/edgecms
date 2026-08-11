@@ -8,7 +8,7 @@ import {
 	useRevalidator,
 } from 'react-router';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Key, Menu } from 'lucide-react';
+import { Key, Menu, Rocket, UserRound, Zap } from 'lucide-react';
 import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
@@ -28,6 +28,10 @@ import type { Route } from './+types/_layout';
 import { env } from 'cloudflare:workers';
 
 const PUBLISH_TERMINAL_STATES = ['terminated', 'errored', 'complete'];
+
+function isActivePath(pathname: string, href: string) {
+	return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { user } = await requireAuth(request, env);
@@ -52,7 +56,6 @@ export default function Layout() {
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [showPublishProgress, setShowPublishProgress] = useState(false);
-	const [theme, setTheme] = useState<'light' | 'dark'>('light');
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
 	// When the publish action returns, push the instance id into the URL so the
@@ -124,65 +127,54 @@ export default function Layout() {
 		}
 	};
 
-	// Initialize theme from localStorage or system preference
-	useEffect(() => {
-		const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-		const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-			.matches
-			? 'dark'
-			: 'light';
-		const initialTheme = savedTheme || systemTheme;
-		setTheme(initialTheme);
-		document.documentElement.setAttribute('data-theme', initialTheme);
-	}, []);
-
-	const toggleTheme = () => {
-		const newTheme = theme === 'light' ? 'dark' : 'light';
-		setTheme(newTheme);
-		localStorage.setItem('theme', newTheme);
-		document.documentElement.setAttribute('data-theme', newTheme);
-	};
-
 	useEffect(() => {
 		setMobileNavOpen(false);
 	}, [location.pathname]);
 
 	return (
 		<div className="bg-background min-h-screen">
-			<header className="border-b px-4">
+			<header className="sticky top-0 z-40 border-b border-sky-100 bg-white/90 px-4 shadow-[0_1px_12px_rgb(14_165_233/0.06)] backdrop-blur-xl">
 				<div className="container mx-auto">
-					<nav className="flex h-16 items-center space-x-6">
-						<Link to="/edge-cms" className="text-lg font-semibold">
-							EdgeCMS
+					<nav className="flex h-16 items-center gap-4">
+						<Link
+							to="/edge-cms"
+							className="group flex shrink-0 items-center gap-2.5 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+						>
+							<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm shadow-sky-600/25 transition-transform group-hover:-rotate-3">
+								<Zap className="h-4.5 w-4.5 fill-current" />
+							</span>
+							<span className="text-base font-bold tracking-[-0.025em] text-slate-950">
+								EdgeCMS
+							</span>
 						</Link>
 
-						<div className="ml-8 hidden items-center space-x-4 md:flex">
+						<div className="ml-3 hidden items-center gap-1 md:flex">
 							{builtInNavItems.map(item => (
 								<Link
 									key={item.href}
 									to={item.href}
 									className={cn(
-										'hover:text-primary text-sm font-medium transition-colors',
-										location.pathname === item.href
-											? 'text-foreground'
-											: 'text-muted-foreground',
+										'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+										isActivePath(location.pathname, item.href)
+											? 'bg-sky-50 text-sky-700'
+											: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 									)}
 								>
 									{item.label}
 								</Link>
 							))}
 							{customNavItems.length > 0 && (
-								<Separator orientation="vertical" className="h-[25px]" />
+								<Separator orientation="vertical" className="mx-1 h-5" />
 							)}
 							{customNavItems.map(item => (
 								<Link
 									key={item.href}
 									to={item.href}
 									className={cn(
-										'hover:text-primary text-sm font-medium transition-colors',
-										location.pathname === item.href
-											? 'text-foreground'
-											: 'text-muted-foreground',
+										'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+										isActivePath(location.pathname, item.href)
+											? 'bg-fuchsia-50 text-fuchsia-700'
+											: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 									)}
 								>
 									{item.label}
@@ -190,15 +182,16 @@ export default function Layout() {
 							))}
 						</div>
 
-						<div className="ml-auto flex items-center space-x-4">
+						<div className="ml-auto flex items-center gap-2">
 							{draftVersion && !isCustomPage && (
 								<publishFetcher.Form method="post" action="/edge-cms/publish">
 									<Button
 										type="submit"
 										size="sm"
 										disabled={publishFetcher.state !== 'idle'}
-										className="bg-green-600 text-white hover:bg-green-700"
+										className="rounded-full bg-fuchsia-600 px-4 text-white shadow-md ring-2 shadow-fuchsia-600/25 ring-fuchsia-100 transition-all hover:-translate-y-px hover:bg-fuchsia-700 hover:shadow-lg hover:shadow-fuchsia-600/25"
 									>
+										<Rocket className="mr-2 h-3.5 w-3.5" />
 										{publishFetcher.state !== 'idle'
 											? 'Publishing...'
 											: `Publish ${draftVersion.description ?? `v${draftVersion.id}`}`}
@@ -208,53 +201,29 @@ export default function Layout() {
 							<Link
 								to="/edge-cms/settings/api-keys"
 								className={cn(
-									'hover:text-primary hidden items-center gap-1 text-sm font-medium transition-colors md:flex',
-									location.pathname === '/edge-cms/settings/api-keys'
-										? 'text-foreground'
-										: 'text-muted-foreground',
+									'hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-colors lg:flex',
+									isActivePath(location.pathname, '/edge-cms/settings/api-keys')
+										? 'bg-sky-50 text-sky-700'
+										: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 								)}
 							>
 								<Key className="h-4 w-4" />
-								API Keys
+								API keys
 							</Link>
 							{user.role === 'admin' && (
 								<Link
 									to="/edge-cms/users"
 									className={cn(
-										'hover:text-primary hidden text-sm font-medium transition-colors md:inline',
-										location.pathname === '/edge-cms/users'
-											? 'text-foreground'
-											: 'text-muted-foreground',
+										'hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition-colors lg:flex',
+										isActivePath(location.pathname, '/edge-cms/users')
+											? 'bg-sky-50 text-sky-700'
+											: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 									)}
 								>
+									<UserRound className="h-4 w-4" />
 									Users
 								</Link>
 							)}
-
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={toggleTheme}
-								aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
-								className="relative"
-							>
-								<Sun
-									className={cn(
-										'h-4 w-4 transition-all duration-300',
-										theme === 'dark'
-											? 'scale-0 rotate-90'
-											: 'scale-100 rotate-0',
-									)}
-								/>
-								<Moon
-									className={cn(
-										'absolute h-4 w-4 transition-all duration-300',
-										theme === 'light'
-											? 'scale-0 -rotate-90'
-											: 'scale-100 rotate-0',
-									)}
-								/>
-							</Button>
 
 							<form
 								action="/edge-cms/sign-out"
@@ -263,7 +232,7 @@ export default function Layout() {
 							>
 								<button
 									type="submit"
-									className="text-muted-foreground hover:text-foreground text-sm"
+									className="rounded-full px-2.5 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
 								>
 									Sign Out
 								</button>
@@ -281,17 +250,22 @@ export default function Layout() {
 									</Button>
 								</SheetTrigger>
 								<SheetContent side="right" className="w-72">
-									<SheetTitle>Menu</SheetTitle>
+									<SheetTitle className="flex items-center gap-2.5">
+										<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white">
+											<Zap className="h-4 w-4 fill-current" />
+										</span>
+										EdgeCMS
+									</SheetTitle>
 									<nav className="mt-6 flex flex-col space-y-1">
 										{builtInNavItems.map(item => (
 											<SheetClose asChild key={item.href}>
 												<Link
 													to={item.href}
 													className={cn(
-														'hover:bg-accent rounded-md px-3 py-2 text-sm font-medium transition-colors',
-														location.pathname === item.href
-															? 'text-foreground bg-accent'
-															: 'text-muted-foreground',
+														'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+														isActivePath(location.pathname, item.href)
+															? 'bg-sky-50 text-sky-700'
+															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 													)}
 												>
 													{item.label}
@@ -306,10 +280,10 @@ export default function Layout() {
 												<Link
 													to={item.href}
 													className={cn(
-														'hover:bg-accent rounded-md px-3 py-2 text-sm font-medium transition-colors',
-														location.pathname === item.href
-															? 'text-foreground bg-accent'
-															: 'text-muted-foreground',
+														'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+														isActivePath(location.pathname, item.href)
+															? 'bg-fuchsia-50 text-fuchsia-700'
+															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 													)}
 												>
 													{item.label}
@@ -320,14 +294,17 @@ export default function Layout() {
 											<Link
 												to="/edge-cms/settings/api-keys"
 												className={cn(
-													'hover:bg-accent flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-													location.pathname === '/edge-cms/settings/api-keys'
-														? 'text-foreground bg-accent'
-														: 'text-muted-foreground',
+													'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+													isActivePath(
+														location.pathname,
+														'/edge-cms/settings/api-keys',
+													)
+														? 'bg-sky-50 text-sky-700'
+														: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 												)}
 											>
 												<Key className="h-4 w-4" />
-												API Keys
+												API keys
 											</Link>
 										</SheetClose>
 										{user.role === 'admin' && (
@@ -335,12 +312,13 @@ export default function Layout() {
 												<Link
 													to="/edge-cms/users"
 													className={cn(
-														'hover:bg-accent rounded-md px-3 py-2 text-sm font-medium transition-colors',
-														location.pathname === '/edge-cms/users'
-															? 'text-foreground bg-accent'
-															: 'text-muted-foreground',
+														'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+														isActivePath(location.pathname, '/edge-cms/users')
+															? 'bg-sky-50 text-sky-700'
+															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
 													)}
 												>
+													<UserRound className="h-4 w-4" />
 													Users
 												</Link>
 											</SheetClose>

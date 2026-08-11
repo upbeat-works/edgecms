@@ -76,21 +76,33 @@ export function MediaItem({
 	return (
 		<>
 			<MediaCard
-				preview={<MediaPreviewDialog media={media} mediaId={media.id} />}
+				variant="gallery"
+				preview={
+					<MediaPreviewDialog
+						media={media}
+						mediaId={media.id}
+						variant="gallery"
+					/>
+				}
 				actions={actions}
 				footer={
-					<div className="space-y-1">
-						<p className="truncate text-sm font-medium" title={media.filename}>
+					<div>
+						<p
+							className="truncate text-sm font-semibold tracking-tight"
+							title={media.filename}
+						>
 							{media.filename}
 						</p>
-						<p className="text-muted-foreground text-xs">
-							{(media.sizeBytes / 1024).toFixed(1)} KB • {media.mimeType}
+						<p className="text-muted-foreground mt-0.5 truncate text-[11px] tracking-wide uppercase">
+							{media.mimeType.split('/').at(-1)} ·{' '}
+							{(media.sizeBytes / 1024).toFixed(1)} KB
 						</p>
 
 						<select
+							aria-label={`Section for ${media.filename}`}
 							value={selectedSection}
 							onChange={e => handleSectionChange(e.target.value)}
-							className="border-input bg-background mt-2 w-full rounded-md border px-3 py-1 text-sm"
+							className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-2 -ml-1 max-w-full cursor-pointer rounded-md border-0 bg-transparent py-1 pr-7 pl-1 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
 						>
 							<option value="">No section</option>
 							{sections.map(section => (
@@ -115,7 +127,7 @@ export function MediaItem({
 			<AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Media File</AlertDialogTitle>
+						<AlertDialogTitle>Delete media file?</AlertDialogTitle>
 						<AlertDialogDescription>
 							Are you sure you want to delete "{media.filename}"? This action
 							will permanently delete all versions of this file and cannot be
@@ -125,7 +137,6 @@ export function MediaItem({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-red-600 hover:bg-red-700"
 							onClick={() =>
 								fetcher.submit(
 									{
@@ -136,7 +147,7 @@ export function MediaItem({
 								)
 							}
 						>
-							Delete Permanently
+							Delete permanently
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useLoaderData, useNavigate, useFetcher } from 'react-router';
+import { Link, useLoaderData, useFetcher } from 'react-router';
 import { Button } from '~/components/ui/button';
 import { Badge } from '~/components/ui/badge';
+import { WorkspacePageHeader } from '~/components/ui/workspace';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -25,15 +26,14 @@ import {
 	DialogTrigger,
 } from '~/components/ui/dialog';
 import {
-	ArrowLeft,
 	Shield,
 	ShieldOff,
 	Key,
 	Trash2,
-	User as UserIcon,
 	Mail,
 	Calendar,
 	Edit,
+	ShieldCheck,
 } from 'lucide-react';
 import { useServerToast } from '~/hooks/use-server-toast';
 import {
@@ -43,15 +43,32 @@ import {
 import { combineHeaders } from '~/utils/misc';
 import { requireAuth } from '~/utils/auth.middleware';
 import { env } from 'cloudflare:workers';
-import { APIError } from 'better-auth/api';
 import type { Route } from './+types/users.$id';
+
+function formatDate(date: string | number | Date | null | undefined) {
+	if (!date) return 'Never';
+	try {
+		return new Date(date).toLocaleString();
+	} catch {
+		return 'Never';
+	}
+}
+
+function getInitials(name: string | null | undefined, email: string) {
+	const source = name?.trim() || email;
+	return source
+		.split(/[\s@._-]+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map(part => part[0]?.toUpperCase())
+		.join('');
+}
 
 export async function loader({ request, params }: Route.LoaderArgs) {
 	const { auth, user } = await requireAuth(request, env);
 	const userId = params.id;
 
 	try {
-		// Get user details
 		const users = await auth.api.listUsers({
 			query: {},
 			headers: request.headers,
@@ -177,14 +194,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export default function UserDetailPage() {
 	const { user, isCurrentUser } = useLoaderData<typeof loader>();
-	const navigate = useNavigate();
 	const fetcher = useFetcher();
 	const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 	const [roleDialogOpen, setRoleDialogOpen] = useState(false);
 
 	useServerToast();
 
-	// Handle modal dismissal on successful form submissions
 	useEffect(() => {
 		if (fetcher.state === 'idle' && fetcher.data?.success) {
 			setPasswordDialogOpen(false);
@@ -192,118 +207,115 @@ export default function UserDetailPage() {
 		}
 	}, [fetcher.state, fetcher.data]);
 
-	const formatDate = (date: string | number | Date | null | undefined) => {
-		if (!date) return 'Never';
-		try {
-			return new Date(date).toLocaleString();
-		} catch {
-			return 'Never';
-		}
-	};
-
 	const isSubmitting = fetcher.state === 'submitting';
 
 	return (
-		<div className="container mx-auto max-w-4xl py-8">
-			<div className="mb-8">
-				<Button
-					variant="ghost"
-					onClick={() => navigate('/edge-cms/users')}
-					className="mb-4"
-				>
-					<ArrowLeft className="mr-2 h-4 w-4" />
-					Back to Users
-				</Button>
-
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-4">
-						<div className="bg-muted flex h-12 w-12 items-center justify-center rounded-full">
-							<UserIcon className="h-6 w-6" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-bold">
-								{user.name || 'Unnamed User'}
-							</h1>
-							<p className="text-muted-foreground">{user.email}</p>
-						</div>
-					</div>
-					{isCurrentUser && (
-						<Badge variant="outline" className="text-sm">
-							Your Account
+		<div className="container mx-auto px-4 py-4 lg:py-5">
+			<WorkspacePageHeader
+				density="compact"
+				eyebrow={
+					<>
+						<Link
+							to="/edge-cms/users"
+							className="cursor-pointer uppercase transition-colors hover:text-sky-800 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+						>
+							Users
+						</Link>
+						<span className="text-slate-300">/</span>
+						<span className="uppercase">Account</span>
+					</>
+				}
+				title={user.name || 'Unnamed user'}
+				description={user.email}
+				actions={
+					isCurrentUser ? (
+						<Badge className="border-0 bg-sky-50 px-3 py-1 text-sky-700 shadow-none">
+							Your account
 						</Badge>
-					)}
-				</div>
-			</div>
+					) : null
+				}
+			/>
 
-			<div className="space-y-6">
-				{/* User Information Card */}
-				<div className="rounded-lg border p-6">
-					<h2 className="mb-4 text-lg font-semibold">User Information</h2>
-					<div className="grid gap-4">
-						<div className="grid grid-cols-3 gap-4">
+			<div className="space-y-4">
+				<section className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5">
+					<div className="h-1 bg-gradient-to-r from-sky-400 via-sky-500 to-fuchsia-500" />
+					<div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-start sm:p-6">
+						<div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-fuchsia-100 text-base font-bold text-slate-700">
+							{getInitials(user.name, user.email)}
+						</div>
+						<div className="grid min-w-0 flex-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
 							<div>
-								<Label className="text-muted-foreground">User ID</Label>
-								<p className="mt-1 font-mono text-sm">{user.id}</p>
-							</div>
-							<div>
-								<Label className="text-muted-foreground">Email</Label>
-								<p className="mt-1 flex items-center gap-2">
-									<Mail className="text-muted-foreground h-4 w-4" />
-									{user.email}
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									Email
+								</p>
+								<p className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium">
+									<Mail className="h-4 w-4 shrink-0 text-sky-600" />
+									<span className="truncate">{user.email}</span>
 								</p>
 							</div>
 							<div>
-								<Label className="text-muted-foreground">Name</Label>
-								<p className="mt-1">{user.name || '-'}</p>
-							</div>
-						</div>
-						<div className="grid grid-cols-3 gap-4">
-							<div>
-								<Label className="text-muted-foreground">Created At</Label>
-								<p className="mt-1 flex items-center gap-2">
-									<Calendar className="text-muted-foreground h-4 w-4" />
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									Created
+								</p>
+								<p className="mt-1 flex items-center gap-2 text-sm font-medium">
+									<Calendar className="h-4 w-4 text-sky-600" />
 									{formatDate(user.createdAt)}
 								</p>
 							</div>
 							<div>
-								<Label className="text-muted-foreground">Last Login</Label>
-								<p className="mt-1 flex items-center gap-2">
-									<Calendar className="text-muted-foreground h-4 w-4" />
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									Email status
+								</p>
+								<Badge
+									className={
+										user.emailVerified
+											? 'mt-1 border-0 bg-sky-50 text-sky-700 shadow-none'
+											: 'mt-1 border-0 bg-amber-50 text-amber-700 shadow-none'
+									}
+								>
+									{user.emailVerified ? 'Verified' : 'Not verified'}
+								</Badge>
+							</div>
+							<div>
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									Last active
+								</p>
+								<p className="mt-1 text-sm font-medium">
 									{formatDate(user.updatedAt)}
 								</p>
 							</div>
-							<div>
-								<Label className="text-muted-foreground">Email Verified</Label>
-								<p className="mt-1">
-									{user.emailVerified ? (
-										<Badge variant="outline" className="bg-green-50">
-											Verified
-										</Badge>
-									) : (
-										<Badge variant="outline" className="bg-yellow-50">
-											Not Verified
-										</Badge>
-									)}
+							<div className="sm:col-span-2 lg:col-span-2">
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									User ID
+								</p>
+								<p className="mt-1 truncate font-mono text-xs text-slate-700">
+									{user.id}
 								</p>
 							</div>
 						</div>
 					</div>
-				</div>
+				</section>
 
-				{/* Roles Section */}
-				<div className="rounded-lg border p-6">
+				<section className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5 sm:p-6">
 					<div className="mb-4 flex items-center justify-between">
-						<h2 className="text-lg font-semibold">Roles & Permissions</h2>
+						<div>
+							<h2 className="font-semibold tracking-tight">
+								Role and permissions
+							</h2>
+							<p className="text-muted-foreground mt-1 text-sm">
+								Controls this user’s workspace access.
+							</p>
+						</div>
 						<Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
 							<DialogTrigger asChild>
 								<Button variant="outline" size="sm">
 									<Edit className="mr-2 h-4 w-4" />
-									Edit Role
+									Edit role
 								</Button>
 							</DialogTrigger>
-							<DialogContent>
+							<DialogContent size="sm">
 								<DialogHeader>
-									<DialogTitle>Change User Role</DialogTitle>
+									<DialogTitle>Change user role</DialogTitle>
 									<DialogDescription>
 										Select the new role for this user. Admin users have full
 										system access.
@@ -356,8 +368,19 @@ export default function UserDetailPage() {
 										</div>
 									</div>
 									<DialogFooter>
-										<Button type="submit" disabled={isSubmitting}>
-											{isSubmitting ? 'Updating...' : 'Update Role'}
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => setRoleDialogOpen(false)}
+										>
+											Cancel
+										</Button>
+										<Button
+											type="submit"
+											variant="brand"
+											disabled={isSubmitting}
+										>
+											{isSubmitting ? 'Updating...' : 'Update role'}
 										</Button>
 									</DialogFooter>
 								</fetcher.Form>
@@ -366,12 +389,15 @@ export default function UserDetailPage() {
 					</div>
 					<div className="flex items-center gap-2">
 						<Badge
-							variant={user.role === 'admin' ? 'destructive' : 'default'}
-							className="text-sm"
+							className={
+								user.role === 'admin'
+									? 'border-0 bg-fuchsia-50 px-3 py-1 text-fuchsia-700 shadow-none'
+									: 'border-0 bg-sky-50 px-3 py-1 text-sky-700 shadow-none'
+							}
 						>
 							{user.role === 'admin' ? (
 								<>
-									<Shield className="mr-1 h-3 w-3" />
+									<ShieldCheck className="mr-1 h-3 w-3" />
 									Admin
 								</>
 							) : (
@@ -382,13 +408,16 @@ export default function UserDetailPage() {
 							)}
 						</Badge>
 					</div>
-				</div>
+				</section>
 
-				{/* Actions Section */}
-				<div className="rounded-lg border p-6">
-					<h2 className="mb-4 text-lg font-semibold">Account Actions</h2>
-					<div className="flex gap-3">
-						{/* Reset Password */}
+				<section className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgb(15_23_42/0.05),0_8px_24px_rgb(15_23_42/0.04)] ring-1 ring-black/5 sm:p-6">
+					<div className="mb-4">
+						<h2 className="font-semibold tracking-tight">Account actions</h2>
+						<p className="text-muted-foreground mt-1 text-sm">
+							Update credentials or remove access to this workspace.
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-3">
 						<Dialog
 							open={passwordDialogOpen}
 							onOpenChange={setPasswordDialogOpen}
@@ -396,12 +425,12 @@ export default function UserDetailPage() {
 							<DialogTrigger asChild>
 								<Button variant="outline">
 									<Key className="mr-2 h-4 w-4" />
-									Reset Password
+									Reset password
 								</Button>
 							</DialogTrigger>
-							<DialogContent>
+							<DialogContent size="sm">
 								<DialogHeader>
-									<DialogTitle>Reset User Password</DialogTitle>
+									<DialogTitle>Reset user password</DialogTitle>
 									<DialogDescription>
 										Enter a new password for {user.email}. The user will need to
 										use this new password to sign in.
@@ -409,18 +438,15 @@ export default function UserDetailPage() {
 								</DialogHeader>
 								<fetcher.Form method="post">
 									<input type="hidden" name="action" value="set-password" />
-									<div className="grid gap-4 py-4">
-										<div className="grid grid-cols-4 items-center gap-4">
-											<Label htmlFor="password" className="text-right">
-												New Password
-											</Label>
+									<div className="space-y-2 py-2">
+										<div className="space-y-2">
+											<Label htmlFor="password">New password</Label>
 											<Input
 												id="password"
 												name="password"
 												type="password"
 												required
 												minLength={8}
-												className="col-span-3"
 												placeholder="••••••••"
 											/>
 										</div>
@@ -429,25 +455,35 @@ export default function UserDetailPage() {
 										</p>
 									</div>
 									<DialogFooter>
-										<Button type="submit" disabled={isSubmitting}>
-											{isSubmitting ? 'Updating...' : 'Update Password'}
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => setPasswordDialogOpen(false)}
+										>
+											Cancel
+										</Button>
+										<Button
+											type="submit"
+											variant="brand"
+											disabled={isSubmitting}
+										>
+											{isSubmitting ? 'Updating...' : 'Update password'}
 										</Button>
 									</DialogFooter>
 								</fetcher.Form>
 							</DialogContent>
 						</Dialog>
 
-						{/* Delete User */}
 						<AlertDialog>
 							<AlertDialogTrigger asChild>
 								<Button variant="destructive">
 									<Trash2 className="mr-2 h-4 w-4" />
-									Delete User
+									Delete user
 								</Button>
 							</AlertDialogTrigger>
 							<AlertDialogContent>
 								<AlertDialogHeader>
-									<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+									<AlertDialogTitle>Delete user?</AlertDialogTitle>
 									<AlertDialogDescription>
 										This action cannot be undone. This will permanently delete
 										the user account for <strong>{user.email}</strong> and
@@ -464,7 +500,7 @@ export default function UserDetailPage() {
 												variant="destructive"
 												disabled={isSubmitting}
 											>
-												{isSubmitting ? 'Deleting...' : 'Delete User'}
+												{isSubmitting ? 'Deleting...' : 'Delete user'}
 											</Button>
 										</AlertDialogAction>
 									</fetcher.Form>
@@ -472,7 +508,7 @@ export default function UserDetailPage() {
 							</AlertDialogContent>
 						</AlertDialog>
 					</div>
-				</div>
+				</section>
 			</div>
 		</div>
 	);

@@ -41,7 +41,7 @@ export function VirtualizedCell({
 		return (
 			<div
 				style={style}
-				className={`flex items-center border-r border-b p-2 ${lang.default ? 'bg-blue-50' : ''}`}
+				className={`flex items-center border-r border-b p-2 ${lang.default ? 'bg-sky-50/70' : ''}`}
 			>
 				<TranslationCell
 					translationKey={key}

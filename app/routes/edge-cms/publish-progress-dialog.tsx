@@ -5,6 +5,7 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	DialogStatus,
 	DialogTitle,
 } from '~/components/ui/dialog';
 import { Progress } from '~/components/ui/progress';
@@ -39,7 +40,7 @@ export function PublishProgressDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
 					<DialogTitle>Publishing draft</DialogTitle>
 				</DialogHeader>
@@ -52,28 +53,27 @@ export function PublishProgressDialog({
 						value={100}
 						className="w-full"
 					/>
-					{isTerminal && (
-						<div className="text-sm">
-							{displayedStatus === 'complete' ? (
-								<span className="text-green-600">
-									✅ Draft published successfully!
-								</span>
-							) : displayedStatus === 'errored' ? (
-								<span className="text-red-600">❌ Publish failed</span>
-							) : (
-								<span className="text-yellow-600">
-									⚠️ Publish {displayedStatus}
-								</span>
-							)}
-						</div>
-					)}
+					{isTerminal &&
+						(displayedStatus === 'complete' ? (
+							<DialogStatus tone="success">
+								Draft published successfully
+							</DialogStatus>
+						) : displayedStatus === 'errored' ? (
+							<DialogStatus tone="danger">Publishing failed</DialogStatus>
+						) : (
+							<DialogStatus tone="warning">
+								Publishing {displayedStatus}
+							</DialogStatus>
+						))}
 				</div>
 				<DialogFooter>
 					{isTerminal ? (
-						<Button onClick={() => onOpenChange(false)}>Close</Button>
+						<Button variant="brand" onClick={() => onOpenChange(false)}>
+							Close
+						</Button>
 					) : (
 						<Button variant="outline" onClick={() => onOpenChange(false)}>
-							Hide Progress
+							Hide progress
 						</Button>
 					)}
 				</DialogFooter>

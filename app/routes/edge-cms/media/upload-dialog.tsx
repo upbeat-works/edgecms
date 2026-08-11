@@ -6,6 +6,9 @@ import { Input } from '~/components/ui/input';
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
+	DialogError,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from '~/components/ui/dialog';
@@ -42,17 +45,22 @@ export function UploadDialog({
 	}, [uploadFetcher.data, uploadFetcher.state, onOpenChange]);
 
 	const isReplacing = mode === 'replace';
-	const title = isReplacing ? 'Replace Media' : 'Upload Media';
+	const title = isReplacing ? 'Replace media' : 'Upload media';
 	const submitText = isReplacing ? 'Replace' : 'Upload';
 	const loadingText = isReplacing ? 'Replacing...' : 'Uploading...';
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent size="sm">
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>
+						{isReplacing
+							? 'Upload a new version while keeping the existing media record.'
+							: 'Add a file to the media library.'}
+					</DialogDescription>
 				</DialogHeader>
-				{error && <p className="text-red-500">{error}</p>}
+				{error && <DialogError>{error}</DialogError>}
 				<uploadFetcher.Form
 					method="post"
 					encType="multipart/form-data"
@@ -97,7 +105,7 @@ export function UploadDialog({
 						)}
 					</div>
 
-					<div className="flex justify-end gap-2">
+					<DialogFooter>
 						<Button
 							type="button"
 							variant="outline"
@@ -110,11 +118,12 @@ export function UploadDialog({
 						</Button>
 						<Button
 							type="submit"
+							variant="brand"
 							disabled={uploadFetcher.state === 'submitting'}
 						>
 							{uploadFetcher.state === 'submitting' ? loadingText : submitText}
 						</Button>
-					</div>
+					</DialogFooter>
 				</uploadFetcher.Form>
 			</DialogContent>
 		</Dialog>

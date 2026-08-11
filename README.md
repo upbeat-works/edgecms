@@ -250,6 +250,24 @@ export EDGECMS_BASE_URL=https://your-domain.com/edge-cms
 
 ### Commands
 
+#### Media and block media
+
+Media uploads are live immediately. Each replacement creates a new revision ID
+while preserving the filename and canonical URL, so existing block references
+continue to resolve.
+
+```bash
+edgecms media --search hero                 # List/search current media
+edgecms media --all-versions                # Include archived revisions
+edgecms media:upload ./hero.png --section home
+edgecms media:replace 42 ./hero-new.png
+edgecms blocks:set-media heroes 7 image 43  # Saved in the shared draft
+```
+
+The upload and replace commands print the revision ID, state, and canonical URL.
+Block attachment and media IDs supplied to `import-blocks` are draft changes and
+become live through `edgecms publish`.
+
 #### `edgecms pull`
 
 Pull translations and generate TypeScript types.
