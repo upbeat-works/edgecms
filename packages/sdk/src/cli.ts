@@ -18,6 +18,7 @@ import { listCollections, listSchemas, pushBlocks } from './commands/blocks.js';
 import {
 	attachBlockMedia,
 	listMedia,
+	renameMediaFile,
 	replaceMediaFile,
 	uploadMediaFile,
 } from './commands/media.js';
@@ -90,6 +91,22 @@ program
 			if (!Number.isInteger(mediaId) || mediaId < 1)
 				throw new Error('Invalid media ID');
 			await replaceMediaFile(await loadConfig(), mediaId, file);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('media:rename')
+	.description('Rename a media file and all of its revisions')
+	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.argument('<filename>', 'New filename')
+	.action(async (mediaId, filename) => {
+		try {
+			if (!Number.isInteger(mediaId) || mediaId < 1)
+				throw new Error('Invalid media ID');
+			await renameMediaFile(await loadConfig(), mediaId, filename);
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);

@@ -5,6 +5,7 @@ import { EdgeCMSClient } from '../src/api.js';
 import {
 	attachBlockMedia,
 	listMedia,
+	renameMediaFile,
 	replaceMediaFile,
 	uploadMediaFile,
 } from '../src/commands/media.js';
@@ -48,6 +49,14 @@ const server = setupServer(
 		});
 		return HttpResponse.json(item);
 	}),
+	http.patch('*/api/media/:id', async ({ request }) => {
+		requests.push({
+			method: 'PATCH',
+			path: new URL(request.url).pathname,
+			body: await request.json(),
+		});
+		return HttpResponse.json({ ...item, filename: 'homepage-hero.png' });
+	}),
 	http.patch(
 		'*/api/blocks/collections/:collection/instances/:instance/properties/:property',
 		async ({ request }) => {
@@ -88,6 +97,7 @@ describe('media SDK', () => {
 		await client.getMedia({ search: 'hero', state: 'live', allVersions: true });
 		await client.uploadMedia(new Blob(['file']), 'hero.png', 'home');
 		await client.replaceMedia(6, new Blob(['new']), 'other.png');
+		await client.renameMedia(6, 'homepage-hero.png');
 		await client.setBlockMedia({
 			collection: 'heroes',
 			instanceId: 3,
@@ -99,20 +109,23 @@ describe('media SDK', () => {
 			['GET', '/edge-cms/api/media?search=hero&state=live&allVersions=true'],
 			['POST', '/edge-cms/api/media'],
 			['PUT', '/edge-cms/api/media/6'],
+			['PATCH', '/edge-cms/api/media/6'],
 			[
 				'PATCH',
 				'/edge-cms/api/blocks/collections/heroes/instances/3/properties/image',
 			],
 		]);
 		expect((requests[1].body as FormData).get('section')).toBe('home');
-		expect(requests[3].body).toEqual({ mediaId: 7 });
+		expect(requests[3].body).toEqual({ filename: 'homepage-hero.png' });
+		expect(requests[4].body).toEqual({ mediaId: 7 });
 	});
 
-	it('exposes list, upload, replace, and block attachment as CLI operations', async () => {
+	it('exposes media and block attachment as CLI operations', async () => {
 		const { config, path } = await projectDir({ 'image.png': 'body' });
 		await listMedia(config, { search: 'hero' });
 		await uploadMediaFile(config, path('image.png'));
 		await replaceMediaFile(config, 6, path('image.png'));
+		await renameMediaFile(config, 6, 'homepage-hero.png');
 		await attachBlockMedia(config, {
 			collection: 'heroes',
 			instanceId: 3,

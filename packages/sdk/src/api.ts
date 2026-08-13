@@ -333,6 +333,13 @@ export class EdgeCMSClient {
 		return this.fetch<MediaItem>(`/api/media/${id}`, { method: 'PUT', body });
 	}
 
+	async renameMedia(id: number, filename: string): Promise<MediaItem> {
+		return this.fetch<MediaItem>(`/api/media/${id}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ filename }),
+		});
+	}
+
 	async setBlockMedia(input: {
 		collection: string;
 		instanceId: number;

@@ -105,6 +105,16 @@ export async function updateMediaSection(
 	await db.update(media).set({ section }).where(eq(media.id, mediaId));
 }
 
+export async function renameMediaVersions(
+	oldFilename: string,
+	newFilename: string,
+): Promise<void> {
+	await db
+		.update(media)
+		.set({ filename: newFilename })
+		.where(eq(media.filename, oldFilename));
+}
+
 export async function getMediaByFilename(
 	filename: string,
 	version?: number,

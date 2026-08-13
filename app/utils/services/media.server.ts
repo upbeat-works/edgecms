@@ -6,6 +6,7 @@ import {
 	getMedia,
 	getMediaById,
 	markMediaArchived,
+	renameMediaVersions,
 } from '../db/index.server';
 import { buildVersionedFilename, sanitizeFilename } from '../media.server';
 import { err, ok, type ServiceResult } from './result';
@@ -125,4 +126,84 @@ export async function uploadMedia(
 	} catch (error) {
 		return err('UPLOAD_FAILED', (error as Error).message, 400);
 	}
+}
+
+export async function renameMedia(
+	mediaId: number,
+	requestedFilename: string,
+): Promise<ServiceResult<Media>> {
+	const existing = await getMediaById(mediaId);
+	if (!existing) {
+		return err('MEDIA_NOT_FOUND', `Media ${mediaId} not found`, 404);
+	}
+
+	const filename = sanitizeFilename(requestedFilename);
+	if (!filename || filename.startsWith('.')) {
+		return err('VALIDATION_ERROR', 'Filename must include a name', 400);
+	}
+	if (filename === existing.filename) return ok(existing);
+
+	const conflict = await getMedia({ filename });
+	if (conflict.length > 0) {
+		return err(
+			'MEDIA_FILENAME_EXISTS',
+			`Media filename "${filename}" already exists`,
+			409,
+		);
+	}
+
+	const versions = await getMedia({ filename: existing.filename });
+	const objects = versions.map(version => ({
+		oldKey: buildVersionedFilename(existing.filename, version.version),
+		newKey: buildVersionedFilename(filename, version.version),
+	}));
+	const locations = await Promise.all(
+		objects.map(async object => ({
+			...object,
+			source: await env.MEDIA_BUCKET.head(object.oldKey),
+			destination: await env.MEDIA_BUCKET.head(object.newKey),
+		})),
+	);
+	const missing = locations.find(object => object.source == null);
+	if (missing) {
+		return err(
+			'MEDIA_REVISION_MISSING',
+			`Stored media revision "${missing.oldKey}" is missing`,
+			409,
+		);
+	}
+	if (locations.some(object => object.destination != null)) {
+		return err(
+			'MEDIA_FILENAME_EXISTS',
+			`Stored objects already exist for filename "${filename}"`,
+			409,
+		);
+	}
+
+	const copiedKeys: string[] = [];
+	try {
+		for (const object of objects) {
+			const source = await env.MEDIA_BUCKET.get(object.oldKey);
+			if (!source) {
+				throw new Error(`Stored media revision "${object.oldKey}" is missing`);
+			}
+			await env.MEDIA_BUCKET.put(object.newKey, source.body, {
+				httpMetadata: source.httpMetadata,
+				customMetadata: source.customMetadata,
+			});
+			copiedKeys.push(object.newKey);
+		}
+		await renameMediaVersions(existing.filename, filename);
+	} catch (error) {
+		if (copiedKeys.length > 0) await env.MEDIA_BUCKET.delete(copiedKeys);
+		return err('MEDIA_RENAME_FAILED', (error as Error).message, 500);
+	}
+
+	try {
+		await env.MEDIA_BUCKET.delete(objects.map(object => object.oldKey));
+	} catch (error) {
+		console.error('Failed to remove media objects after rename', error);
+	}
+
+	return ok({ ...existing, filename });
 }

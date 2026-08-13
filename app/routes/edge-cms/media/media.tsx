@@ -19,6 +19,7 @@ import { UploadDialog } from './upload-dialog';
 import { MediaItem } from './media-item';
 import { VersionsSidebar } from './versions-sidebar';
 import { env } from 'cloudflare:workers';
+import { renameMedia } from '~/utils/services/media.server';
 import type { Route } from './+types/media';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -69,6 +70,22 @@ export async function action({ request }: Route.ActionArgs) {
 
 			await updateMediaSection(mediaId, section === '' ? null : section);
 			return { success: true };
+		}
+		case 'rename': {
+			const mediaId = Number(formData.get('mediaId'));
+			const filename = formData.get('filename');
+			if (
+				!Number.isInteger(mediaId) ||
+				mediaId < 1 ||
+				typeof filename !== 'string'
+			) {
+				return { error: 'A valid media file and filename are required' };
+			}
+
+			const result = await renameMedia(mediaId, filename);
+			return result.ok
+				? { success: true, filename: result.data.filename }
+				: { error: result.error.message };
 		}
 
 		default:

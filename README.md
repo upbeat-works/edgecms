@@ -261,12 +261,15 @@ edgecms media --search hero                 # List/search current media
 edgecms media --all-versions                # Include archived revisions
 edgecms media:upload ./hero.png --section home
 edgecms media:replace 42 ./hero-new.png
+edgecms media:rename 42 homepage-hero.png
 edgecms blocks:set-media heroes 7 image 43  # Saved in the shared draft
 ```
 
-The upload and replace commands print the revision ID, state, and canonical URL.
-Block attachment and media IDs supplied to `import-blocks` are draft changes and
-become live through `edgecms publish`.
+The upload, replace, and rename commands print the revision ID, state, and
+canonical URL. Renaming moves every stored revision to the new filename while
+preserving its revision ID, version, and state. The old public URL stops
+resolving. Block attachment and media IDs supplied to `import-blocks` are draft
+changes and become live through `edgecms publish`.
 
 #### `edgecms pull`
 

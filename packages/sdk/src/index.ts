@@ -61,6 +61,7 @@ export {
 export {
 	listMedia,
 	uploadMediaFile,
+	renameMediaFile,
 	replaceMediaFile,
 	attachBlockMedia,
 	type ListMediaOptions,

@@ -87,6 +87,14 @@ export async function replaceMediaFile(
 	);
 }
 
+export async function renameMediaFile(
+	config: EdgeCMSConfig,
+	mediaId: number,
+	filename: string,
+) {
+	printMedia(await new EdgeCMSClient(config).renameMedia(mediaId, filename));
+}
+
 export async function attachBlockMedia(
 	config: EdgeCMSConfig,
 	input: {

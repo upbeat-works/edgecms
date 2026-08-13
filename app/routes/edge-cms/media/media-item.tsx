@@ -13,6 +13,7 @@ import {
 import { MediaCard, type MediaCardAction } from '~/components/media-card';
 import { MediaPreviewDialog } from '~/components/media-preview-dialog';
 import { UploadDialog } from './upload-dialog';
+import { RenameDialog } from './rename-dialog';
 import type { Media, Section } from '~/utils/db.server';
 
 export function MediaItem({
@@ -27,6 +28,7 @@ export function MediaItem({
 	const fetcher = useFetcher();
 	const [selectedSection, setSelectedSection] = useState(media.section || '');
 	const [showReplace, setShowReplace] = useState(false);
+	const [showRename, setShowRename] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	const handleSectionChange = (newSection: string) => {
@@ -45,6 +47,10 @@ export function MediaItem({
 		{
 			label: 'Replace with new file',
 			onClick: () => setShowReplace(true),
+		},
+		{
+			label: 'Rename',
+			onClick: () => setShowRename(true),
 		},
 		{
 			label: media.state === 'archived' ? 'Unarchive' : 'Archive',
@@ -122,6 +128,13 @@ export function MediaItem({
 				mode="replace"
 				mediaId={media.id}
 				currentSection={media.section}
+			/>
+
+			<RenameDialog
+				open={showRename}
+				onOpenChange={setShowRename}
+				mediaId={media.id}
+				filename={media.filename}
 			/>
 
 			<AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
