@@ -178,6 +178,115 @@ export const versions = sqliteTable('versions', {
 	createdBy: text('createdBy').references(() => user.id),
 });
 
+export const legalDocuments = sqliteTable(
+	'legal_documents',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		name: text('name').notNull(),
+		slug: text('slug').notNull(),
+		type: text('type', {
+			enum: [
+				'terms_and_conditions',
+				'privacy_policy',
+				'cookie_policy',
+				'dpa',
+				'other',
+			],
+		}).notNull(),
+		createdAt: text('createdAt')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updatedAt')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+		createdBy: text('createdBy').references(() => user.id, {
+			onDelete: 'set null',
+		}),
+	},
+	table => [uniqueIndex('idx_legal_documents_slug').on(table.slug)],
+);
+
+export const legalDocumentDrafts = sqliteTable(
+	'legal_document_drafts',
+	{
+		documentId: integer('documentId')
+			.notNull()
+			.references(() => legalDocuments.id, { onDelete: 'cascade' }),
+		locale: text('locale')
+			.notNull()
+			.references(() => languages.locale, {
+				onDelete: 'cascade',
+				onUpdate: 'cascade',
+			}),
+		markdown: text('markdown').notNull(),
+		updatedAt: text('updatedAt')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: text('updatedBy').references(() => user.id, {
+			onDelete: 'set null',
+		}),
+	},
+	table => [primaryKey({ columns: [table.documentId, table.locale] })],
+);
+
+export const legalReleases = sqliteTable(
+	'legal_releases',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		documentId: integer('documentId')
+			.notNull()
+			.references(() => legalDocuments.id, { onDelete: 'cascade' }),
+		version: text('version').notNull(),
+		effectiveDate: text('effectiveDate').notNull(),
+		status: text('status', {
+			enum: ['processing', 'failed', 'published', 'active', 'retired'],
+		}).notNull(),
+		workflowId: text('workflowId'),
+		failureReason: text('failureReason'),
+		createdAt: text('createdAt')
+			.notNull()
+			.default(sql`CURRENT_TIMESTAMP`),
+		publishedAt: text('publishedAt'),
+		activatedAt: text('activatedAt'),
+		retiredAt: text('retiredAt'),
+		createdBy: text('createdBy').references(() => user.id, {
+			onDelete: 'set null',
+		}),
+	},
+	table => [
+		uniqueIndex('idx_legal_release_version').on(
+			table.documentId,
+			table.version,
+		),
+	],
+);
+
+export const legalReleaseVariants = sqliteTable(
+	'legal_release_variants',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		releaseId: integer('releaseId')
+			.notNull()
+			.references(() => legalReleases.id, { onDelete: 'cascade' }),
+		locale: text('locale')
+			.notNull()
+			.references(() => languages.locale, {
+				onDelete: 'restrict',
+				onUpdate: 'cascade',
+			}),
+		payload: text('payload').notNull(),
+		releaseHash: text('releaseHash'),
+		signature: text('signature'),
+		signingKeyId: text('signingKeyId'),
+		publicJwk: text('publicJwk'),
+		pdfKey: text('pdfKey'),
+	},
+	table => [
+		uniqueIndex('idx_legal_release_locale').on(table.releaseId, table.locale),
+		uniqueIndex('idx_legal_release_hash').on(table.releaseHash),
+	],
+);
+
 // Block schema definitions (templates)
 export const blockSchemas = sqliteTable('block_schemas', {
 	id: integer('id').primaryKey({ autoIncrement: true }),

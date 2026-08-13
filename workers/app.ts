@@ -3,6 +3,7 @@ import { ReleaseVersionWorkflow } from './release-version-workflow';
 import { RollbackVersionWorkflow } from './rollback-version-workflow';
 import { AITranslateWorkflow } from './ai-translate-workflow';
 import { EdgeCMSService } from './edgecms-service';
+import { LegalReleaseWorkflow } from './legal-release-workflow';
 
 if (import.meta.hot) {
 	import.meta.hot.accept();
@@ -52,5 +53,6 @@ export {
 	ReleaseVersionWorkflow,
 	RollbackVersionWorkflow,
 	AITranslateWorkflow,
+	LegalReleaseWorkflow,
 	EdgeCMSService,
 };

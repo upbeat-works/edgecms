@@ -12,6 +12,9 @@ export default [
 		index('routes/edge-cms/home.tsx'),
 		layout('routes/edge-cms/_layout.tsx', [
 			...prefix('custom', extension.routes ?? []),
+			route('legal', 'routes/edge-cms/legal/legal.tsx'),
+			route('legal/new', 'routes/edge-cms/legal/legal.new.tsx'),
+			route('legal/:id', 'routes/edge-cms/legal/legal.$id.tsx'),
 			route('i18n', 'routes/edge-cms/i18n/i18n.tsx'),
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media/media.tsx'),
@@ -79,6 +82,15 @@ export default [
 		route(
 			'public/blocks/:collection',
 			'routes/edge-cms/public/blocks.$collection.tsx',
+		),
+		route('public/legal/keys.json', 'routes/edge-cms/public/legal-keys.ts'),
+		route(
+			'public/legal/:slug/:locale.pdf',
+			'routes/edge-cms/public/legal-document-pdf.ts',
+		),
+		route(
+			'public/legal/:slug/:locale',
+			'routes/edge-cms/public/legal-document.ts',
 		),
 	]),
 ] satisfies RouteConfig;

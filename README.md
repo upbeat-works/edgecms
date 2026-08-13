@@ -17,6 +17,8 @@ infrastructure on the planet.
   content blocks from the CLI. Your IDE stays happy.
 - **Version control for content** — Draft, publish, rollback. Treat your content
   like code.
+- **Signed legal releases** — Localized Markdown, immutable evidence, PDF
+  renditions, and explicit activation.
 - **AI-powered translations** — Auto-translate missing keys with OpenAI. Ship
   faster in every language.
 
@@ -58,6 +60,18 @@ infrastructure on the planet.
 - Per-key rate limiting (default: 1000 req/hour)
 - Usage tracking with last-request timestamps
 
+### Legal Documents
+
+- Localized Markdown drafts managed at `/edge-cms/legal`
+- Deterministic SHA-256 `releaseHash` over the exact frozen release payload
+- ES256 signatures and verification keys retained with release history
+- Sanitized PDF renditions generated with Cloudflare Browser Rendering
+- Independent publish, activate, retire, and retry lifecycle
+- Public evidence, PDF, and key endpoints for consent integrations
+
+See [Legal documents and signed releases](docs/legal-documents.md) for the
+canonical payload, key setup, lifecycle, and consent-integration boundary.
+
 ### Version Control
 
 - Draft and live content states
@@ -67,18 +81,19 @@ infrastructure on the planet.
 
 ## Stack
 
-| Layer     | Technology                 |
-| --------- | -------------------------- |
-| Framework | React Router v7            |
-| UI        | Tailwind CSS 4 + shadcn/ui |
-| Database  | Cloudflare D1 (SQLite)     |
-| ORM       | Drizzle                    |
-| Cache     | Cloudflare KV              |
-| Storage   | Cloudflare R2              |
-| Auth      | Better Auth                |
-| AI        | OpenAI (via AI SDK)        |
-| Workflows | Cloudflare Workflows       |
-| Runtime   | Cloudflare Workers         |
+| Layer     | Technology                   |
+| --------- | ---------------------------- |
+| Framework | React Router v7              |
+| UI        | Tailwind CSS 4 + shadcn/ui   |
+| Database  | Cloudflare D1 (SQLite)       |
+| ORM       | Drizzle                      |
+| Cache     | Cloudflare KV                |
+| Storage   | Cloudflare R2                |
+| Auth      | Better Auth                  |
+| AI        | OpenAI (via AI SDK)          |
+| Workflows | Cloudflare Workflows         |
+| Legal PDF | Cloudflare Browser Rendering |
+| Runtime   | Cloudflare Workers           |
 
 ## Setup
 
@@ -96,7 +111,11 @@ Create a `.dev.vars` file for local development:
 AUTH_SECRET=your-secret-key-here
 ADMIN_SIGNUP_PASSWORD=your-admin-signup-secret
 OPENAI_API_KEY=your-openai-api-key  # Optional — for AI translations
+LEGAL_SIGNING_PRIVATE_JWK={"kty":"EC","x":"...","y":"...","crv":"P-256","d":"...","alg":"ES256","key_ops":["sign"],"ext":true}
 ```
+
+Generate the legal signing value with `npm run legal:keygen`. Keep it secret;
+the public half is derived and retained with every signed release.
 
 For production, set these as Cloudflare secrets:
 
@@ -104,6 +123,7 @@ For production, set these as Cloudflare secrets:
 npx wrangler secret put AUTH_SECRET
 npx wrangler secret put ADMIN_SIGNUP_PASSWORD
 npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put LEGAL_SIGNING_PRIVATE_JWK
 ```
 
 ### 3. Configure Cloudflare Bindings
@@ -153,12 +173,21 @@ Your `wrangler.jsonc` needs the following bindings:
 			"binding": "AI_TRANSLATE_WORKFLOW",
 			"class_name": "AITranslateWorkflow",
 		},
+		{
+			"name": "edgecms-legal-release-workflow",
+			"binding": "LEGAL_RELEASE_WORKFLOW",
+			"class_name": "LegalReleaseWorkflow",
+		},
 	],
+
+	// Browser Rendering
+	"browser": { "binding": "BROWSER" },
 
 	// Environment
 	"vars": {
 		"BASE_URL": "https://your-domain.com",
 		"TRUSTED_ORIGINS": "https://your-domain.com",
+		"LEGAL_SIGNING_KEY_ID": "edgecms-legal-1",
 	},
 }
 ```
@@ -185,6 +214,9 @@ npm run typecheck
 npm run dev
 ```
 
+Legal PDF publication uses Browser Run Quick Actions. Test that workflow with
+`npx wrangler dev --remote`; ordinary CMS development can remain local.
+
 ## Testing
 
 ```bash
@@ -195,10 +227,11 @@ npm run test:sdk   # CLI/SDK only
 
 Tests run inside the Workers runtime via `@cloudflare/vitest-pool-workers`,
 against a real D1 database with the project's migrations applied, real R2 and KV
-bindings, and real Workflows. Nothing in the stack is mocked: API-key tests
-issue genuine better-auth keys, and the publish tests run
-`ReleaseVersionWorkflow` through to completion and then assert on the rows and
-R2 objects it produced.
+bindings, and real Workflows. API-key tests issue genuine better-auth keys, and
+ordinary content publish tests run `ReleaseVersionWorkflow` through to
+completion before asserting on its D1 rows and R2 objects. Legal tests exercise
+the real signing, persistence, lifecycle, and HTTP routes while faking the two
+external execution boundaries: Browser Run and starting a Workflow instance.
 
 The CLI in `packages/sdk` is plain Node code, so it is tested separately in a
 Node environment (`npm run test:sdk`). Those tests stub `fetch` — the one

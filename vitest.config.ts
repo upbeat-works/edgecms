@@ -25,6 +25,7 @@ export default defineConfig({
 		}),
 	],
 	test: {
+		include: ['test/**/*.test.ts'],
 		setupFiles: ['./test/setup.ts'],
 		coverage: {
 			// v8 coverage needs `node:inspector`, which workerd does not implement,

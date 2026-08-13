@@ -4,6 +4,74 @@ import * as commands from '@uiw/react-md-editor/commands';
 import { Button } from '~/components/ui/button';
 import { useFetcher } from 'react-router';
 
+const markdownCommands = [
+	commands.bold,
+	commands.italic,
+	commands.strikethrough,
+	commands.hr,
+	commands.group(
+		[
+			commands.heading1,
+			commands.heading2,
+			commands.heading3,
+			commands.heading4,
+			commands.heading5,
+			commands.heading6,
+		],
+		{
+			name: 'heading',
+			groupName: 'heading',
+			buttonProps: { 'aria-label': 'Insert title' },
+		},
+	),
+	commands.divider,
+	commands.link,
+	commands.quote,
+	commands.code,
+	commands.image,
+	commands.divider,
+	commands.unorderedListCommand,
+	commands.orderedListCommand,
+	commands.checkedListCommand,
+	commands.table,
+	commands.divider,
+	commands.help,
+];
+
+interface MarkdownInputProps {
+	value: string;
+	onChange: (value: string) => void;
+	height?: number;
+	label?: string;
+}
+
+export function MarkdownInput({
+	value,
+	onChange,
+	height = 600,
+	label = 'Markdown content',
+}: MarkdownInputProps) {
+	return (
+		<div data-color-mode="light" className="markdown-editor-toolbar-large">
+			<MDEditor
+				value={value}
+				onChange={nextValue => onChange(nextValue ?? '')}
+				preview="live"
+				hideToolbar={false}
+				visibleDragbar={false}
+				height={height}
+				commands={markdownCommands}
+				extraCommands={[
+					commands.codeLive,
+					commands.codeEdit,
+					commands.codePreview,
+				]}
+				textareaProps={{ 'aria-label': label }}
+			/>
+		</div>
+	);
+}
+
 interface MarkdownEditorProps {
 	filename: string;
 	version?: number;
@@ -22,7 +90,6 @@ export function MarkdownEditor({
 	const [isSaving, setIsSaving] = useState(false);
 	const saveFetcher = useFetcher();
 
-	// Fetch the markdown content when component mounts
 	useEffect(() => {
 		const fetchContent = async () => {
 			try {
@@ -51,7 +118,6 @@ export function MarkdownEditor({
 		fetchContent();
 	}, [filename, version]);
 
-	// Handle save completion
 	useEffect(() => {
 		if (saveFetcher.data?.success && saveFetcher.state === 'idle') {
 			setIsSaving(false);
@@ -62,15 +128,12 @@ export function MarkdownEditor({
 	const handleSave = async () => {
 		setIsSaving(true);
 
-		// Create a blob from the markdown content
 		const blob = new Blob([content], { type: 'text/markdown' });
 		const file = new File([blob], filename, { type: 'text/markdown' });
 
-		// Create form data for upload
 		const formData = new FormData();
 		formData.append('file', file);
 
-		// Submit using the media upload endpoint with replace intent
 		saveFetcher.submit(formData, {
 			method: 'post',
 			action: `/edge-cms/media/upload?intent=replace&mediaId=${mediaId}`,
@@ -106,54 +169,7 @@ export function MarkdownEditor({
 				</div>
 			)}
 
-			<div data-color-mode="light" className="markdown-editor-toolbar-large">
-				<MDEditor
-					value={content}
-					onChange={val => setContent(val || '')}
-					preview="live"
-					hideToolbar={false}
-					visibleDragbar={false}
-					height={600}
-					commands={[
-						commands.bold,
-						commands.italic,
-						commands.strikethrough,
-						commands.hr,
-						commands.group(
-							[
-								commands.heading1,
-								commands.heading2,
-								commands.heading3,
-								commands.heading4,
-								commands.heading5,
-								commands.heading6,
-							],
-							{
-								name: 'heading',
-								groupName: 'heading',
-								buttonProps: { 'aria-label': 'Insert title' },
-							},
-						),
-						commands.divider,
-						commands.link,
-						commands.quote,
-						commands.code,
-						commands.image,
-						commands.divider,
-						commands.unorderedListCommand,
-						commands.orderedListCommand,
-						commands.checkedListCommand,
-						commands.table,
-						commands.divider,
-						commands.help,
-					]}
-					extraCommands={[
-						commands.codeLive,
-						commands.codeEdit,
-						commands.codePreview,
-					]}
-				/>
-			</div>
+			<MarkdownInput value={content} onChange={setContent} />
 		</div>
 	);
 }

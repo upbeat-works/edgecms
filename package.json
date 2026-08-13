@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:sdk": "npm --prefix packages/sdk test",
     "test:coverage": "vitest run --coverage",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "legal:keygen": "node scripts/generate-legal-signing-key.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.10",
@@ -104,6 +105,12 @@
       },
       "AUTH_SECRET": {
         "description": "Secret key for better-auth authentication. Generate using `openssl rand -hex 32`."
+      },
+      "LEGAL_SIGNING_PRIVATE_JWK": {
+        "description": "EC P-256 private JWK used to sign immutable legal document releases."
+      },
+      "LEGAL_SIGNING_KEY_ID": {
+        "description": "Stable identifier for the active legal release signing key."
       },
       "OPENAI_API_KEY": {
         "description": "OpenAI API key for AI-powered translations. Get from https://platform.openai.com/api-keys"
