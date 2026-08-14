@@ -23,6 +23,7 @@ import { WorkspacePageHeader } from '~/components/ui/workspace';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
+import { calculateTranslationCoverage } from '~/utils/translation-coverage';
 import {
 	Tooltip,
 	TooltipTrigger,
@@ -200,12 +201,11 @@ export default function Sections() {
 							{sections.map(section => {
 								const translationTotal =
 									languages.length * section.translationKeysCount;
-								const translationPercentage =
-									translationTotal === 0
-										? 0
-										: Math.round(
-												(section.translationCount / translationTotal) * 100,
-											);
+								const translationPercentage = calculateTranslationCoverage({
+									languageCount: languages.length,
+									translationCount: section.translationCount,
+									translationKeyCount: section.translationKeysCount,
+								});
 
 								return (
 									<TableRow
@@ -232,24 +232,30 @@ export default function Sections() {
 											</span>
 										</TableCell>
 										<TableCell>
-											<div className="flex items-center gap-3">
-												<Tooltip>
-													<TooltipTrigger asChild>
-														<div className="w-11 shrink-0 cursor-help text-right text-sm font-semibold tabular-nums">
-															{translationPercentage}%
-														</div>
-													</TooltipTrigger>
-													<TooltipContent>
-														{section.translationCount} / {translationTotal}
-													</TooltipContent>
-												</Tooltip>
-												<div className="min-w-20 flex-1">
-													<Progress
-														value={translationPercentage}
-														className="h-1.5 w-full"
-													/>
+											{translationPercentage === null ? (
+												<span className="text-muted-foreground text-sm">
+													Not applicable
+												</span>
+											) : (
+												<div className="flex items-center gap-3">
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<div className="w-11 shrink-0 cursor-help text-right text-sm font-semibold tabular-nums">
+																{translationPercentage}%
+															</div>
+														</TooltipTrigger>
+														<TooltipContent>
+															{section.translationCount} / {translationTotal}
+														</TooltipContent>
+													</Tooltip>
+													<div className="min-w-20 flex-1">
+														<Progress
+															value={translationPercentage}
+															className="h-1.5 w-full"
+														/>
+													</div>
 												</div>
-											</div>
+											)}
 										</TableCell>
 										<TableCell>
 											<Form method="post" className="inline">
