@@ -87,3 +87,54 @@ export interface Version {
 	createdAt: Date;
 	createdBy: string | null;
 }
+
+export type LegalDocumentType =
+	'terms_and_conditions' | 'privacy_policy' | 'cookie_policy' | 'dpa' | 'other';
+
+export type LegalReleaseStatus =
+	'processing' | 'failed' | 'published' | 'active' | 'retired';
+
+export interface LegalDocument {
+	id: number;
+	name: string;
+	slug: string;
+	type: LegalDocumentType;
+	createdAt: Date;
+	updatedAt: Date;
+	createdBy: string | null;
+}
+
+export interface LegalDocumentDraft {
+	documentId: number;
+	locale: string;
+	markdown: string;
+	updatedAt: Date;
+	updatedBy: string | null;
+}
+
+export interface LegalRelease {
+	id: number;
+	documentId: number;
+	version: string;
+	effectiveDate: string;
+	status: LegalReleaseStatus;
+	workflowId: string | null;
+	failureReason: string | null;
+	createdAt: Date;
+	publishedAt: Date | null;
+	activatedAt: Date | null;
+	retiredAt: Date | null;
+	createdBy: string | null;
+}
+
+export interface LegalReleaseVariant {
+	id: number;
+	releaseId: number;
+	locale: string;
+	payload: string;
+	releaseHash: string | null;
+	signature: string | null;
+	signingKeyId: string | null;
+	publicJwk: string | null;
+	pdfKey: string | null;
+}

@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "edgecms",
 	"workers_dev": true,
-	"compatibility_date": "2025-06-17",
+	"compatibility_date": "2026-08-08",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./workers/app.ts",
 	"observability": {
@@ -14,7 +14,19 @@
 	},
 	"vars": {
 		"BASE_URL": "http://localhost:5173",
-		"TRUSTED_ORIGINS": "http://localhost:5173"
+		"TRUSTED_ORIGINS": "http://localhost:5173",
+		"LEGAL_SIGNING_KEY_ID": "edgecms-legal-1"
+	},
+	"secrets": {
+		"required": [
+			"AUTH_SECRET",
+			"SESSION_SECRET",
+			"OPENAI_API_KEY",
+			"LEGAL_SIGNING_PRIVATE_JWK"
+		]
+	},
+	"browser": {
+		"binding": "BROWSER"
 	},
 	/**
 	 * Smart Placement
@@ -116,6 +128,11 @@
 			"name": "edgecms-ai-translate-workflow",
 			"binding": "AI_TRANSLATE_WORKFLOW",
 			"class_name": "AITranslateWorkflow"
+		},
+		{
+			"name": "edgecms-legal-release-workflow",
+			"binding": "LEGAL_RELEASE_WORKFLOW",
+			"class_name": "LegalReleaseWorkflow"
 		}
 	]
 }

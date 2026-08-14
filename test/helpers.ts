@@ -28,6 +28,10 @@ export async function resetBuckets() {
  */
 export async function resetDb() {
 	const tables = [
+		'legal_release_variants',
+		'legal_releases',
+		'legal_document_drafts',
+		'legal_documents',
 		'block_instance_values',
 		'block_instances',
 		'block_collections',

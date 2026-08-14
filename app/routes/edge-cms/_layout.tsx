@@ -8,22 +8,16 @@ import {
 	useRevalidator,
 } from 'react-router';
 import { useState, useEffect } from 'react';
-import { Key, Menu, Rocket, UserRound, Zap } from 'lucide-react';
+import { Key, Rocket, UserRound, Zap } from 'lucide-react';
 import { cn } from '~/utils/misc';
 import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
-import {
-	Sheet,
-	SheetContent,
-	SheetTrigger,
-	SheetTitle,
-	SheetClose,
-} from '~/components/ui/sheet';
 import { requireAuth } from '~/utils/auth.middleware';
 import { getLatestVersion, getReleaseInstance } from '~/utils/db.server';
 import { useBackoffCallback } from '~/hooks/use-poll-exponential-backoff';
 import { builtInNavItems, customNavItems } from '~/nav-items';
 import { PublishProgressDialog } from './publish-progress-dialog';
+import { MobileNavigation } from './mobile-navigation';
 import type { Route } from './+types/_layout';
 import { env } from 'cloudflare:workers';
 
@@ -52,30 +46,10 @@ export default function Layout() {
 	const { user, draftVersion, publishStatus } = useLoaderData<typeof loader>();
 	const location = useLocation();
 	const isCustomPage = location.pathname.startsWith('/edge-cms/custom');
-	const publishFetcher = useFetcher<{ success: boolean; publishId: string }>();
+	const publishFetcher = useFetcher();
 	const revalidator = useRevalidator();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [showPublishProgress, setShowPublishProgress] = useState(false);
-	const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-	// When the publish action returns, push the instance id into the URL so the
-	// loader can fetch its status and the dialog can survive page navigations.
-	const fetcherPublishId = publishFetcher.data?.publishId;
-	useEffect(() => {
-		if (
-			fetcherPublishId &&
-			searchParams.get('publishId') !== fetcherPublishId
-		) {
-			setSearchParams(
-				prev => {
-					prev.set('publishId', fetcherPublishId);
-					return prev;
-				},
-				{ replace: true },
-			);
-			setShowPublishProgress(true);
-		}
-	}, [fetcherPublishId]);
 
 	const publishId = searchParams.get('publishId');
 	const shouldPollPublish = Boolean(
@@ -106,13 +80,9 @@ export default function Layout() {
 		},
 	);
 
-	// Show dialog while polling; on terminal state, leave the dialog open until
-	// the user closes it (handler below clears the URL param).
 	useEffect(() => {
-		if (publishId && publishPoller.isExecuting) {
-			setShowPublishProgress(true);
-		}
-	}, [publishId, publishPoller.isExecuting]);
+		if (publishId) setShowPublishProgress(true);
+	}, [publishId]);
 
 	const handlePublishDialogChange = (open: boolean) => {
 		setShowPublishProgress(open);
@@ -126,10 +96,6 @@ export default function Layout() {
 			);
 		}
 	};
-
-	useEffect(() => {
-		setMobileNavOpen(false);
-	}, [location.pathname]);
 
 	return (
 		<div className="bg-background min-h-screen">
@@ -185,16 +151,33 @@ export default function Layout() {
 						<div className="ml-auto flex items-center gap-2">
 							{draftVersion && !isCustomPage && (
 								<publishFetcher.Form method="post" action="/edge-cms/publish">
+									<input
+										type="hidden"
+										name="returnTo"
+										value={`${location.pathname}${location.search}`}
+									/>
 									<Button
 										type="submit"
 										size="sm"
 										disabled={publishFetcher.state !== 'idle'}
-										className="rounded-full bg-fuchsia-600 px-4 text-white shadow-md ring-2 shadow-fuchsia-600/25 ring-fuchsia-100 transition-all hover:-translate-y-px hover:bg-fuchsia-700 hover:shadow-lg hover:shadow-fuchsia-600/25"
+										aria-label={
+											publishFetcher.state !== 'idle'
+												? 'Publishing'
+												: `Publish ${draftVersion.description ?? `version ${draftVersion.id}`}`
+										}
+										className="shrink-0 rounded-full bg-fuchsia-600 px-3 text-white shadow-md ring-2 shadow-fuchsia-600/25 ring-fuchsia-100 transition-all hover:-translate-y-px hover:bg-fuchsia-700 hover:shadow-lg hover:shadow-fuchsia-600/25 sm:px-4"
 									>
 										<Rocket className="mr-2 h-3.5 w-3.5" />
-										{publishFetcher.state !== 'idle'
-											? 'Publishing...'
-											: `Publish ${draftVersion.description ?? `v${draftVersion.id}`}`}
+										<span className="sm:hidden">
+											{publishFetcher.state !== 'idle'
+												? 'Publishing...'
+												: 'Publish'}
+										</span>
+										<span className="hidden sm:inline">
+											{publishFetcher.state !== 'idle'
+												? 'Publishing...'
+												: `Publish ${draftVersion.description ?? `v${draftVersion.id}`}`}
+										</span>
 									</Button>
 								</publishFetcher.Form>
 							)}
@@ -238,106 +221,10 @@ export default function Layout() {
 								</button>
 							</form>
 
-							<Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-								<SheetTrigger asChild>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="md:hidden"
-										aria-label="Open menu"
-									>
-										<Menu className="h-5 w-5" />
-									</Button>
-								</SheetTrigger>
-								<SheetContent side="right" className="w-72">
-									<SheetTitle className="flex items-center gap-2.5">
-										<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white">
-											<Zap className="h-4 w-4 fill-current" />
-										</span>
-										EdgeCMS
-									</SheetTitle>
-									<nav className="mt-6 flex flex-col space-y-1">
-										{builtInNavItems.map(item => (
-											<SheetClose asChild key={item.href}>
-												<Link
-													to={item.href}
-													className={cn(
-														'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-														isActivePath(location.pathname, item.href)
-															? 'bg-sky-50 text-sky-700'
-															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
-													)}
-												>
-													{item.label}
-												</Link>
-											</SheetClose>
-										))}
-										{customNavItems.length > 0 && (
-											<Separator className="my-2" />
-										)}
-										{customNavItems.map(item => (
-											<SheetClose asChild key={item.href}>
-												<Link
-													to={item.href}
-													className={cn(
-														'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-														isActivePath(location.pathname, item.href)
-															? 'bg-fuchsia-50 text-fuchsia-700'
-															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
-													)}
-												>
-													{item.label}
-												</Link>
-											</SheetClose>
-										))}
-										<SheetClose asChild>
-											<Link
-												to="/edge-cms/settings/api-keys"
-												className={cn(
-													'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-													isActivePath(
-														location.pathname,
-														'/edge-cms/settings/api-keys',
-													)
-														? 'bg-sky-50 text-sky-700'
-														: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
-												)}
-											>
-												<Key className="h-4 w-4" />
-												API keys
-											</Link>
-										</SheetClose>
-										{user.role === 'admin' && (
-											<SheetClose asChild>
-												<Link
-													to="/edge-cms/users"
-													className={cn(
-														'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-														isActivePath(location.pathname, '/edge-cms/users')
-															? 'bg-sky-50 text-sky-700'
-															: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
-													)}
-												>
-													<UserRound className="h-4 w-4" />
-													Users
-												</Link>
-											</SheetClose>
-										)}
-										<form
-											action="/edge-cms/sign-out"
-											method="post"
-											className="pt-2"
-										>
-											<button
-												type="submit"
-												className="text-muted-foreground hover:bg-accent hover:text-foreground w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors"
-											>
-												Sign Out
-											</button>
-										</form>
-									</nav>
-								</SheetContent>
-							</Sheet>
+							<MobileNavigation
+								pathname={location.pathname}
+								isAdmin={user.role === 'admin'}
+							/>
 						</div>
 					</nav>
 				</div>
