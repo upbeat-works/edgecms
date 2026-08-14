@@ -28,6 +28,7 @@ export {
 	type Section,
 	type SectionsResponse,
 	type DeleteSectionResponse,
+	type SectionAssignmentResponse,
 } from './api.js';
 export { generateTypes } from './codegen.js';
 export { pull, type PullOptions } from './commands/pull.js';
@@ -46,6 +47,8 @@ export {
 	listSections,
 	addSection,
 	renameSection,
+	assignKeysToSection,
+	assignMediaToSection,
 	removeSection,
 	type DeleteSectionOptions,
 } from './commands/sections.js';

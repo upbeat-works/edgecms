@@ -11,7 +11,13 @@ import {
 	getTranslations,
 	upsertTranslation,
 } from '~/utils/db/translations.server';
-import { apiRequest, createApiKey, resetDb, seedLanguage } from '../helpers';
+import {
+	apiRequest,
+	createApiKey,
+	resetDb,
+	seedLanguage,
+	seedMedia,
+} from '../helpers';
 
 let apiKey: string;
 
@@ -20,7 +26,7 @@ beforeEach(async () => {
 	apiKey = await createApiKey();
 });
 
-function mutate(method: 'POST' | 'PATCH' | 'DELETE', body: unknown) {
+function mutate(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', body: unknown) {
 	return action({
 		request: apiRequest('/edge-cms/api/sections', apiKey, {
 			method,
@@ -76,6 +82,75 @@ describe('section management API', () => {
 		expect(await getSections()).toEqual([{ name: 'Marketing' }]);
 		expect(await getTranslations({ key: 'home.title' })).toEqual([
 			expect.objectContaining({ section: 'Marketing' }),
+		]);
+	});
+
+	it('assigns existing i18n keys and media to an existing section', async () => {
+		await seedLanguage('en', true);
+		await createSection('Homepage');
+		await upsertTranslation('home.title', 'en', 'Hello');
+		await upsertTranslation('home.subtitle', 'en', 'Welcome');
+		const hero = await seedMedia('hero.png');
+		const logo = await seedMedia('logo.svg', '<svg/>', 'image/svg+xml');
+
+		const response = await mutate('PUT', {
+			name: 'Homepage',
+			translationKeys: ['home.title', 'home.subtitle'],
+			mediaIds: [hero.id, logo.id],
+		});
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({
+			section: 'Homepage',
+			translationKeysAssigned: 2,
+			mediaAssigned: 2,
+		});
+		expect(await getTranslations({ section: 'Homepage' })).toHaveLength(2);
+		expect(await getMedia({ section: 'Homepage' })).toHaveLength(2);
+	});
+
+	it('requires the target section to be created first', async () => {
+		await seedLanguage('en', true);
+		await upsertTranslation('home.title', 'en', 'Hello');
+
+		const response = await mutate('PUT', {
+			name: 'Homepage',
+			translationKeys: ['home.title'],
+		});
+
+		expect(response.status).toBe(404);
+		await expect(response.json()).resolves.toMatchObject({
+			code: 'SECTION_NOT_FOUND',
+			error: expect.stringContaining('sections:add'),
+		});
+		expect(await getSections()).toEqual([]);
+		expect(await getTranslations({ key: 'home.title' })).toEqual([
+			expect.objectContaining({ section: null }),
+		]);
+	});
+
+	it('assigns nothing when any requested key or media ID is missing', async () => {
+		await seedLanguage('en', true);
+		await createSection('Homepage');
+		await upsertTranslation('home.title', 'en', 'Hello');
+		const hero = await seedMedia('hero.png');
+
+		const response = await mutate('PUT', {
+			name: 'Homepage',
+			translationKeys: ['home.title', 'missing.key'],
+			mediaIds: [hero.id, 999],
+		});
+
+		expect(response.status).toBe(404);
+		await expect(response.json()).resolves.toMatchObject({
+			code: 'SECTION_CONTENT_NOT_FOUND',
+			error: expect.stringMatching(/missing\.key.*999/),
+		});
+		expect(await getTranslations({ key: 'home.title' })).toEqual([
+			expect.objectContaining({ section: null }),
+		]);
+		expect(await getMedia()).toEqual([
+			expect.objectContaining({ id: hero.id, section: null }),
 		]);
 	});
 

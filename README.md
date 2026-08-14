@@ -471,6 +471,8 @@ Manage the sections used to organize translations, media, and block collections.
 ```bash
 edgecms sections                              # List sections
 edgecms sections:add Homepage                 # Create a section
+edgecms sections:assign-keys Homepage home.title home.subtitle
+edgecms sections:assign-media Homepage 12 18  # IDs from `edgecms media`
 edgecms sections:rename Homepage Marketing    # Rename it and refile its content
 edgecms sections:delete Marketing             # Preview deletion
 edgecms sections:delete Marketing --yes       # Delete and leave content unsorted
@@ -478,7 +480,8 @@ edgecms sections:delete Marketing --yes       # Delete and leave content unsorte
 
 Section deletion is a dry run unless `--yes` is supplied. Deleting a section
 does not delete its content; translations, media, and block collections assigned
-to it become unsorted.
+to it become unsorted. Assignment requires an existing section and existing keys
+or media IDs. If any requested resource is missing, nothing is assigned.
 
 #### `edgecms publish`
 
@@ -545,6 +548,8 @@ import {
 	listSections,
 	addSection,
 	renameSection,
+	assignKeysToSection,
+	assignMediaToSection,
 	removeSection,
 	publish,
 	check,
@@ -605,6 +610,7 @@ someone passes `--yes`.
 | `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
 | `/edge-cms/api/sections`           | GET    | List sections                                |
 | `/edge-cms/api/sections`           | POST   | Create a section                             |
+| `/edge-cms/api/sections`           | PUT    | Assign existing i18n keys or media           |
 | `/edge-cms/api/sections`           | PATCH  | Rename a section                             |
 | `/edge-cms/api/sections`           | DELETE | Delete a section (dry run by default)        |
 | `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |

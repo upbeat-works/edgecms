@@ -12,6 +12,8 @@ import {
 } from './commands/languages.js';
 import {
 	addSection,
+	assignKeysToSection,
+	assignMediaToSection,
 	listSections,
 	removeSection,
 	renameSection,
@@ -306,6 +308,38 @@ program
 	.action(async (name, newName) => {
 		try {
 			await renameSection(await loadConfig(), name, newName);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections:assign-keys')
+	.description('Assign existing i18n keys to a section')
+	.argument('<section>', 'Existing section name')
+	.argument('<keys...>', 'Existing i18n keys')
+	.action(async (section, keys) => {
+		try {
+			await assignKeysToSection(await loadConfig(), section, keys);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections:assign-media')
+	.description('Assign existing media IDs to a section')
+	.argument('<section>', 'Existing section name')
+	.argument('<media-ids...>', 'Existing media IDs')
+	.action(async (section, mediaIds) => {
+		try {
+			const parsedIds: number[] = mediaIds.map((id: string) => Number(id));
+			if (!parsedIds.every(id => Number.isInteger(id) && id > 0)) {
+				throw new Error('Media IDs must be positive integers');
+			}
+			await assignMediaToSection(await loadConfig(), section, parsedIds);
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);

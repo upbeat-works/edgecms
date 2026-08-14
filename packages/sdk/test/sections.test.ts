@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import {
 	addSection,
+	assignKeysToSection,
+	assignMediaToSection,
 	listSections,
 	removeSection,
 	renameSection,
@@ -30,6 +32,19 @@ const server = setupServer(
 		sections.delete(body.name);
 		sections.add(body.newName);
 		return HttpResponse.json({ name: body.newName });
+	}),
+	http.put('*/api/sections', async ({ request }) => {
+		const body = (await request.json()) as {
+			name: string;
+			translationKeys?: string[];
+			mediaIds?: number[];
+		};
+		requests.push({ method: request.method, body });
+		return HttpResponse.json({
+			section: body.name,
+			translationKeysAssigned: body.translationKeys?.length ?? 0,
+			mediaAssigned: body.mediaIds?.length ?? 0,
+		});
 	}),
 	http.delete('*/api/sections', async ({ request }) => {
 		const body = (await request.json()) as { name: string; dryRun: boolean };
@@ -96,5 +111,35 @@ describe('section CLI commands', () => {
 			body: { name: 'Homepage', dryRun: false },
 		});
 		expect(sections.has('Homepage')).toBe(false);
+	});
+
+	it('assigns i18n keys and media IDs through the public HTTP boundary', async () => {
+		const { config } = await projectDir();
+
+		await assignKeysToSection(config, 'Homepage', [
+			'home.title',
+			'home.subtitle',
+		]);
+		await assignMediaToSection(config, 'Homepage', [7, 9]);
+
+		expect(requests).toEqual([
+			{
+				method: 'PUT',
+				body: {
+					name: 'Homepage',
+					translationKeys: ['home.title', 'home.subtitle'],
+				},
+			},
+			{
+				method: 'PUT',
+				body: { name: 'Homepage', mediaIds: [7, 9] },
+			},
+		]);
+		expect(console.log).toHaveBeenCalledWith(
+			'Assigned 2 i18n keys to section "Homepage".',
+		);
+		expect(console.log).toHaveBeenCalledWith(
+			'Assigned 2 media files to section "Homepage".',
+		);
 	});
 });

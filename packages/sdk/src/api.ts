@@ -39,6 +39,12 @@ export interface DeleteSectionResponse extends Section {
 	deleted: boolean;
 }
 
+export interface SectionAssignmentResponse {
+	section: string;
+	translationKeysAssigned: number;
+	mediaAssigned: number;
+}
+
 export interface ApiError {
 	error: string;
 	code: string;
@@ -434,6 +440,16 @@ export class EdgeCMSClient {
 		return this.fetch<Section>('/api/sections', {
 			method: 'PATCH',
 			body: JSON.stringify({ name, newName }),
+		});
+	}
+
+	async assignContentToSection(
+		name: string,
+		assignments: { translationKeys?: string[]; mediaIds?: number[] },
+	): Promise<SectionAssignmentResponse> {
+		return this.fetch<SectionAssignmentResponse>('/api/sections', {
+			method: 'PUT',
+			body: JSON.stringify({ name, ...assignments }),
 		});
 	}
 

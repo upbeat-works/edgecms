@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { media } from '../schema.server';
 import type { Media } from './types';
@@ -144,6 +144,26 @@ export async function getMediaById(mediaId: number): Promise<Media | null> {
 		...result[0],
 		uploadedAt: new Date(result[0].uploadedAt),
 	};
+}
+
+export async function getExistingMediaIds(
+	mediaIds: number[],
+): Promise<number[]> {
+	if (mediaIds.length === 0) return [];
+
+	const D1_PARAMETER_CHUNK_SIZE = 90;
+	const found: number[] = [];
+
+	for (let i = 0; i < mediaIds.length; i += D1_PARAMETER_CHUNK_SIZE) {
+		const chunk = mediaIds.slice(i, i + D1_PARAMETER_CHUNK_SIZE);
+		const rows = await db
+			.select({ id: media.id })
+			.from(media)
+			.where(inArray(media.id, chunk));
+		found.push(...rows.map(row => row.id));
+	}
+
+	return found;
 }
 
 export async function markMediaArchived(mediaId: number): Promise<void> {

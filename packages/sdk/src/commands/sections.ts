@@ -34,6 +34,34 @@ export async function renameSection(
 	console.log(`Renamed section "${name}" to "${section.name}".`);
 }
 
+export async function assignKeysToSection(
+	config: EdgeCMSConfig,
+	section: string,
+	keys: string[],
+): Promise<void> {
+	const client = new EdgeCMSClient(config);
+	const result = await client.assignContentToSection(section, {
+		translationKeys: keys,
+	});
+	const noun = result.translationKeysAssigned === 1 ? 'i18n key' : 'i18n keys';
+	console.log(
+		`Assigned ${result.translationKeysAssigned} ${noun} to section "${result.section}".`,
+	);
+}
+
+export async function assignMediaToSection(
+	config: EdgeCMSConfig,
+	section: string,
+	mediaIds: number[],
+): Promise<void> {
+	const client = new EdgeCMSClient(config);
+	const result = await client.assignContentToSection(section, { mediaIds });
+	const noun = result.mediaAssigned === 1 ? 'media file' : 'media files';
+	console.log(
+		`Assigned ${result.mediaAssigned} ${noun} to section "${result.section}".`,
+	);
+}
+
 export interface DeleteSectionOptions {
 	yes?: boolean;
 }

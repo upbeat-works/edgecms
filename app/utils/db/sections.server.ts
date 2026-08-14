@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, count, isNull } from 'drizzle-orm';
+import { eq, count, inArray, isNull } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import {
 	sections,
@@ -32,6 +32,46 @@ export async function updateSection(oldName: string, newName: string) {
 export async function deleteSection(name: string) {
 	// With SET NULL foreign keys, this will automatically set section to null in related tables
 	await db.delete(sections).where(eq(sections.name, name));
+}
+
+export async function assignContentToSection(
+	name: string,
+	assignments: { translationKeys: string[]; mediaIds: number[] },
+): Promise<void> {
+	const D1_PARAMETER_CHUNK_SIZE = 90;
+	const statements = [];
+
+	for (
+		let i = 0;
+		i < assignments.translationKeys.length;
+		i += D1_PARAMETER_CHUNK_SIZE
+	) {
+		const chunk = assignments.translationKeys.slice(
+			i,
+			i + D1_PARAMETER_CHUNK_SIZE,
+		);
+		statements.push(
+			db
+				.update(translationKeys)
+				.set({ section: name })
+				.where(inArray(translationKeys.key, chunk)),
+		);
+	}
+
+	for (
+		let i = 0;
+		i < assignments.mediaIds.length;
+		i += D1_PARAMETER_CHUNK_SIZE
+	) {
+		const chunk = assignments.mediaIds.slice(i, i + D1_PARAMETER_CHUNK_SIZE);
+		statements.push(
+			db.update(media).set({ section: name }).where(inArray(media.id, chunk)),
+		);
+	}
+
+	if (statements.length === 0) return;
+	const [first, ...rest] = statements;
+	await db.batch([first, ...rest]);
 }
 
 export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
