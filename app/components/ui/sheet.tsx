@@ -18,7 +18,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<SheetPrimitive.Overlay
 		className={cn(
-			'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[2px]',
+			'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[90] bg-slate-950/60 backdrop-blur-[2px]',
 			className,
 		)}
 		{...props}
@@ -54,11 +54,11 @@ const SheetContent = React.forwardRef<
 		<SheetPrimitive.Content
 			ref={ref}
 			className={cn(
-				'data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 overflow-y-auto bg-white p-6 shadow-[0_24px_80px_rgb(15_23_42/0.28)] transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 sm:rounded-l-2xl',
+				'data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[100] max-h-[100dvh] w-screen max-w-none overflow-y-auto overscroll-contain bg-white px-5 pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_24px_80px_rgb(15_23_42/0.28)] transition ease-in-out outline-none data-[state=closed]:duration-300 data-[state=open]:duration-500 sm:rounded-l-2xl sm:p-6',
 				sheetVariants.side[side],
-				size === 'sm' && 'w-[min(500px,calc(100vw-1rem))]',
-				size === 'md' && 'w-[min(600px,calc(100vw-1rem))]',
-				size === 'lg' && 'w-[min(800px,calc(100vw-1rem))]',
+				size === 'sm' && 'sm:w-[min(500px,calc(100vw-1rem))]',
+				size === 'md' && 'sm:w-[min(600px,calc(100vw-1rem))]',
+				size === 'lg' && 'sm:w-[min(800px,calc(100vw-1rem))]',
 				className,
 			)}
 			{...props}

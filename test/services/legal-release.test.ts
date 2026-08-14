@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	hashLegalReleasePayload,
+	parseLegalSigningPrivateJwk,
 	serializeLegalReleasePayload,
 	signLegalReleasePayload,
 	verifyLegalReleaseSignature,
@@ -18,6 +19,15 @@ const payload: LegalReleasePayload = {
 };
 
 describe('legal release evidence', () => {
+	it('reports signing configuration errors without leaking JSON parser errors', () => {
+		expect(() => parseLegalSigningPrivateJwk(undefined)).toThrow(
+			'LEGAL_SIGNING_PRIVATE_JWK is not configured',
+		);
+		expect(() => parseLegalSigningPrivateJwk('undefined')).toThrow(
+			'LEGAL_SIGNING_PRIVATE_JWK must contain valid JSON',
+		);
+	});
+
 	it('serializes the signed fields in one stable representation', () => {
 		expect(serializeLegalReleasePayload(payload)).toBe(
 			'{"documentId":42,"slug":"terms","type":"terms_and_conditions","locale":"en","version":"2026-08","effectiveDate":"2026-09-01","markdown":"# Terms\\n\\nBe excellent to each other.\\n"}',

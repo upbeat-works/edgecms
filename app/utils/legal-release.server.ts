@@ -54,8 +54,19 @@ export function parseLegalReleasePayload(value: string): LegalReleasePayload {
 	};
 }
 
-export function parseLegalSigningPrivateJwk(value: string): JsonWebKey {
-	const parsed: unknown = JSON.parse(value);
+export function parseLegalSigningPrivateJwk(
+	value: string | undefined,
+): JsonWebKey {
+	if (!value?.trim()) {
+		throw new Error('LEGAL_SIGNING_PRIVATE_JWK is not configured');
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch {
+		throw new Error('LEGAL_SIGNING_PRIVATE_JWK must contain valid JSON');
+	}
 	if (parsed == null || typeof parsed !== 'object') {
 		throw new Error('LEGAL_SIGNING_PRIVATE_JWK must be a JSON object');
 	}

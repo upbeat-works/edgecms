@@ -8,7 +8,7 @@ import {
 	getLegalReleaseById,
 	getLegalReleaseVariants,
 	markLegalReleaseFailed,
-	markLegalReleasePublished,
+	publishLegalReleaseAsCurrent,
 	saveLegalReleaseVariantArtifacts,
 } from '~/utils/db.server';
 import {
@@ -22,16 +22,13 @@ export interface LegalReleaseWorkflowParams {
 	releaseId: number;
 }
 
-interface LegalReleaseEnv extends Env {
-	LEGAL_SIGNING_PRIVATE_JWK: string;
-}
-
 function verificationUrl(
 	baseUrl: string,
 	slug: string,
 	locale: string,
+	releaseHash: string,
 ): string {
-	return `${baseUrl.replace(/\/$/u, '')}/edge-cms/public/legal/${encodeURIComponent(slug)}/${encodeURIComponent(locale)}`;
+	return `${baseUrl.replace(/\/$/u, '')}/edge-cms/public/legal/${encodeURIComponent(slug)}/${encodeURIComponent(locale)}/releases/${releaseHash}`;
 }
 
 function pdfKey(input: {
@@ -50,7 +47,7 @@ function pdfKey(input: {
 }
 
 export class LegalReleaseWorkflow extends WorkflowEntrypoint<
-	LegalReleaseEnv,
+	Env,
 	LegalReleaseWorkflowParams
 > {
 	async run(
@@ -150,6 +147,7 @@ export class LegalReleaseWorkflow extends WorkflowEntrypoint<
 									this.env.BASE_URL,
 									payload.slug,
 									payload.locale,
+									signed.releaseHash,
 								),
 							});
 							if (!pdf.body)
@@ -176,12 +174,12 @@ export class LegalReleaseWorkflow extends WorkflowEntrypoint<
 			}
 
 			await step.do(
-				'mark legal release published',
+				'publish legal release',
 				{
 					retries: { limit: 5, delay: '2 seconds', backoff: 'exponential' },
 					timeout: '30 seconds',
 				},
-				() => markLegalReleasePublished(snapshot.releaseId),
+				() => publishLegalReleaseAsCurrent(snapshot.releaseId),
 			);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);

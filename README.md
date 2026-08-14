@@ -18,7 +18,7 @@ infrastructure on the planet.
 - **Version control for content** — Draft, publish, rollback. Treat your content
   like code.
 - **Signed legal releases** — Localized Markdown, immutable evidence, PDF
-  renditions, and explicit activation.
+  renditions, and automatic publication history.
 - **AI-powered translations** — Auto-translate missing keys with OpenAI. Ship
   faster in every language.
 
@@ -65,8 +65,8 @@ infrastructure on the planet.
 - Localized Markdown drafts managed at `/edge-cms/legal`
 - Deterministic SHA-256 `releaseHash` over the exact frozen release payload
 - ES256 signatures and verification keys retained with release history
-- Sanitized PDF renditions generated with Cloudflare Browser Rendering
-- Independent publish, activate, retire, and retry lifecycle
+- Sanitized PDF renditions generated with Cloudflare Browser Run and Puppeteer
+- One-step publishing that replaces the current legal document and retains its history
 - Public evidence, PDF, and key endpoints for consent integrations
 
 See [Legal documents and signed releases](docs/legal-documents.md) for the
@@ -92,7 +92,7 @@ canonical payload, key setup, lifecycle, and consent-integration boundary.
 | Auth      | Better Auth                  |
 | AI        | OpenAI (via AI SDK)          |
 | Workflows | Cloudflare Workflows         |
-| Legal PDF | Cloudflare Browser Rendering |
+| Legal PDF | Cloudflare Browser Run       |
 | Runtime   | Cloudflare Workers           |
 
 ## Setup
@@ -180,7 +180,7 @@ Your `wrangler.jsonc` needs the following bindings:
 		},
 	],
 
-	// Browser Rendering
+	// Browser Run
 	"browser": { "binding": "BROWSER" },
 
 	// Environment
@@ -214,8 +214,9 @@ npm run typecheck
 npm run dev
 ```
 
-Legal PDF publication uses Browser Run Quick Actions. Test that workflow with
-`npx wrangler dev --remote`; ordinary CMS development can remain local.
+Legal PDF publication uses `@cloudflare/puppeteer` with the Browser Run binding
+configured in `wrangler.jsonc`. Standard local Wrangler development launches a
+local headless browser.
 
 ## Testing
 

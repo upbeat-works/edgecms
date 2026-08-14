@@ -1,7 +1,7 @@
 import { reactRouter } from '@react-router/dev/vite';
 import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
 function wranglerAssetsDir() {
 	return {
@@ -21,16 +21,30 @@ function wranglerAssetsDir() {
 	};
 }
 
-export default defineConfig({
-	build: {
-		outDir: 'dist/edge-cms',
-		assetsDir: 'edge-cms/assets',
-	},
-	plugins: [
-		cloudflare({ viteEnvironment: { name: 'ssr' } }),
-		wranglerAssetsDir(),
-		tailwindcss(),
-		reactRouter(),
-	],
-	resolve: { tsconfigPaths: true },
+export default defineConfig(({ mode }) => {
+	const localAllowedHosts = loadEnv(mode, process.cwd(), '')
+		.LOCAL_VITE_ALLOWED_HOSTS?.split(',')
+		.map(host => host.trim())
+		.filter(Boolean);
+
+	return {
+		server: {
+			allowedHosts: localAllowedHosts ?? [],
+		},
+		optimizeDeps: {
+			entries: ['app/**/*.{ts,tsx}'],
+			ignoreOutdatedRequests: true,
+		},
+		build: {
+			outDir: 'dist/edge-cms',
+			assetsDir: 'edge-cms/assets',
+		},
+		plugins: [
+			cloudflare({ viteEnvironment: { name: 'ssr' } }),
+			wranglerAssetsDir(),
+			tailwindcss(),
+			reactRouter(),
+		],
+		resolve: { tsconfigPaths: true },
+	};
 });

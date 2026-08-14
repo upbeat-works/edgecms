@@ -8,6 +8,15 @@ import {
 // Migrations are read at config time (in Node) and handed to the test worker as
 // a binding, because the worker itself has no filesystem access.
 const migrations = await readD1Migrations('./migrations');
+const legalSigningKeys = await crypto.subtle.generateKey(
+	{ name: 'ECDSA', namedCurve: 'P-256' },
+	true,
+	['sign', 'verify'],
+);
+const legalSigningPrivateJwk = await crypto.subtle.exportKey(
+	'jwk',
+	legalSigningKeys.privateKey,
+);
 
 export default defineConfig({
 	resolve: {
@@ -21,6 +30,7 @@ export default defineConfig({
 				// Real secrets in production; absent in tests unless set here.
 				AUTH_SECRET: 'test-auth-secret-not-a-real-secret',
 				SESSION_SECRET: 'test-session-secret-not-a-real-secret',
+				LEGAL_SIGNING_PRIVATE_JWK: JSON.stringify(legalSigningPrivateJwk),
 			},
 		}),
 	],

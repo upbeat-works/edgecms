@@ -5,7 +5,12 @@ import {
 	action as documentAction,
 	loader as documentLoader,
 } from '~/routes/edge-cms/legal/legal.$id';
-import { getLegalDocumentBySlug } from '~/utils/db.server';
+import {
+	getLanguages,
+	getLegalDocumentBySlug,
+	markLegalReleaseFailed,
+} from '~/utils/db.server';
+import { createLegalDocument } from '~/utils/services/legal.server';
 import { authedRequest, resetDb, seedLanguage, signIn } from '../helpers';
 
 let cookie: string;
@@ -36,7 +41,6 @@ async function createPrivacyPolicy() {
 			method: 'POST',
 			body: form({
 				name: 'Privacy Policy',
-				slug: 'Privacy Policy',
 				type: 'privacy_policy',
 			}),
 		}),
@@ -81,6 +85,45 @@ describe('legal document administration', () => {
 			slug: 'privacy-policy',
 			type: 'privacy_policy',
 		});
+		await expect(getLanguages()).resolves.toEqual([
+			{ locale: 'en', default: true },
+		]);
+	});
+
+	it('starts existing documents in English when no language exists', async () => {
+		const created = await createLegalDocument({
+			name: 'Terms',
+			slug: 'terms',
+			type: 'terms_and_conditions',
+		});
+		if (!created.ok) throw new Error(created.error.message);
+
+		const response = await submit(created.data.id, {
+			intent: 'start-writing',
+		});
+
+		expect(response.status).toBe(200);
+		await expect(getLanguages()).resolves.toEqual([
+			{ locale: 'en', default: true },
+		]);
+	});
+
+	it('preserves the generated slug when document details change', async () => {
+		const { document } = await createPrivacyPolicy();
+
+		const response = await submit(document.id, {
+			intent: 'update-document',
+			name: 'Customer Privacy Notice',
+			type: 'privacy_policy',
+		});
+
+		expect(response.status).toBe(200);
+		await expect(
+			getLegalDocumentBySlug('privacy-policy'),
+		).resolves.toMatchObject({
+			name: 'Customer Privacy Notice',
+			slug: 'privacy-policy',
+		});
 	});
 
 	it('round-trips the exact locale draft through the editor route', async () => {
@@ -105,8 +148,7 @@ describe('legal document administration', () => {
 		});
 	});
 
-	it('publishes a frozen release and exposes its lifecycle in the editor', async () => {
-		await seedLanguage('en', true);
+	it("publishes the saved document under today's date", async () => {
 		const { document } = await createPrivacyPolicy();
 		await submit(document.id, {
 			intent: 'save-draft',
@@ -116,10 +158,9 @@ describe('legal document administration', () => {
 
 		const response = await submit(document.id, {
 			intent: 'publish',
-			version: '1.0',
-			effectiveDate: '2026-09-01',
 		});
 		expect(response.status).toBe(202);
+		const today = new Date().toISOString().slice(0, 10);
 
 		const data = await documentLoader({
 			request: authedRequest(`/edge-cms/legal/${document.id}`, cookie),
@@ -128,12 +169,79 @@ describe('legal document administration', () => {
 		expect(data).toMatchObject({
 			releases: [
 				{
-					version: '1.0',
+					version: today,
+					effectiveDate: today,
 					status: 'processing',
 					workflowId: 'legal-route-publish',
 				},
 			],
 			variants: [{ locale: 'en', releaseHash: null }],
 		});
+	});
+
+	it('publishes more than one revision on the same date', async () => {
+		const { document } = await createPrivacyPolicy();
+		await submit(document.id, {
+			intent: 'save-draft',
+			locale: 'en',
+			markdown: '# Privacy\n\nFirst revision.',
+		});
+		const first = await submit(document.id, { intent: 'publish' });
+		expect(first.status).toBe(202);
+
+		await submit(document.id, {
+			intent: 'save-draft',
+			locale: 'en',
+			markdown: '# Privacy\n\nSecond revision.',
+		});
+		const second = await submit(document.id, { intent: 'publish' });
+
+		expect(second.status).toBe(202);
+		const data = await documentLoader({
+			request: authedRequest(`/edge-cms/legal/${document.id}`, cookie),
+			params: { id: document.id.toString() },
+		} as never);
+		const today = new Date().toISOString().slice(0, 10);
+		expect(data.releases).toHaveLength(2);
+		expect(data.releases.map(release => release.version)).toEqual([
+			today,
+			today,
+		]);
+		expect(
+			data.variants
+				.map(variant => JSON.parse(variant.payload).markdown as string)
+				.sort(),
+		).toEqual([
+			'# Privacy\n\nFirst revision.',
+			'# Privacy\n\nSecond revision.',
+		]);
+	});
+
+	it('discards a failed publication from document history', async () => {
+		const { document } = await createPrivacyPolicy();
+		await submit(document.id, {
+			intent: 'save-draft',
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+		await submit(document.id, { intent: 'publish' });
+		const before = await documentLoader({
+			request: authedRequest(`/edge-cms/legal/${document.id}`, cookie),
+			params: { id: document.id.toString() },
+		} as never);
+		const [release] = before.releases;
+		await markLegalReleaseFailed(release.id, 'PDF rendering failed');
+
+		const response = await submit(document.id, {
+			intent: 'discard-release',
+			releaseId: release.id.toString(),
+		});
+
+		expect(response.status).toBe(200);
+		const after = await documentLoader({
+			request: authedRequest(`/edge-cms/legal/${document.id}`, cookie),
+			params: { id: document.id.toString() },
+		} as never);
+		expect(after.releases).toEqual([]);
 	});
 });

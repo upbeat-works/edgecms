@@ -17,6 +17,14 @@
 		"TRUSTED_ORIGINS": "http://localhost:5173",
 		"LEGAL_SIGNING_KEY_ID": "edgecms-legal-1"
 	},
+	"secrets": {
+		"required": [
+			"AUTH_SECRET",
+			"SESSION_SECRET",
+			"OPENAI_API_KEY",
+			"LEGAL_SIGNING_PRIVATE_JWK"
+		]
+	},
 	"browser": {
 		"binding": "BROWSER"
 	},

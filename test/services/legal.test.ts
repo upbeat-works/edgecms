@@ -4,11 +4,17 @@ import {
 	activateLegalRelease,
 	createLegalDocument,
 	deleteLegalDocument,
+	discardFailedLegalRelease,
 	publishLegalDocument,
 	retireLegalRelease,
+	retryLegalRelease,
 	saveLegalDraft,
 	updateLegalDocument,
 } from '~/utils/services/legal.server';
+import {
+	markLegalReleaseFailed,
+	publishLegalReleaseAsCurrent,
+} from '~/utils/db.server';
 import { resetDb, seedLanguage } from '../helpers';
 
 let restoreWorkflowSpy: () => void;
@@ -24,6 +30,25 @@ beforeEach(async () => {
 });
 
 afterEach(() => restoreWorkflowSpy());
+
+async function runWithoutLegalSigningKey<T>(
+	operation: () => Promise<T>,
+): Promise<T> {
+	const descriptor = Object.getOwnPropertyDescriptor(
+		env,
+		'LEGAL_SIGNING_PRIVATE_JWK',
+	);
+	if (!descriptor) throw new Error('Legal signing test binding is missing');
+	Object.defineProperty(env, 'LEGAL_SIGNING_PRIVATE_JWK', {
+		configurable: true,
+		value: undefined,
+	});
+	try {
+		return await operation();
+	} finally {
+		Object.defineProperty(env, 'LEGAL_SIGNING_PRIVATE_JWK', descriptor);
+	}
+}
 
 async function createPrivacyPolicy() {
 	const result = await createLegalDocument({
@@ -142,6 +167,145 @@ describe('legal document drafts', () => {
 });
 
 describe('legal releases', () => {
+	it('discards a failed release and its partial PDF artifacts', async () => {
+		await seedLanguage('en', true);
+		const document = await createPrivacyPolicy();
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+		const publication = await publishLegalDocument({
+			documentId: document.id,
+			version: '2026-09-01',
+			effectiveDate: '2026-09-01',
+		});
+		if (!publication.ok) throw new Error(publication.error.message);
+		const artifactKey = `legal/${document.id}/${publication.data.releaseId}/2026-09-01/en.pdf`;
+		await env.MEDIA_BUCKET.put(artifactKey, '%PDF partial');
+		await markLegalReleaseFailed(
+			publication.data.releaseId,
+			'PDF rendering failed',
+		);
+
+		const result = await discardFailedLegalRelease({
+			documentId: document.id,
+			releaseId: publication.data.releaseId,
+		});
+
+		expect(result).toMatchObject({ ok: true });
+		await expect(env.MEDIA_BUCKET.head(artifactKey)).resolves.toBeNull();
+		const row = await env.DB.prepare(
+			'SELECT id FROM legal_releases WHERE id = ?',
+		)
+			.bind(publication.data.releaseId)
+			.first();
+		expect(row).toBeNull();
+	});
+
+	it('does not freeze a release when legal signing is not configured', async () => {
+		await seedLanguage('en', true);
+		const document = await createPrivacyPolicy();
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+
+		const result = await runWithoutLegalSigningKey(() =>
+			publishLegalDocument({
+				documentId: document.id,
+				version: '2026-09-01',
+				effectiveDate: '2026-09-01',
+			}),
+		);
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: 'LEGAL_SIGNING_NOT_CONFIGURED', status: 503 },
+		});
+		const row = await env.DB.prepare(
+			'SELECT COUNT(*) AS count FROM legal_releases',
+		).first<{ count: number }>();
+		expect(row?.count).toBe(0);
+	});
+
+	it('keeps a failed release retryable when legal signing is unavailable', async () => {
+		await seedLanguage('en', true);
+		const document = await createPrivacyPolicy();
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+		const publication = await publishLegalDocument({
+			documentId: document.id,
+			version: '2026-09-01',
+			effectiveDate: '2026-09-01',
+		});
+		if (!publication.ok) throw new Error(publication.error.message);
+		await markLegalReleaseFailed(publication.data.releaseId, 'PDF failed');
+
+		const result = await runWithoutLegalSigningKey(() =>
+			retryLegalRelease(publication.data.releaseId),
+		);
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: 'LEGAL_SIGNING_NOT_CONFIGURED', status: 503 },
+		});
+		const row = await env.DB.prepare(
+			'SELECT status FROM legal_releases WHERE id = ?',
+		)
+			.bind(publication.data.releaseId)
+			.first<{ status: string }>();
+		expect(row?.status).toBe('failed');
+	});
+
+	it('makes each completed publication current and replaces the previous one', async () => {
+		await seedLanguage('en', true);
+		const document = await createPrivacyPolicy();
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+
+		const first = await publishLegalDocument({
+			documentId: document.id,
+			version: '2026-09-01',
+			effectiveDate: '2026-09-01',
+		});
+		if (!first.ok) throw new Error(first.error.message);
+		await publishLegalReleaseAsCurrent(first.data.releaseId);
+
+		const second = await publishLegalDocument({
+			documentId: document.id,
+			version: '2026-10-01',
+			effectiveDate: '2026-10-01',
+		});
+		if (!second.ok) throw new Error(second.error.message);
+		await publishLegalReleaseAsCurrent(second.data.releaseId);
+
+		const releases = await env.DB.prepare(
+			'SELECT id, status, publishedAt, activatedAt FROM legal_releases ORDER BY id',
+		).all<{
+			id: number;
+			status: string;
+			publishedAt: string | null;
+			activatedAt: string | null;
+		}>();
+		expect(releases.results).toMatchObject([
+			{ id: first.data.releaseId, status: 'retired' },
+			{
+				id: second.data.releaseId,
+				status: 'active',
+				publishedAt: expect.any(String),
+				activatedAt: expect.any(String),
+			},
+		]);
+	});
+
 	it('freezes every non-empty locale variant when publication starts', async () => {
 		await seedLanguage('en', true);
 		await seedLanguage('es', false);

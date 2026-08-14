@@ -1,3 +1,4 @@
+import puppeteer, { type BrowserWorker } from '@cloudflare/puppeteer';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -86,40 +87,39 @@ export function createLegalPdfHtml(
 }
 
 export async function generateLegalPdf(
-	browser: Pick<BrowserRun, 'quickAction'>,
+	browserBinding: BrowserWorker,
 	input: {
 		payload: LegalReleasePayload;
 		releaseHash: string;
 		verificationUrl: string;
 	},
 ): Promise<Response> {
-	const response = await browser.quickAction('pdf', {
-		html: createLegalPdfHtml(
-			input.payload,
-			input.releaseHash,
-			input.verificationUrl,
-		),
-		setJavaScriptEnabled: false,
-		rejectResourceTypes: [
-			'image',
-			'media',
-			'font',
-			'script',
-			'xhr',
-			'fetch',
-			'websocket',
-		],
-		cacheTTL: 0,
-		pdfOptions: {
+	const browser = await puppeteer.launch(browserBinding);
+	try {
+		const page = await browser.newPage();
+		await page.setJavaScriptEnabled(false);
+		await page.setRequestInterception(true);
+		page.on('request', request => {
+			void request.abort();
+		});
+		await page.setContent(
+			createLegalPdfHtml(
+				input.payload,
+				input.releaseHash,
+				input.verificationUrl,
+			),
+		);
+		const pdf = await page.pdf({
 			format: 'a4',
 			printBackground: true,
 			preferCSSPageSize: true,
 			tagged: true,
 			outline: true,
-		},
-	});
-	if (!response.ok) {
-		throw new Error(`PDF rendering failed with status ${response.status}`);
+		});
+		return new Response(pdf, {
+			headers: { 'Content-Type': 'application/pdf' },
+		});
+	} finally {
+		await browser.close();
 	}
-	return response;
 }

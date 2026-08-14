@@ -229,37 +229,28 @@ export const legalDocumentDrafts = sqliteTable(
 	table => [primaryKey({ columns: [table.documentId, table.locale] })],
 );
 
-export const legalReleases = sqliteTable(
-	'legal_releases',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		documentId: integer('documentId')
-			.notNull()
-			.references(() => legalDocuments.id, { onDelete: 'cascade' }),
-		version: text('version').notNull(),
-		effectiveDate: text('effectiveDate').notNull(),
-		status: text('status', {
-			enum: ['processing', 'failed', 'published', 'active', 'retired'],
-		}).notNull(),
-		workflowId: text('workflowId'),
-		failureReason: text('failureReason'),
-		createdAt: text('createdAt')
-			.notNull()
-			.default(sql`CURRENT_TIMESTAMP`),
-		publishedAt: text('publishedAt'),
-		activatedAt: text('activatedAt'),
-		retiredAt: text('retiredAt'),
-		createdBy: text('createdBy').references(() => user.id, {
-			onDelete: 'set null',
-		}),
-	},
-	table => [
-		uniqueIndex('idx_legal_release_version').on(
-			table.documentId,
-			table.version,
-		),
-	],
-);
+export const legalReleases = sqliteTable('legal_releases', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	documentId: integer('documentId')
+		.notNull()
+		.references(() => legalDocuments.id, { onDelete: 'cascade' }),
+	version: text('version').notNull(),
+	effectiveDate: text('effectiveDate').notNull(),
+	status: text('status', {
+		enum: ['processing', 'failed', 'published', 'active', 'retired'],
+	}).notNull(),
+	workflowId: text('workflowId'),
+	failureReason: text('failureReason'),
+	createdAt: text('createdAt')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+	publishedAt: text('publishedAt'),
+	activatedAt: text('activatedAt'),
+	retiredAt: text('retiredAt'),
+	createdBy: text('createdBy').references(() => user.id, {
+		onDelete: 'set null',
+	}),
+});
 
 export const legalReleaseVariants = sqliteTable(
 	'legal_release_variants',

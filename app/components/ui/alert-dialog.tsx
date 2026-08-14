@@ -34,7 +34,7 @@ function AlertDialogOverlay({
 		<AlertDialogPrimitive.Overlay
 			data-slot="alert-dialog-overlay"
 			className={cn(
-				'fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[2px]',
+				'fixed inset-0 z-[90] bg-slate-950/60 backdrop-blur-[2px]',
 				className,
 			)}
 			{...props}
@@ -44,6 +44,7 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
 	className,
+	children,
 	...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
 	return (
@@ -52,11 +53,17 @@ function AlertDialogContent({
 			<AlertDialogPrimitive.Content
 				data-slot="alert-dialog-content"
 				className={cn(
-					'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgb(15_23_42/0.28)] ring-1 ring-white/60 sm:max-w-lg',
+					'fixed right-0 bottom-0 left-0 z-[100] grid max-h-[calc(100dvh-0.75rem)] w-full gap-5 overflow-y-auto overscroll-contain rounded-t-2xl border border-b-0 border-slate-200 bg-white px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_80px_rgb(15_23_42/0.24)] ring-1 ring-white/60 outline-none sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6 sm:shadow-[0_24px_80px_rgb(15_23_42/0.28)]',
 					className,
 				)}
 				{...props}
-			/>
+			>
+				<div
+					aria-hidden="true"
+					className="absolute top-2.5 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-slate-300 sm:hidden"
+				/>
+				{children}
+			</AlertDialogPrimitive.Content>
 		</AlertDialogPortal>
 	);
 }
@@ -82,7 +89,7 @@ function AlertDialogFooter({
 		<div
 			data-slot="alert-dialog-footer"
 			className={cn(
-				'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+				'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&>button]:w-full sm:[&>button]:w-auto [&>form]:w-full sm:[&>form]:w-auto [&>form_button]:w-full sm:[&>form_button]:w-auto',
 				className,
 			)}
 			{...props}

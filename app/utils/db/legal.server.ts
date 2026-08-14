@@ -254,6 +254,18 @@ export async function getLegalReleaseVariants(
 		.orderBy(asc(legalReleaseVariants.locale));
 }
 
+export async function removeFailedLegalRelease(
+	releaseId: number,
+): Promise<boolean> {
+	const rows = await db
+		.delete(legalReleases)
+		.where(
+			and(eq(legalReleases.id, releaseId), eq(legalReleases.status, 'failed')),
+		)
+		.returning({ id: legalReleases.id });
+	return rows.length > 0;
+}
+
 export async function saveLegalReleaseVariantArtifacts(input: {
 	variantId: number;
 	releaseHash: string;
@@ -285,6 +297,36 @@ export async function markLegalReleasePublished(
 			failureReason: null,
 		})
 		.where(eq(legalReleases.id, releaseId));
+}
+
+export async function publishLegalReleaseAsCurrent(
+	releaseId: number,
+): Promise<void> {
+	const release = await getLegalReleaseById(releaseId);
+	if (!release) throw new Error('Legal release not found');
+
+	await db.batch([
+		db
+			.update(legalReleases)
+			.set({ status: 'retired', retiredAt: sql`CURRENT_TIMESTAMP` })
+			.where(
+				and(
+					eq(legalReleases.documentId, release.documentId),
+					eq(legalReleases.status, 'active'),
+					ne(legalReleases.id, release.id),
+				),
+			),
+		db
+			.update(legalReleases)
+			.set({
+				status: 'active',
+				publishedAt: sql`COALESCE(${legalReleases.publishedAt}, CURRENT_TIMESTAMP)`,
+				activatedAt: sql`COALESCE(${legalReleases.activatedAt}, CURRENT_TIMESTAMP)`,
+				retiredAt: null,
+				failureReason: null,
+			})
+			.where(eq(legalReleases.id, release.id)),
+	]);
 }
 
 export async function markLegalReleaseFailed(
@@ -365,6 +407,46 @@ export async function getActiveLegalVariant(input: {
 			and(
 				eq(legalReleases.id, legalReleaseVariants.releaseId),
 				eq(legalReleaseVariants.locale, input.locale),
+			),
+		)
+		.where(eq(legalDocuments.slug, input.slug));
+	if (!row) return null;
+	return {
+		document: toDocument(row.document),
+		release: toRelease(row.release),
+		variant: row.variant,
+	};
+}
+
+export async function getLegalVariantByReleaseHash(input: {
+	slug: string;
+	locale: string;
+	releaseHash: string;
+}): Promise<{
+	document: LegalDocument;
+	release: LegalRelease;
+	variant: LegalReleaseVariant;
+} | null> {
+	const [row] = await db
+		.select({
+			document: legalDocuments,
+			release: legalReleases,
+			variant: legalReleaseVariants,
+		})
+		.from(legalDocuments)
+		.innerJoin(
+			legalReleases,
+			and(
+				eq(legalDocuments.id, legalReleases.documentId),
+				inArray(legalReleases.status, ['published', 'active', 'retired']),
+			),
+		)
+		.innerJoin(
+			legalReleaseVariants,
+			and(
+				eq(legalReleases.id, legalReleaseVariants.releaseId),
+				eq(legalReleaseVariants.locale, input.locale),
+				eq(legalReleaseVariants.releaseHash, input.releaseHash),
 			),
 		)
 		.where(eq(legalDocuments.slug, input.slug));

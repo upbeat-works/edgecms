@@ -10,6 +10,7 @@ import {
 	insertLegalDocument,
 	markLegalReleaseFailed,
 	markLegalReleaseProcessing,
+	removeFailedLegalRelease,
 	removeLegalDocument,
 	retireLegalReleaseRow,
 	setLegalReleaseWorkflow,
@@ -17,7 +18,10 @@ import {
 	upsertLegalDraft,
 } from '../db.server';
 import type { LegalDocumentType } from '../db/types';
-import { serializeLegalReleasePayload } from '../legal-release.server';
+import {
+	parseLegalSigningPrivateJwk,
+	serializeLegalReleasePayload,
+} from '../legal-release.server';
 import { err, ok, type ServiceResult } from './result';
 
 const LEGAL_DOCUMENT_TYPES = new Set<LegalDocumentType>([
@@ -190,6 +194,24 @@ function isValidEffectiveDate(value: string): boolean {
 	);
 }
 
+function ensureLegalSigningIsConfigured(): ServiceResult<void> {
+	const keyId = env.LEGAL_SIGNING_KEY_ID.trim();
+	if (!keyId) {
+		return err(
+			'LEGAL_SIGNING_NOT_CONFIGURED',
+			'LEGAL_SIGNING_KEY_ID is not configured',
+			503,
+		);
+	}
+	try {
+		parseLegalSigningPrivateJwk(env.LEGAL_SIGNING_PRIVATE_JWK);
+		return ok(undefined);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return err('LEGAL_SIGNING_NOT_CONFIGURED', message, 503);
+	}
+}
+
 export async function publishLegalDocument(input: {
 	documentId: number;
 	version: string;
@@ -198,11 +220,7 @@ export async function publishLegalDocument(input: {
 }): Promise<ServiceResult<{ releaseId: number; publishId: string }>> {
 	const version = input.version.trim();
 	if (version.length === 0 || !isValidEffectiveDate(input.effectiveDate)) {
-		return err(
-			'VALIDATION_ERROR',
-			'Version and a valid effective date are required',
-			400,
-		);
+		return err('VALIDATION_ERROR', 'A valid publication date is required', 400);
 	}
 	const [document, drafts, languages] = await Promise.all([
 		getLegalDocumentById(input.documentId),
@@ -230,6 +248,8 @@ export async function publishLegalDocument(input: {
 			409,
 		);
 	}
+	const signingConfiguration = ensureLegalSigningIsConfigured();
+	if (!signingConfiguration.ok) return signingConfiguration;
 
 	let release;
 	try {
@@ -255,7 +275,7 @@ export async function publishLegalDocument(input: {
 		if (isUniqueConstraintError(error)) {
 			return err(
 				'LEGAL_VERSION_EXISTS',
-				`Version "${version}" already exists for this document`,
+				`This document already has a publication for ${input.effectiveDate}`,
 				409,
 			);
 		}
@@ -293,6 +313,8 @@ export async function retryLegalRelease(
 			409,
 		);
 	}
+	const signingConfiguration = ensureLegalSigningIsConfigured();
+	if (!signingConfiguration.ok) return signingConfiguration;
 	await markLegalReleaseProcessing(release.id);
 	try {
 		const instance = await env.LEGAL_RELEASE_WORKFLOW.create({
@@ -309,6 +331,43 @@ export async function retryLegalRelease(
 			503,
 		);
 	}
+}
+
+export async function discardFailedLegalRelease(input: {
+	releaseId: number;
+	documentId: number;
+}): Promise<ServiceResult<{ releaseId: number }>> {
+	const release = await getLegalReleaseById(input.releaseId);
+	if (!release || release.documentId !== input.documentId) {
+		return err('LEGAL_RELEASE_NOT_FOUND', 'Legal release not found', 404);
+	}
+	if (release.status !== 'failed') {
+		return err(
+			'LEGAL_RELEASE_NOT_DISCARDABLE',
+			'Only failed legal publications can be discarded',
+			409,
+		);
+	}
+
+	const prefix = `legal/${release.documentId}/${release.id}/`;
+	let cursor: string | undefined;
+	do {
+		const listing = await env.MEDIA_BUCKET.list({ prefix, cursor });
+		if (listing.objects.length > 0) {
+			await env.MEDIA_BUCKET.delete(listing.objects.map(object => object.key));
+		}
+		cursor = listing.truncated ? listing.cursor : undefined;
+	} while (cursor);
+
+	const removed = await removeFailedLegalRelease(release.id);
+	if (!removed) {
+		return err(
+			'LEGAL_RELEASE_NOT_DISCARDABLE',
+			'Only failed legal publications can be discarded',
+			409,
+		);
+	}
+	return ok({ releaseId: release.id });
 }
 
 export async function activateLegalRelease(

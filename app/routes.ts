@@ -85,8 +85,24 @@ export default [
 		),
 		route('public/legal/keys.json', 'routes/edge-cms/public/legal-keys.ts'),
 		route(
+			'public/legal/:slug/:locale/releases/:releaseHash.pdf',
+			'routes/edge-cms/public/legal-release-pdf.ts',
+		),
+		route(
+			'public/legal/:slug/:locale/releases/:releaseHash.md',
+			'routes/edge-cms/public/legal-release-markdown.ts',
+		),
+		route(
+			'public/legal/:slug/:locale/releases/:releaseHash',
+			'routes/edge-cms/public/legal-release.ts',
+		),
+		route(
 			'public/legal/:slug/:locale.pdf',
 			'routes/edge-cms/public/legal-document-pdf.ts',
+		),
+		route(
+			'public/legal/:slug/:locale.md',
+			'routes/edge-cms/public/legal-markdown.ts',
 		),
 		route(
 			'public/legal/:slug/:locale',

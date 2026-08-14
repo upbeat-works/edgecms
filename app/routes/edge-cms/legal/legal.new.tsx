@@ -1,18 +1,13 @@
 import { env } from 'cloudflare:workers';
+import kebabCase from 'lodash-es/kebabCase.js';
 import { ArrowLeft } from 'lucide-react';
 import { Link, redirect, useFetcher } from 'react-router';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '~/components/ui/select';
 import { requireAuth } from '~/utils/auth.middleware';
-import type { LegalDocumentType } from '~/utils/db.server';
+import { getLanguages, type LegalDocumentType } from '~/utils/db.server';
+import { createLanguage } from '~/utils/services/languages.server';
 import { createLegalDocument } from '~/utils/services/legal.server';
 import { toResponse } from '~/utils/services/result';
 import type { Route } from './+types/legal.new';
@@ -28,9 +23,15 @@ const documentTypes: Array<{ value: LegalDocumentType; label: string }> = [
 export async function action({ request }: Route.ActionArgs) {
 	const { user } = await requireAuth(request, env);
 	const formData = await request.formData();
+	const name = String(formData.get('name') ?? '');
+	const languages = await getLanguages();
+	if (languages.length === 0) {
+		const language = await createLanguage('en', { userId: user.id });
+		if (!language.ok) return toResponse(language);
+	}
 	const result = await createLegalDocument({
-		name: String(formData.get('name') ?? ''),
-		slug: String(formData.get('slug') ?? ''),
+		name,
+		slug: kebabCase(name),
 		type: String(formData.get('type') ?? '') as LegalDocumentType,
 		userId: user.id,
 	});
@@ -75,31 +76,23 @@ export default function NewLegalDocumentPage() {
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="legal-slug">Public slug</Label>
-						<Input
-							id="legal-slug"
-							name="slug"
-							placeholder="privacy-policy"
-							required
-						/>
-						<p className="text-xs text-slate-500">
-							Normalized to lowercase kebab-case.
-						</p>
-					</div>
-					<div className="space-y-2">
 						<Label htmlFor="legal-type">Document type</Label>
-						<Select name="type" required>
-							<SelectTrigger id="legal-type">
-								<SelectValue placeholder="Choose a type" />
-							</SelectTrigger>
-							<SelectContent>
-								{documentTypes.map(type => (
-									<SelectItem key={type.value} value={type.value}>
-										{type.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<select
+							id="legal-type"
+							name="type"
+							defaultValue=""
+							required
+							className="border-input h-9 w-full rounded-md border bg-transparent px-3 text-sm shadow-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+						>
+							<option value="" disabled>
+								Choose a type
+							</option>
+							{documentTypes.map(type => (
+								<option key={type.value} value={type.value}>
+									{type.label}
+								</option>
+							))}
+						</select>
 					</div>
 					{error ? <p className="text-sm text-red-600">{error}</p> : null}
 					<div className="flex justify-end gap-2 border-t border-slate-100 pt-5">

@@ -27,9 +27,9 @@ export default function LegalPage() {
 	return (
 		<div className="container mx-auto max-w-6xl py-10">
 			<WorkspacePageHeader
-				eyebrow="Trust center"
+				eyebrow="Legal library"
 				title="Legal documents"
-				description="Draft localized policies, freeze signed releases, and control exactly which version is active."
+				description="Write, translate, and publish the policies and agreements your customers rely on."
 				actions={
 					<Button asChild>
 						<Link to="/edge-cms/legal/new">
@@ -43,7 +43,7 @@ export default function LegalPage() {
 			{documents.length === 0 ? (
 				<EmptyState
 					title="Your legal library starts here"
-					description="Create a policy or agreement, add its localized Markdown, then publish a signed release."
+					description="Create a policy or agreement, write or import its content, then publish it."
 					action={
 						<Button asChild>
 							<Link to="/edge-cms/legal/new">Create a document</Link>
@@ -69,18 +69,15 @@ export default function LegalPage() {
 										<h2 className="truncate font-semibold tracking-tight text-slate-950 group-hover:text-sky-700">
 											{document.name}
 										</h2>
-										<p className="mt-0.5 font-mono text-xs text-slate-500">
-											/{document.slug}
-										</p>
 									</div>
 								</div>
 								{document.activeVersion ? (
 									<Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
-										<ShieldCheck className="h-3 w-3" />v{document.activeVersion}
+										<ShieldCheck className="h-3 w-3" /> Published
 									</Badge>
 								) : (
 									<Badge variant="outline" className="text-slate-500">
-										No active release
+										Draft
 									</Badge>
 								)}
 							</div>
@@ -88,9 +85,9 @@ export default function LegalPage() {
 								<span>{documentTypeLabel(document.type)}</span>
 								<span>
 									{document.draftLocaleCount}{' '}
-									{document.draftLocaleCount === 1 ? 'locale' : 'locales'} ·{' '}
+									{document.draftLocaleCount === 1 ? 'language' : 'languages'} ·{' '}
 									{document.releaseCount}{' '}
-									{document.releaseCount === 1 ? 'release' : 'releases'}
+									{document.releaseCount === 1 ? 'publication' : 'publications'}
 								</span>
 							</div>
 						</Link>

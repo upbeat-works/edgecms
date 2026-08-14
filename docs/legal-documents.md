@@ -2,7 +2,10 @@
 
 EdgeCMS manages legal content separately from ordinary content publishing. The
 page at `/edge-cms/legal` stores one Markdown draft per configured locale and
-groups those drafts under a legal document record.
+groups those drafts under a legal document record. The editor accepts typed or
+pasted Markdown and `.md` file imports, then saves changes after the writer
+pauses. When an instance has no languages yet, the first legal document starts
+with English as the primary language.
 
 ## Release evidence
 
@@ -22,17 +25,35 @@ configured P-256 private key using ES256. The generated PDF is a rendition of
 the signed Markdown and displays the `releaseHash`; it does not introduce a
 second content hash.
 
-A release moves through `processing`, `published`, `active`, and `retired`.
-Failed workflow runs can be retried. Publication never activates a release:
-activation is an explicit action, and at most one release per document is
-active. Effective date is signed metadata and does not schedule activation.
+The admin publish action uses its UTC publication date (`YYYY-MM-DD`) for both
+`version` and `effectiveDate`, so editors never manage a separate version
+number. A release moves from `processing` to `active` after its signed PDFs are
+ready. The previously active release becomes `retired` in the same database
+batch. Failed workflow runs can be retried or discarded with any partial PDF
+artifacts they created. More than one immutable release can share a publication
+date; `releaseHash` identifies the exact signed content.
 
-The public endpoints expose only active content:
+The current aliases expose the active release:
 
 - `/edge-cms/public/legal/:slug/:locale` returns the parsed payload, its exact
   `canonicalPayload` string, hash, base64url ES256 signature, key ID, public
-  JWK, and PDF URL.
+  JWK, and immutable evidence, Markdown, and PDF URLs.
+- `/edge-cms/public/legal/:slug/:locale.md` returns the active raw Markdown as
+  `text/markdown`.
 - `/edge-cms/public/legal/:slug/:locale.pdf` streams its PDF rendition.
+
+Every signed release remains available at immutable URLs after it is retired:
+
+- `/edge-cms/public/legal/:slug/:locale/releases/:releaseHash`
+- `/edge-cms/public/legal/:slug/:locale/releases/:releaseHash.md`
+- `/edge-cms/public/legal/:slug/:locale/releases/:releaseHash.pdf`
+
+Generated PDFs point to their hash-specific evidence URL, and the immutable
+responses use long-lived immutable caching. The current aliases use short-lived
+caching because a later publication can replace their content.
+
+The key endpoint covers all published release history:
+
 - `/edge-cms/public/legal/keys.json` returns the public keys used by published,
   active, and retired release history.
 
@@ -60,8 +81,8 @@ Store production keys as a Worker secret:
 node scripts/generate-legal-signing-key.mjs | npx wrangler secret put LEGAL_SIGNING_PRIVATE_JWK
 ```
 
-Browser Run Quick Actions do not execute in fully local Wrangler mode. Use
-`npx wrangler dev --remote` when manually testing legal PDF publication.
+Legal PDFs are rendered from sanitized HTML with `@cloudflare/puppeteer`.
+Standard local Wrangler development launches a local headless browser.
 
 `LEGAL_SIGNING_KEY_ID` is a non-secret Wrangler variable that identifies the
 key. Change the secret and key ID together when rotating. Old public keys remain
