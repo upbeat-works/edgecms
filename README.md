@@ -464,6 +464,22 @@ Locale tags are canonicalised to BCP-47 casing (`EN-us` becomes `en-US`), so the
 same language can't be created twice under different spellings. The command
 prints the tag that was actually created.
 
+#### `edgecms sections`
+
+Manage the sections used to organize translations, media, and block collections.
+
+```bash
+edgecms sections                              # List sections
+edgecms sections:add Homepage                 # Create a section
+edgecms sections:rename Homepage Marketing    # Rename it and refile its content
+edgecms sections:delete Marketing             # Preview deletion
+edgecms sections:delete Marketing --yes       # Delete and leave content unsorted
+```
+
+Section deletion is a dry run unless `--yes` is supplied. Deleting a section
+does not delete its content; translations, media, and block collections assigned
+to it become unsorted.
+
 #### `edgecms publish`
 
 Release the current draft, making it live. Until you publish, nothing the CLI
@@ -526,6 +542,10 @@ import {
 	importBlocks,
 	addLanguage,
 	setDefaultLanguage,
+	listSections,
+	addSection,
+	renameSection,
+	removeSection,
 	publish,
 	check,
 } from '@upbeat-works/edgecms-sdk';
@@ -583,6 +603,10 @@ someone passes `--yes`.
 | `/edge-cms/api/i18n/missing`       | GET    | Report untranslated keys                     |
 | `/edge-cms/api/i18n/stale`         | GET    | Report translations the source has outrun    |
 | `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
+| `/edge-cms/api/sections`           | GET    | List sections                                |
+| `/edge-cms/api/sections`           | POST   | Create a section                             |
+| `/edge-cms/api/sections`           | PATCH  | Rename a section                             |
+| `/edge-cms/api/sections`           | DELETE | Delete a section (dry run by default)        |
 | `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |
 | `/edge-cms/api/blocks/schemas`     | GET    | List schemas and their properties            |
 | `/edge-cms/api/blocks/schemas`     | POST   | Create a schema, or add missing properties   |

@@ -10,6 +10,12 @@ import {
 	listLanguages,
 	setDefaultLanguage,
 } from './commands/languages.js';
+import {
+	addSection,
+	listSections,
+	removeSection,
+	renameSection,
+} from './commands/sections.js';
 import { publish, publishStatus } from './commands/publish.js';
 import { check } from './commands/check.js';
 import { stale } from './commands/stale.js';
@@ -33,7 +39,7 @@ const program = new Command();
 program
 	.name('edgecms')
 	.description(
-		'CLI for EdgeCMS — manage translations, languages, blocks, and releases',
+		'CLI for EdgeCMS — manage translations, languages, sections, blocks, and releases',
 	)
 	.version(version);
 
@@ -261,6 +267,61 @@ program
 		try {
 			const config = await loadConfig();
 			await importBlocks(config, file, collection, { locale: options.locale });
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections')
+	.description('List sections configured in the CMS')
+	.action(async () => {
+		try {
+			await listSections(await loadConfig());
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections:add')
+	.description('Create a section')
+	.argument('<name>', 'Section name')
+	.action(async name => {
+		try {
+			await addSection(await loadConfig(), name);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections:rename')
+	.description('Rename a section and keep its content filed under the new name')
+	.argument('<name>', 'Current section name')
+	.argument('<new-name>', 'New section name')
+	.action(async (name, newName) => {
+		try {
+			await renameSection(await loadConfig(), name, newName);
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('sections:delete')
+	.description(
+		'Delete a section and leave its content unsorted. Reports without deleting unless --yes is given.',
+	)
+	.argument('<name>', 'Section name')
+	.option('--yes', 'Actually delete, instead of reporting what would happen')
+	.action(async (name, options) => {
+		try {
+			await removeSection(await loadConfig(), name, { yes: options.yes });
 		} catch (error) {
 			console.error('Error:', (error as Error).message);
 			process.exit(1);

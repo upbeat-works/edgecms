@@ -54,6 +54,7 @@ export default [
 		route('api/i18n/missing', 'routes/edge-cms/api/i18n.missing.ts'),
 		route('api/i18n/stale', 'routes/edge-cms/api/i18n.stale.ts'),
 		route('api/i18n/keys', 'routes/edge-cms/api/i18n.keys.ts'),
+		route('api/sections', 'routes/edge-cms/api/sections.ts'),
 		route('api/media', 'routes/edge-cms/api/media.ts'),
 		route('api/media/:id', 'routes/edge-cms/api/media.$id.ts'),
 		route('api/blocks/import', 'routes/edge-cms/api/blocks.import.ts'),

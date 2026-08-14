@@ -25,6 +25,9 @@ export {
 	type MediaItem,
 	type MediaListResponse,
 	type SetBlockMediaResponse,
+	type Section,
+	type SectionsResponse,
+	type DeleteSectionResponse,
 } from './api.js';
 export { generateTypes } from './codegen.js';
 export { pull, type PullOptions } from './commands/pull.js';
@@ -39,6 +42,13 @@ export {
 	setDefaultLanguage,
 	type AddLanguageOptions,
 } from './commands/languages.js';
+export {
+	listSections,
+	addSection,
+	renameSection,
+	removeSection,
+	type DeleteSectionOptions,
+} from './commands/sections.js';
 export {
 	publish,
 	publishStatus,

@@ -11,6 +11,11 @@ interface MarkdownEditorProps {
 	onSave?: () => void;
 }
 
+// UIW otherwise adopts the dialog's temporary body scroll lock when it mounts.
+export const markdownEditorDialogOptions = {
+	overflow: false,
+};
+
 export function MarkdownEditor({
 	filename,
 	version,
@@ -22,7 +27,6 @@ export function MarkdownEditor({
 	const [isSaving, setIsSaving] = useState(false);
 	const saveFetcher = useFetcher();
 
-	// Fetch the markdown content when component mounts
 	useEffect(() => {
 		const fetchContent = async () => {
 			try {
@@ -51,7 +55,6 @@ export function MarkdownEditor({
 		fetchContent();
 	}, [filename, version]);
 
-	// Handle save completion
 	useEffect(() => {
 		if (saveFetcher.data?.success && saveFetcher.state === 'idle') {
 			setIsSaving(false);
@@ -62,11 +65,9 @@ export function MarkdownEditor({
 	const handleSave = async () => {
 		setIsSaving(true);
 
-		// Create a blob from the markdown content
 		const blob = new Blob([content], { type: 'text/markdown' });
 		const file = new File([blob], filename, { type: 'text/markdown' });
 
-		// Create form data for upload
 		const formData = new FormData();
 		formData.append('file', file);
 
@@ -108,6 +109,7 @@ export function MarkdownEditor({
 
 			<div data-color-mode="light" className="markdown-editor-toolbar-large">
 				<MDEditor
+					{...markdownEditorDialogOptions}
 					value={content}
 					onChange={val => setContent(val || '')}
 					preview="live"

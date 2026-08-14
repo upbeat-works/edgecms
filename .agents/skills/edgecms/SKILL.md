@@ -75,8 +75,8 @@ only when the task explicitly needs draft state.
 
 - Treat `pull`, list operations, checks, and dry runs as read/synchronization
   operations, while noting that pull writes generated local files.
-- Treat `push`, block imports, schema application, language changes, key
-  deletion, publish, and rollback as external mutations.
+- Treat `push`, block imports, schema application, language changes, section
+  changes, key deletion, publish, and rollback as external mutations.
 - Treat AI translation over untranslated _and outdated_ keys as destructive: it
   replaces existing translations, hand-written ones included. Let the user pick
   the scope; never widen it for them.

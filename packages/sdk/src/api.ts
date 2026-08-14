@@ -26,6 +26,19 @@ export interface LanguagesResponse {
 	defaultLocale: string | null;
 }
 
+export interface Section {
+	name: string;
+}
+
+export interface SectionsResponse {
+	sections: Section[];
+}
+
+export interface DeleteSectionResponse extends Section {
+	dryRun: boolean;
+	deleted: boolean;
+}
+
 export interface ApiError {
 	error: string;
 	code: string;
@@ -403,6 +416,34 @@ export class EdgeCMSClient {
 		return this.fetch<Language>('/api/i18n/languages', {
 			method: 'PATCH',
 			body: JSON.stringify({ locale }),
+		});
+	}
+
+	async getSections(): Promise<SectionsResponse> {
+		return this.fetch<SectionsResponse>('/api/sections');
+	}
+
+	async createSection(name: string): Promise<Section> {
+		return this.fetch<Section>('/api/sections', {
+			method: 'POST',
+			body: JSON.stringify({ name }),
+		});
+	}
+
+	async renameSection(name: string, newName: string): Promise<Section> {
+		return this.fetch<Section>('/api/sections', {
+			method: 'PATCH',
+			body: JSON.stringify({ name, newName }),
+		});
+	}
+
+	async deleteSection(
+		name: string,
+		options: { dryRun?: boolean } = {},
+	): Promise<DeleteSectionResponse> {
+		return this.fetch<DeleteSectionResponse>('/api/sections', {
+			method: 'DELETE',
+			body: JSON.stringify({ name, dryRun: options.dryRun !== false }),
 		});
 	}
 

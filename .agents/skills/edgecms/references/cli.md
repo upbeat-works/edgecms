@@ -24,6 +24,10 @@ the correct environment file. Run commands from the project root.
 | `edgecms languages`                                    | List locales and the default                                              |
 | `edgecms languages:add tag [--default]`                | Add a canonicalized BCP-47 locale in draft                                |
 | `edgecms languages:set-default tag`                    | Change the default locale in draft                                        |
+| `edgecms sections`                                     | List sections                                                             |
+| `edgecms sections:add name`                            | Create a section                                                          |
+| `edgecms sections:rename name new-name`                | Rename a section and refile its content                                   |
+| `edgecms sections:delete name [--yes]`                 | Delete a section and leave its content unsorted; dry run by default        |
 | `edgecms prune [--verbose] [--yes]`                    | Compare default-locale keys and optionally delete orphans from draft      |
 | `edgecms keys:delete keys... [--yes]`                  | Explicitly delete named keys from draft                                   |
 | `edgecms blocks:push [file]`                           | Add declared schemas, properties, and collections                         |
@@ -40,14 +44,19 @@ older project version.
 
 ## Deletion safety
 
-`prune` and `keys:delete` are dry runs unless `--yes` is supplied. They refuse
-to delete block-owned translation keys, and prune aborts on an empty local
-catalogue. Prune compares the CMS draft against the default locale only; it
-cannot find keys that exist solely in a non-default locale. In a shared CMS,
-prune from the application that owns the relevant keyspace.
+`prune`, `keys:delete`, and `sections:delete` are dry runs unless `--yes` is
+supplied. Key deletion refuses to delete block-owned translation keys, and prune
+aborts on an empty local catalogue. Prune compares the CMS draft against the
+default locale only; it cannot find keys that exist solely in a non-default
+locale. In a shared CMS, prune from the application that owns the relevant
+keyspace.
 
-Deletions affect draft first and become live only after publication. Still treat
-`--yes` as destructive and verify every target.
+Translation-key deletions affect draft first and become live only after
+publication. Still treat `--yes` as destructive and verify every target.
+
+Sections are structural rather than versioned. Creating and renaming them takes
+effect immediately. Deleting one immediately leaves associated translations,
+media, and block collections unsorted without deleting that content.
 
 ## Block schemas
 
