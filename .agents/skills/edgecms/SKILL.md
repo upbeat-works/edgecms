@@ -2,18 +2,19 @@
 name: edgecms
 description:
   Install, upgrade, manage, and integrate EdgeCMS instances, translations,
-  languages, releases, typed locale snapshots, blocks, schemas, media, D1
-  migrations, CI pipelines, public HTTP endpoints, Cloudflare Worker service
-  bindings, custom routes, and admin extensions. Use when a task mentions
-  deploying EdgeCMS to Cloudflare, synchronizing an instance repository with
-  upstream, repairing unrelated or squashed Git history, resolving upstream and
-  extension migration-number collisions, adding EdgeCMS to GitHub Actions or CI,
-  building project-specific pages under /edge-cms/custom, editing
-  app/extension.ts, edgecms.config.json, @upbeat-works/edgecms-sdk, edgecms
-  push/pull/publish/check/stale/prune, generated translation types, stale
-  translations left behind by an edited default-locale value, AI translation
-  scope, CMS-managed locales or blocks, or keeping application content
-  synchronized with an EdgeCMS instance.
+  languages, releases, legal document drafts and signing keys, typed locale
+  snapshots, blocks, schemas, media, D1 migrations, CI pipelines, public HTTP
+  endpoints, Cloudflare Worker service bindings, custom routes, and admin
+  extensions. Use when a task mentions deploying EdgeCMS to Cloudflare,
+  synchronizing an instance repository with upstream, repairing unrelated or
+  squashed Git history, resolving upstream and extension migration-number
+  collisions, adding EdgeCMS to GitHub Actions or CI, building project-specific
+  pages under /edge-cms/custom, editing app/extension.ts, edgecms.config.json,
+  @upbeat-works/edgecms-sdk, legal Markdown, LEGAL_SIGNING_PRIVATE_JWK, edgecms
+  push/pull/publish/check/stale/prune/legal:create/legal:update, generated
+  translation types, stale translations, AI translation scope, CMS-managed
+  locales or blocks, or keeping application content synchronized with an EdgeCMS
+  instance.
 ---
 
 # EdgeCMS
@@ -43,7 +44,9 @@ EdgeCMS instance, read [instances.md](references/instances.md). For GitHub
 Actions and other CI pipelines, read [ci.md](references/ci.md). For custom admin
 routes and the extension API, read
 [custom-routes.md](references/custom-routes.md). For D1 migrations and numbering
-collisions, read [migrations.md](references/migrations.md).
+collisions, read [migrations.md](references/migrations.md). For legal draft
+editing, UI-only publication, signing, and key rotation, read
+[legal.md](references/legal.md).
 
 ## Apply the translation workflow
 
@@ -76,12 +79,17 @@ only when the task explicitly needs draft state.
 - Treat `pull`, list operations, checks, and dry runs as read/synchronization
   operations, while noting that pull writes generated local files.
 - Treat `push`, block imports, schema application, language changes, section
-  changes, key deletion, publish, and rollback as external mutations.
+  changes, legal draft writes, key deletion, publish, and rollback as external
+  mutations.
 - Treat AI translation over untranslated _and outdated_ keys as destructive: it
   replaces existing translations, hand-written ones included. Let the user pick
   the scope; never widen it for them.
 - Treat publishing as a production-visible action. Obtain clear authorization
   unless the user explicitly requested publication.
+- Publish legal documents only from `/edge-cms/legal`. The CLI and API support
+  legal draft creation and updates, not signing or publication. The general
+  `edgecms publish` command releases shared content and does not publish legal
+  documents.
 - Run `prune` and `keys:delete` without `--yes` first. Review exact targets
   before requesting or performing deletion.
 - Preserve unrelated draft work. A release publishes the current shared draft,

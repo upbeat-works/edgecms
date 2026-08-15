@@ -63,10 +63,12 @@ infrastructure on the planet.
 ### Legal Documents
 
 - Localized Markdown drafts managed at `/edge-cms/legal`
+- Draft creation and updates from Markdown through the SDK and CLI
 - Deterministic SHA-256 `releaseHash` over the exact frozen release payload
 - ES256 signatures and verification keys retained with release history
 - Sanitized PDF renditions generated with Cloudflare Browser Run and Puppeteer
-- One-step publishing that replaces the current legal document and retains its history
+- One-step publishing that replaces the current legal document and retains its
+  history
 - Public evidence, PDF, and key endpoints for consent integrations
 
 See [Legal documents and signed releases](docs/legal-documents.md) for the
@@ -81,19 +83,19 @@ canonical payload, key setup, lifecycle, and consent-integration boundary.
 
 ## Stack
 
-| Layer     | Technology                   |
-| --------- | ---------------------------- |
-| Framework | React Router v7              |
-| UI        | Tailwind CSS 4 + shadcn/ui   |
-| Database  | Cloudflare D1 (SQLite)       |
-| ORM       | Drizzle                      |
-| Cache     | Cloudflare KV                |
-| Storage   | Cloudflare R2                |
-| Auth      | Better Auth                  |
-| AI        | OpenAI (via AI SDK)          |
-| Workflows | Cloudflare Workflows         |
-| Legal PDF | Cloudflare Browser Run       |
-| Runtime   | Cloudflare Workers           |
+| Layer     | Technology                 |
+| --------- | -------------------------- |
+| Framework | React Router v7            |
+| UI        | Tailwind CSS 4 + shadcn/ui |
+| Database  | Cloudflare D1 (SQLite)     |
+| ORM       | Drizzle                    |
+| Cache     | Cloudflare KV              |
+| Storage   | Cloudflare R2              |
+| Auth      | Better Auth                |
+| AI        | OpenAI (via AI SDK)        |
+| Workflows | Cloudflare Workflows       |
+| Legal PDF | Cloudflare Browser Run     |
+| Runtime   | Cloudflare Workers         |
 
 ## Setup
 
@@ -114,8 +116,9 @@ OPENAI_API_KEY=your-openai-api-key  # Optional — for AI translations
 LEGAL_SIGNING_PRIVATE_JWK={"kty":"EC","x":"...","y":"...","crv":"P-256","d":"...","alg":"ES256","key_ops":["sign"],"ext":true}
 ```
 
-Generate the legal signing value with `npm run legal:keygen`. Keep it secret;
-the public half is derived and retained with every signed release.
+`LEGAL_SIGNING_PRIVATE_JWK` is required for the EdgeCMS app to build and run.
+Generate it with `npm run legal:keygen`. Keep it secret; the public half is
+derived and retained with every signed release.
 
 For production, set these as Cloudflare secrets:
 
@@ -283,6 +286,29 @@ export EDGECMS_BASE_URL=https://your-domain.com/edge-cms
 ```
 
 ### Commands
+
+#### Legal drafts
+
+Create a legal document and its first localized draft from Markdown, then
+replace any configured locale's draft by document ID:
+
+```bash
+edgecms legal:create ./privacy.en.md \
+  --name "Privacy Policy" \
+  --type privacy_policy \
+  --locale en
+edgecms legal:create ./terms.md \
+  --name "Terms" \
+  --type terms_and_conditions \
+  --slug customer-terms
+edgecms legal:update 42 ./privacy.es.md --locale es
+```
+
+`--locale` defaults to `defaultLocale`, and the locale must already exist in
+EdgeCMS. The files are saved exactly as mutable drafts. These commands never
+sign or publish a legal document. Review and publish legal drafts from
+`/edge-cms/legal`; the general `edgecms publish` command only releases the
+shared content draft.
 
 #### Media and block media
 
@@ -585,6 +611,8 @@ import {
 	assignKeysToSection,
 	assignMediaToSection,
 	removeSection,
+	createLegalDraft,
+	updateLegalDraft,
 	publish,
 	check,
 } from '@upbeat-works/edgecms-sdk';
@@ -632,28 +660,30 @@ someone passes `--yes`.
 
 ### SDK API Routes (API Key Required)
 
-| Route                              | Method | Description                                  |
-| ---------------------------------- | ------ | -------------------------------------------- |
-| `/edge-cms/api/i18n/pull`          | GET    | Fetch translations                           |
-| `/edge-cms/api/i18n/push`          | POST   | Create/update translations                   |
-| `/edge-cms/api/i18n/languages`     | GET    | List available languages                     |
-| `/edge-cms/api/i18n/languages`     | POST   | Create a language                            |
-| `/edge-cms/api/i18n/languages`     | PATCH  | Set the default language                     |
-| `/edge-cms/api/i18n/missing`       | GET    | Report untranslated keys                     |
-| `/edge-cms/api/i18n/stale`         | GET    | Report translations the source has outrun    |
-| `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
-| `/edge-cms/api/sections`           | GET    | List sections                                |
-| `/edge-cms/api/sections`           | POST   | Create a section                             |
-| `/edge-cms/api/sections`           | PUT    | Assign existing i18n keys or media           |
-| `/edge-cms/api/sections`           | PATCH  | Rename a section                             |
-| `/edge-cms/api/sections`           | DELETE | Delete a section (dry run by default)        |
-| `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |
-| `/edge-cms/api/blocks/schemas`     | GET    | List schemas and their properties            |
-| `/edge-cms/api/blocks/schemas`     | POST   | Create a schema, or add missing properties   |
-| `/edge-cms/api/blocks/collections` | GET    | List collections                             |
-| `/edge-cms/api/blocks/collections` | POST   | Create a collection                          |
-| `/edge-cms/api/publish`            | POST   | Release the draft (returns a `publishId`)    |
-| `/edge-cms/api/publish`            | GET    | Status of a release, via `?id=<publishId>`   |
+| Route                                    | Method | Description                                  |
+| ---------------------------------------- | ------ | -------------------------------------------- |
+| `/edge-cms/api/i18n/pull`                | GET    | Fetch translations                           |
+| `/edge-cms/api/i18n/push`                | POST   | Create/update translations                   |
+| `/edge-cms/api/i18n/languages`           | GET    | List available languages                     |
+| `/edge-cms/api/i18n/languages`           | POST   | Create a language                            |
+| `/edge-cms/api/i18n/languages`           | PATCH  | Set the default language                     |
+| `/edge-cms/api/i18n/missing`             | GET    | Report untranslated keys                     |
+| `/edge-cms/api/i18n/stale`               | GET    | Report translations the source has outrun    |
+| `/edge-cms/api/i18n/keys`                | DELETE | Delete translation keys (dry run by default) |
+| `/edge-cms/api/sections`                 | GET    | List sections                                |
+| `/edge-cms/api/sections`                 | POST   | Create a section                             |
+| `/edge-cms/api/sections`                 | PUT    | Assign existing i18n keys or media           |
+| `/edge-cms/api/sections`                 | PATCH  | Rename a section                             |
+| `/edge-cms/api/sections`                 | DELETE | Delete a section (dry run by default)        |
+| `/edge-cms/api/blocks/import`            | POST   | Bulk import blocks                           |
+| `/edge-cms/api/blocks/schemas`           | GET    | List schemas and their properties            |
+| `/edge-cms/api/blocks/schemas`           | POST   | Create a schema, or add missing properties   |
+| `/edge-cms/api/blocks/collections`       | GET    | List collections                             |
+| `/edge-cms/api/blocks/collections`       | POST   | Create a collection                          |
+| `/edge-cms/api/legal`                    | POST   | Create a legal document with one draft       |
+| `/edge-cms/api/legal/:id/drafts/:locale` | PUT    | Replace one localized legal draft            |
+| `/edge-cms/api/publish`                  | POST   | Release the draft (returns a `publishId`)    |
+| `/edge-cms/api/publish`                  | GET    | Status of a release, via `?id=<publishId>`   |
 
 Errors share a shape: `{ "error": "...", "code": "MACHINE_READABLE_CODE" }`.
 

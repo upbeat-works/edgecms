@@ -1,7 +1,7 @@
 {
   "name": "@upbeat-works/edgecms-sdk",
   "version": "0.10.1",
-  "description": "CLI SDK for EdgeCMS i18n - pull and push translations",
+  "description": "CLI and SDK for managing EdgeCMS content",
   "type": "module",
   "bin": {
     "edgecms": "./bin/edgecms.js"

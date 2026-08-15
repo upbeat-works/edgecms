@@ -10,15 +10,16 @@ upstream EdgeCMS GitHub README:
 2. Authenticate with Cloudflare and provide the requested instance details.
 3. Confirm deployment. Cloudflare provisions and publishes the instance, then
    creates a new GitHub repository for that deployment.
-4. Configure the required Cloudflare secrets for session handling and
-   authentication.
+4. Configure the required Cloudflare secrets for session handling,
+   authentication, and `LEGAL_SIGNING_PRIVATE_JWK`. The legal signing secret is
+   required for the app to build and run.
 5. Optionally configure an OpenAI API key to enable AI-assisted translations.
 6. Verify authentication, the admin UI, and a public endpoint before treating
    the instance as live.
 
 Discover the exact secret names from the deployed EdgeCMS version's README,
-configuration types, and environment validation. Never guess secret names,
-print secret values, commit them, or replace a production secret without clear
+configuration types, and environment validation. Never guess secret names, print
+secret values, commit them, or replace a production secret without clear
 authorization.
 
 ## Understand the two repository shapes
@@ -28,11 +29,11 @@ repository as `upstream`, fetch it, merge or rebase its changes, resolve any
 instance-specific conflicts, test, and push. The connected history lets Git
 identify the merge base normally.
 
-Newer Deploy-to-Cloudflare repositories may squash the upstream template into
-a new initialization commit. Although the files originated upstream, the two
+Newer Deploy-to-Cloudflare repositories may squash the upstream template into a
+new initialization commit. Although the files originated upstream, the two
 repositories then have unrelated histories. Do not repeatedly use
-`--allow-unrelated-histories`: it produces noisy conflicts and prevents Git
-from understanding which changes belong to upstream versus the instance.
+`--allow-unrelated-histories`: it produces noisy conflicts and prevents Git from
+understanding which changes belong to upstream versus the instance.
 
 ## Reparent a squashed deployment once
 
@@ -40,8 +41,8 @@ Reparenting rewrites history. Never perform it merely because a pull conflicts.
 First prove the instance has no common merge base with upstream and that its
 root is a Cloudflare-generated squash of an identifiable upstream revision.
 
-1. Require a clean worktree and fetch both `origin` and the canonical
-   `upstream` remote.
+1. Require a clean worktree and fetch both `origin` and the canonical `upstream`
+   remote.
 2. Record the current branch, root commit, remotes, and deployment-specific
    commits. Create a local backup branch and ensure the remote repository is
    recoverable.
@@ -67,8 +68,8 @@ root is a Cloudflare-generated squash of an identifiable upstream revision.
 
 Do not encode commit IDs into reusable instructions. The correct upstream base
 is instance-specific. Prefer an auditable backup-and-rebuild procedure over
-opaque graft/filter commands unless the exact repository has been inspected
-and the operator understands how replacement refs become permanent.
+opaque graft/filter commands unless the exact repository has been inspected and
+the operator understands how replacement refs become permanent.
 
 After this one-time repair, `git merge-base main upstream/main` should return a
 commit. Future upgrades return to the ordinary upstream fetch/merge workflow.
@@ -79,8 +80,8 @@ commit. Future upgrades return to the ordinary upstream fetch/merge workflow.
 2. Fetch `upstream` and inspect its release notes, migrations, SDK changes, and
    deployment configuration changes.
 3. Merge upstream into the instance branch and resolve conflicts without
-   discarding instance resource identifiers, secrets configuration, bindings,
-   or extensions.
+   discarding instance resource identifiers, secrets configuration, bindings, or
+   extensions.
 4. Reconcile D1 migrations using [migrations.md](migrations.md) before applying
    anything, then regenerate platform types when the upstream release requires
    it.

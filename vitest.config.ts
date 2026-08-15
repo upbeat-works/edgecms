@@ -26,11 +26,15 @@ export default defineConfig({
 		cloudflareTest({
 			wrangler: { configPath: './wrangler.jsonc' },
 			miniflare: {
-				bindings: { TEST_MIGRATIONS: migrations },
-				// Real secrets in production; absent in tests unless set here.
-				AUTH_SECRET: 'test-auth-secret-not-a-real-secret',
-				SESSION_SECRET: 'test-session-secret-not-a-real-secret',
-				LEGAL_SIGNING_PRIVATE_JWK: JSON.stringify(legalSigningPrivateJwk),
+				bindings: {
+					TEST_MIGRATIONS: migrations,
+					// Real secrets in production; absent in tests unless set here.
+					AUTH_SECRET: 'test-auth-secret-not-a-real-secret',
+					SESSION_SECRET: 'test-session-secret-not-a-real-secret',
+					BASE_URL: 'https://cms.test',
+					TRUSTED_ORIGINS: 'https://cms.test',
+					LEGAL_SIGNING_PRIVATE_JWK: JSON.stringify(legalSigningPrivateJwk),
+				},
 			},
 		}),
 	],

@@ -7,6 +7,22 @@ pasted Markdown and `.md` file imports, then saves changes after the writer
 pauses. When an instance has no languages yet, the first legal document starts
 with English as the primary language.
 
+API-key clients can create and replace drafts from Markdown files:
+
+```bash
+edgecms legal:create ./privacy.en.md \
+  --name "Privacy Policy" \
+  --type privacy_policy \
+  --locale en
+edgecms legal:update 42 ./privacy.es.md --locale es
+```
+
+The locale must already exist. These commands preserve the file contents and
+only change mutable drafts. Legal publication, signing, PDF generation, and
+release activation are available only from the legal document admin UI. The
+general `edgecms publish` command publishes the shared content draft; it does
+not publish legal documents.
+
 ## Release evidence
 
 Publishing creates an immutable locale variant from this exact JSON field order:
@@ -90,6 +106,13 @@ available from release history, so previously captured evidence remains
 verifiable. Never reuse a key ID for different key material, and retain an
 offline backup of private keys for the retention period your legal process
 requires.
+
+The EdgeCMS app requires `LEGAL_SIGNING_PRIVATE_JWK` to build and run, including
+when the current work only edits drafts. Draft endpoints do not sign content,
+but that does not make the instance secret optional. The private JWK is used
+when an editor publishes from the admin UI. The publication workflow derives the
+public JWK, stores it with the key ID on each signed variant, and never exposes
+the private `d` value through a public endpoint.
 
 ## Consent integration
 

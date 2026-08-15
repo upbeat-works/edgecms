@@ -95,6 +95,24 @@ export interface SetBlockMediaResponse {
 	draftVersionId: number;
 }
 
+export type LegalDocumentType =
+	'terms_and_conditions' | 'privacy_policy' | 'cookie_policy' | 'dpa' | 'other';
+
+export interface CreatedLegalDraftResponse {
+	id: number;
+	name: string;
+	slug: string;
+	type: LegalDocumentType;
+	locale: string;
+	state: 'draft';
+}
+
+export interface LegalDraftResponse {
+	documentId: number;
+	locale: string;
+	state: 'draft';
+}
+
 export interface PublishResponse {
 	publishId: string;
 	versionId: number;
@@ -377,6 +395,33 @@ export class EdgeCMSClient {
 			method: 'PATCH',
 			body: JSON.stringify({ mediaId: input.mediaId }),
 		});
+	}
+
+	async createLegalDraft(input: {
+		name: string;
+		slug?: string;
+		type: LegalDocumentType;
+		locale: string;
+		markdown: string;
+	}): Promise<CreatedLegalDraftResponse> {
+		return this.fetch<CreatedLegalDraftResponse>('/api/legal', {
+			method: 'POST',
+			body: JSON.stringify(input),
+		});
+	}
+
+	async updateLegalDraft(
+		documentId: number,
+		locale: string,
+		markdown: string,
+	): Promise<LegalDraftResponse> {
+		return this.fetch<LegalDraftResponse>(
+			`/api/legal/${documentId}/drafts/${encodeURIComponent(locale)}`,
+			{
+				method: 'PUT',
+				body: JSON.stringify({ markdown }),
+			},
+		);
 	}
 
 	/**

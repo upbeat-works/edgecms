@@ -40,9 +40,17 @@ the correct environment file. Run commands from the project root.
 | `edgecms media:upload file [--section name]`                                               | Upload live media and print its ID and canonical URL                      |
 | `edgecms media:replace id file`                                                            | Replace media under its existing canonical URL                            |
 | `edgecms blocks:set-media collection instance property media-id`                           | Attach media to a block property in draft                                 |
+| `edgecms legal:create file --name name --type type [--slug slug] [--locale tag]`           | Create a legal document with one localized Markdown draft                 |
+| `edgecms legal:update id file [--locale tag]`                                              | Replace one localized legal document draft                                |
 
 Check the installed SDK's `edgecms --help` before using commands absent from an
 older project version.
+
+Legal commands preserve the Markdown file exactly and default to the configured
+`defaultLocale`. The locale must already exist. They never sign or publish;
+review and publish legal documents from `/edge-cms/legal`. Do not use the
+general `edgecms publish` command for legal content because it releases the
+shared content draft only.
 
 ## Deletion safety
 

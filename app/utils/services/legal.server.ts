@@ -46,6 +46,17 @@ export interface LegalDocumentResult {
 	type: LegalDocumentType;
 }
 
+export interface LegalDocumentDraftResult {
+	documentId: number;
+	locale: string;
+	state: 'draft';
+}
+
+export interface CreatedLegalDocumentDraftResult extends LegalDocumentResult {
+	locale: string;
+	state: 'draft';
+}
+
 export function normalizeLegalSlug(value: string): string {
 	return value
 		.trim()
@@ -107,6 +118,49 @@ export async function createLegalDocument(
 	}
 }
 
+function findConfiguredLocale(
+	languages: Awaited<ReturnType<typeof getLanguages>>,
+	locale: string,
+) {
+	return languages.find(
+		candidate => candidate.locale.toLowerCase() === locale.toLowerCase(),
+	);
+}
+
+export async function createLegalDocumentDraft(
+	input: CreateLegalDocumentInput & { locale: string; markdown: string },
+): Promise<ServiceResult<CreatedLegalDocumentDraftResult>> {
+	const language = findConfiguredLocale(await getLanguages(), input.locale);
+	if (!language) {
+		return err(
+			'LOCALE_NOT_FOUND',
+			`Locale "${input.locale}" is not configured`,
+			404,
+		);
+	}
+
+	const document = await createLegalDocument(input);
+	if (!document.ok) return document;
+
+	try {
+		await upsertLegalDraft({
+			documentId: document.data.id,
+			locale: language.locale,
+			markdown: input.markdown,
+			updatedBy: input.userId,
+		});
+	} catch (error) {
+		await removeLegalDocument(document.data.id);
+		throw error;
+	}
+
+	return ok({
+		...document.data,
+		locale: language.locale,
+		state: 'draft',
+	});
+}
+
 export async function updateLegalDocument(input: {
 	documentId: number;
 	name: string;
@@ -158,7 +212,7 @@ export async function saveLegalDraft(input: {
 	locale: string;
 	markdown: string;
 	userId?: string;
-}): Promise<ServiceResult<{ documentId: number; locale: string }>> {
+}): Promise<ServiceResult<LegalDocumentDraftResult>> {
 	const [document, languages] = await Promise.all([
 		getLegalDocumentById(input.documentId),
 		getLanguages(),
@@ -166,9 +220,7 @@ export async function saveLegalDraft(input: {
 	if (!document) {
 		return err('LEGAL_DOCUMENT_NOT_FOUND', 'Legal document not found', 404);
 	}
-	const language = languages.find(
-		candidate => candidate.locale.toLowerCase() === input.locale.toLowerCase(),
-	);
+	const language = findConfiguredLocale(languages, input.locale);
 	if (!language) {
 		return err(
 			'LOCALE_NOT_FOUND',
@@ -182,7 +234,11 @@ export async function saveLegalDraft(input: {
 		markdown: input.markdown,
 		updatedBy: input.userId,
 	});
-	return ok({ documentId: input.documentId, locale: language.locale });
+	return ok({
+		documentId: input.documentId,
+		locale: language.locale,
+		state: 'draft',
+	});
 }
 
 function isValidEffectiveDate(value: string): boolean {

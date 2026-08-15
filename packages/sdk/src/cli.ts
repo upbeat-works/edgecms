@@ -30,6 +30,11 @@ import {
 	replaceMediaFile,
 	uploadMediaFile,
 } from './commands/media.js';
+import {
+	createLegalDraft,
+	parseLegalDocumentType,
+	updateLegalDraft,
+} from './commands/legal.js';
 
 // '../package.json' resolves correctly from both src/ and dist/.
 const { version } = createRequire(import.meta.url)('../package.json') as {
@@ -41,9 +46,51 @@ const program = new Command();
 program
 	.name('edgecms')
 	.description(
-		'CLI for EdgeCMS — manage translations, languages, sections, blocks, and releases',
+		'CLI for EdgeCMS — manage translations, languages, sections, blocks, legal drafts, and releases',
 	)
 	.version(version);
+
+program
+	.command('legal:create')
+	.description('Create a legal document with one localized Markdown draft')
+	.argument('<file>', 'Markdown file')
+	.requiredOption('--name <name>', 'Document display name')
+	.requiredOption(
+		'--type <type>',
+		'Document type: terms_and_conditions, privacy_policy, cookie_policy, dpa, or other',
+	)
+	.option('--slug <slug>', 'Public slug; defaults to the normalized name')
+	.option('--locale <locale>', 'Draft locale; defaults to config defaultLocale')
+	.action(async (file, options) => {
+		try {
+			await createLegalDraft(await loadConfig(), file, {
+				name: options.name,
+				type: parseLegalDocumentType(options.type),
+				slug: options.slug,
+				locale: options.locale,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
+
+program
+	.command('legal:update')
+	.description('Replace one localized legal document draft from Markdown')
+	.argument('<document-id>', 'Legal document ID', value => Number(value))
+	.argument('<file>', 'Markdown file')
+	.option('--locale <locale>', 'Draft locale; defaults to config defaultLocale')
+	.action(async (documentId, file, options) => {
+		try {
+			await updateLegalDraft(await loadConfig(), documentId, file, {
+				locale: options.locale,
+			});
+		} catch (error) {
+			console.error('Error:', (error as Error).message);
+			process.exit(1);
+		}
+	});
 
 program
 	.command('media')
