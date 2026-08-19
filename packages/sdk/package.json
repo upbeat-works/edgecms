@@ -1,6 +1,6 @@
 {
   "name": "@upbeat-works/edgecms-sdk",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "CLI and SDK for managing EdgeCMS content",
   "type": "module",
   "bin": {
