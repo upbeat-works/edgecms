@@ -83,7 +83,7 @@ export async function promoteVersion(versionId: number): Promise<void> {
 
 export async function releaseDraft(): Promise<string> {
 	const instance = await env.RELEASE_VERSION_WORKFLOW.create({ params: {} });
-	console.log('Created release version workflow: ', instance);
+	console.log('Created release version workflow:', instance.id);
 	return instance.id;
 }
 
@@ -97,7 +97,7 @@ export async function rollbackVersion(versionId: number): Promise<void> {
 	const instance = await env.ROLLBACK_VERSION_WORKFLOW.create({
 		params: { versionId },
 	});
-	console.log('Created rollback version workflow: ', instance);
+	console.log('Created rollback version workflow:', instance.id);
 }
 
 export async function updateVersionDescription(

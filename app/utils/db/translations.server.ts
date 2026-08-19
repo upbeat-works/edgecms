@@ -601,15 +601,7 @@ async function insertInBatches<T extends Record<string, unknown>>(
 	}
 }
 
-/**
- * Replace every language and translation with a released snapshot.
- *
- * A backup this cannot read leaves the catalogue standing, because validation
- * runs before the delete. That is the only failure it covers: the writes that
- * follow are not one transaction, so D1 failing part-way through still leaves
- * the catalogue emptied until a retry re-runs the whole thing. Every write is
- * an upsert so that retry starts clean rather than colliding.
- */
+/** Replace translations and their source locale with a released snapshot. */
 export async function restoreTranslationsFromBackup(
 	raw: unknown,
 	{ fallbackDefaultLocale }: { fallbackDefaultLocale: string | null },
@@ -619,12 +611,20 @@ export async function restoreTranslationsFromBackup(
 	});
 
 	await db.delete(translations);
-	await db.delete(languages);
 
+	// Language rows also anchor legal drafts and immutable releases.
 	await insertInBatches(
 		locales.map(locale => ({ locale, default: locale === defaultLocale })),
 		batch => db.insert(languages).values(batch).onConflictDoNothing(),
 	);
+	await db
+		.update(languages)
+		.set({ default: false })
+		.where(ne(languages.locale, defaultLocale));
+	await db
+		.update(languages)
+		.set({ default: true })
+		.where(eq(languages.locale, defaultLocale));
 
 	// A key's section must exist before the key references it, and the key
 	// before its translations. Both are restored additively — `sections` is

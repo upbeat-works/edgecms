@@ -1,11 +1,16 @@
 import { env, introspectWorkflow } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	getDefaultLocale,
 	getLanguages,
 	setDefaultLanguage,
 } from '~/utils/db/languages.server';
 import { createSection } from '~/utils/db/sections.server';
+import {
+	createLegalDocument,
+	publishLegalDocument,
+	saveLegalDraft,
+} from '~/utils/services/legal.server';
 import {
 	deleteTranslationsByKeys,
 	getTranslations,
@@ -117,6 +122,61 @@ describe('rolling a version back', () => {
 			'en',
 			'es',
 		]);
+	}, 45_000);
+
+	it('restores content without disturbing an immutable legal release', async () => {
+		await using releasing = await introspectWorkflow(
+			env.RELEASE_VERSION_WORKFLOW,
+		);
+		await using rollingBack = await introspectWorkflow(
+			env.ROLLBACK_VERSION_WORKFLOW,
+		);
+		await rollingBack.modifyAll(async modifier => {
+			await modifier.disableRetryDelays();
+		});
+
+		await seedLanguage('en', true);
+		await upsertTranslation('home.title', 'en', 'Welcome');
+		await createVersion('first');
+		const published = await release(releasing);
+		await archive(published.id);
+
+		const document = await createLegalDocument({
+			name: 'Privacy Policy',
+			slug: 'privacy',
+			type: 'privacy_policy',
+		});
+		if (!document.ok) throw new Error(document.error.message);
+		await saveLegalDraft({
+			documentId: document.data.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+		const legalWorkflow = vi
+			.spyOn(env.LEGAL_RELEASE_WORKFLOW, 'create')
+			.mockResolvedValue({ id: 'legal-publish-test' } as never);
+		const legalRelease = await publishLegalDocument({
+			documentId: document.data.id,
+			version: '2026-08',
+			effectiveDate: '2026-08-19',
+		}).finally(() => legalWorkflow.mockRestore());
+		if (!legalRelease.ok) throw new Error(legalRelease.error.message);
+
+		await createVersion('later changes');
+		await upsertTranslation('home.title', 'en', 'Welcome back');
+
+		await rollbackVersion(published.id);
+		await (await onlyInstance(rollingBack)).waitForStatus('complete');
+
+		await expect(getTranslations({})).resolves.toMatchObject([
+			{ key: 'home.title', language: 'en', value: 'Welcome' },
+		]);
+		const variants = await env.DB.prepare(
+			'SELECT locale FROM legal_release_variants WHERE releaseId = ?',
+		)
+			.bind(legalRelease.data.releaseId)
+			.all<{ locale: string }>();
+		expect(variants.results).toEqual([{ locale: 'en' }]);
 	}, 45_000);
 
 	it('leaves the catalogue alone when the backup is missing', async () => {
