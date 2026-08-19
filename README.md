@@ -69,10 +69,11 @@ infrastructure on the planet.
 - Sanitized PDF renditions generated with Cloudflare Browser Run and Puppeteer
 - One-step publishing that replaces the current legal document and retains its
   history
-- Public evidence, PDF, and key endpoints for consent integrations
+- Public evidence, PDF, and key endpoints with signed c15t consent capabilities
+- Append-only legal consent receipts through HTTP, SDK, and Worker RPC
 
 See [Legal documents and signed releases](docs/legal-documents.md) for the
-canonical payload, key setup, lifecycle, and consent-integration boundary.
+canonical payload, key setup, lifecycle, and consent API.
 
 ### Version Control
 
@@ -153,6 +154,15 @@ Your `wrangler.jsonc` needs the following bindings:
 		},
 	],
 
+	// Public legal consent writes
+	"ratelimits": [
+		{
+			"name": "LEGAL_CONSENT_RATE_LIMITER",
+			"namespace_id": "<unique-positive-integer-for-your-account>",
+			"simple": { "limit": 60, "period": 60 },
+		},
+	],
+
 	// R2 Storage
 	"r2_buckets": [
 		{ "binding": "MEDIA_BUCKET", "bucket_name": "edgecms-media" },
@@ -194,6 +204,9 @@ Your `wrangler.jsonc` needs the following bindings:
 	},
 }
 ```
+
+Replace the rate-limit `namespace_id` with a positive integer string that is
+unique within your Cloudflare account. Bindings that reuse an ID share counters.
 
 ### 4. Run Migrations
 
@@ -652,11 +665,14 @@ someone passes `--yes`.
 
 ### Public API Routes
 
-| Route                                     | Description                        |
-| ----------------------------------------- | ---------------------------------- |
-| `GET /edge-cms/public/i18n/:locale.json`  | Translations for a locale (cached) |
-| `GET /edge-cms/public/media/:filename`    | Serve media files from R2          |
-| `GET /edge-cms/public/blocks/:collection` | Block collection data              |
+| Route                                      | Description                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| `GET /edge-cms/public/i18n/:locale.json`   | Translations for a locale (cached)                  |
+| `GET /edge-cms/public/media/:filename`     | Serve media files from R2                           |
+| `GET /edge-cms/public/blocks/:collection`  | Block collection data                               |
+| `GET /edge-cms/public/legal/:slug/:locale` | Active signed legal evidence and consent capability |
+| `POST /edge-cms/consent/subjects`          | Record signed legal consent with c15t               |
+| `GET /edge-cms/consent/subjects/:id`       | Read a subject's current legal consent status       |
 
 ### SDK API Routes (API Key Required)
 
@@ -709,6 +725,7 @@ const { languages, defaultLocale } = await env.EDGECMS.getLanguages();
 const draft = await env.EDGECMS.pullTranslations();
 const missing = await env.EDGECMS.missingTranslations();
 const stale = await env.EDGECMS.staleTranslations();
+const legalDocument = await env.EDGECMS.getLegalDocument('privacy', 'en');
 
 // Writes
 await env.EDGECMS.createLanguage('pt-BR', { makeDefault: false });
@@ -725,6 +742,12 @@ await env.EDGECMS.deleteTranslationKeys(['home.hero.oldTitle'], {
 });
 const { publishId } = await env.EDGECMS.publish();
 const state = await env.EDGECMS.publishStatus(publishId);
+const receipt = await env.EDGECMS.recordLegalConsent({
+	type: legalDocument.consent.type,
+	documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
+	subjectId: 'sub_2jv6z8n4q9',
+	domain: 'client.example',
+});
 ```
 
 RPC methods throw on failure instead of returning status codes, with

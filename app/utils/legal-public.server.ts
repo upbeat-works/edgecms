@@ -3,10 +3,15 @@ import {
 	getActiveLegalVariant,
 	getLegalVariantByReleaseHash,
 } from './db.server';
+import {
+	createLegalConsentSnapshot,
+	ensureActiveLegalConsentPolicy,
+} from './legal-consent.server';
 import { parseLegalReleasePayload } from './legal-release.server';
 
 const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 const IMMUTABLE_CACHE_CONTROL = 'public, immutable, max-age=31536000';
+const CONSENT_CAPABILITY_CACHE_CONTROL = 'private, no-store';
 
 async function getPublication(input: {
 	slug: string;
@@ -31,11 +36,11 @@ function cacheControl(releaseHash?: string): string {
 	return CACHE_CONTROL;
 }
 
-export async function legalDocumentResponse(input: {
+export async function getLegalDocumentEvidence(input: {
+	runtimeEnv: Env;
 	slug: string;
 	locale: string;
 	releaseHash?: string;
-	request: Request;
 }) {
 	const publication = await getPublication(input);
 	if (
@@ -45,54 +50,91 @@ export async function legalDocumentResponse(input: {
 		!publication.variant.publicJwk ||
 		!publication.variant.pdfKey
 	) {
+		return null;
+	}
+
+	const immutableBaseUrl = `/edge-cms/public/legal/${encodeURIComponent(publication.document.slug)}/${encodeURIComponent(publication.variant.locale)}/releases/${publication.variant.releaseHash}`;
+	let consent;
+	if (!input.releaseHash) {
+		const consentRelease = {
+			releaseId: publication.release.id,
+			type: publication.document.type,
+			slug: publication.document.slug,
+			locale: publication.variant.locale,
+			version: publication.release.version,
+			effectiveDate: publication.release.effectiveDate,
+			releaseHash: publication.variant.releaseHash,
+		};
+		await ensureActiveLegalConsentPolicy(input.runtimeEnv, consentRelease);
+		consent = await createLegalConsentSnapshot(
+			input.runtimeEnv,
+			consentRelease,
+		);
+	}
+
+	return {
+		document: {
+			id: publication.document.id,
+			name: publication.document.name,
+			slug: publication.document.slug,
+			type: publication.document.type,
+		},
+		release: {
+			id: publication.release.id,
+			version: publication.release.version,
+			effectiveDate: publication.release.effectiveDate,
+			locale: publication.variant.locale,
+		},
+		payload: parseLegalReleasePayload(publication.variant.payload),
+		canonicalPayload: publication.variant.payload,
+		releaseHash: publication.variant.releaseHash,
+		signature: publication.variant.signature,
+		signatureAlgorithm: 'ES256' as const,
+		signingKeyId: publication.variant.signingKeyId,
+		publicJwk: JSON.parse(publication.variant.publicJwk) as JsonWebKey,
+		evidenceUrl: immutableBaseUrl,
+		markdownUrl: `${immutableBaseUrl}.md`,
+		pdfUrl: `${immutableBaseUrl}.pdf`,
+		consent,
+	};
+}
+
+export async function legalDocumentResponse(input: {
+	slug: string;
+	locale: string;
+	releaseHash?: string;
+	request: Request;
+}) {
+	const document = await getLegalDocumentEvidence({
+		...input,
+		runtimeEnv: env,
+	});
+	if (!document) {
 		return Response.json(
 			{ error: 'Legal document not found' },
 			{ status: 404 },
 		);
 	}
 
-	const etag = `"${publication.variant.releaseHash}"`;
-	const responseCacheControl = cacheControl(input.releaseHash);
-	if (input.request.headers.get('If-None-Match') === etag) {
+	const etag = `"${document.releaseHash}"`;
+	const responseCacheControl = input.releaseHash
+		? IMMUTABLE_CACHE_CONTROL
+		: CONSENT_CAPABILITY_CACHE_CONTROL;
+	if (
+		input.releaseHash &&
+		input.request.headers.get('If-None-Match') === etag
+	) {
 		return new Response(null, {
 			status: 304,
 			headers: { 'Cache-Control': responseCacheControl, ETag: etag },
 		});
 	}
-	const immutableBaseUrl = `/edge-cms/public/legal/${encodeURIComponent(publication.document.slug)}/${encodeURIComponent(publication.variant.locale)}/releases/${publication.variant.releaseHash}`;
-
-	return Response.json(
-		{
-			document: {
-				id: publication.document.id,
-				name: publication.document.name,
-				slug: publication.document.slug,
-				type: publication.document.type,
-			},
-			release: {
-				id: publication.release.id,
-				version: publication.release.version,
-				effectiveDate: publication.release.effectiveDate,
-				locale: publication.variant.locale,
-			},
-			payload: parseLegalReleasePayload(publication.variant.payload),
-			canonicalPayload: publication.variant.payload,
-			releaseHash: publication.variant.releaseHash,
-			signature: publication.variant.signature,
-			signatureAlgorithm: 'ES256',
-			signingKeyId: publication.variant.signingKeyId,
-			publicJwk: JSON.parse(publication.variant.publicJwk) as JsonWebKey,
-			evidenceUrl: immutableBaseUrl,
-			markdownUrl: `${immutableBaseUrl}.md`,
-			pdfUrl: `${immutableBaseUrl}.pdf`,
+	return Response.json(document, {
+		headers: {
+			'Cache-Control': responseCacheControl,
+			ETag: etag,
 		},
-		{
-			headers: {
-				'Cache-Control': responseCacheControl,
-				ETag: etag,
-			},
-		},
-	);
+	});
 }
 
 export async function legalDocumentMarkdownResponse(input: {

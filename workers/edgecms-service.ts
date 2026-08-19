@@ -37,6 +37,12 @@ import {
 	type StaleTranslationsResult,
 } from '~/utils/services/translations.server';
 import { unwrap } from '~/utils/services/result';
+import {
+	recordLegalConsent as recordLegalConsentReceipt,
+	type LegalConsentReceipt,
+	type RecordLegalConsentInput,
+} from '~/utils/legal-consent.server';
+import { getLegalDocumentEvidence } from '~/utils/legal-public.server';
 
 /** Throw with a machine-readable `name`, matching the REST error codes. */
 function fail(code: string, message: string): never {
@@ -64,6 +70,24 @@ function fail(code: string, message: string): never {
  * validation and preconditions can't drift between the two.
  */
 export class EdgeCMSService extends WorkerEntrypoint<Env> {
+	async getLegalDocument(slug: string, locale: string) {
+		const document = await getLegalDocumentEvidence({
+			runtimeEnv: this.env,
+			slug,
+			locale,
+		});
+		if (!document) {
+			fail('LEGAL_DOCUMENT_NOT_FOUND', 'Legal document not found');
+		}
+		return document;
+	}
+
+	async recordLegalConsent(
+		input: RecordLegalConsentInput,
+	): Promise<LegalConsentReceipt> {
+		return recordLegalConsentReceipt(this.env, input);
+	}
+
 	/**
 	 * Translations for a locale, from the live R2 snapshot.
 	 */

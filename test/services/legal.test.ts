@@ -6,14 +6,16 @@ import {
 	deleteLegalDocument,
 	discardFailedLegalRelease,
 	publishLegalDocument,
-	retireLegalRelease,
 	retryLegalRelease,
 	saveLegalDraft,
 	updateLegalDocument,
 } from '~/utils/services/legal.server';
 import {
+	getLegalReleaseVariants,
 	markLegalReleaseFailed,
+	markLegalReleasePublished,
 	publishLegalReleaseAsCurrent,
+	saveLegalReleaseVariantArtifacts,
 } from '~/utils/db.server';
 import { resetDb, seedLanguage } from '../helpers';
 
@@ -388,7 +390,7 @@ describe('legal releases', () => {
 		});
 	});
 
-	it('activates one published release at a time and can retire it', async () => {
+	it('rejects activation until every release artifact is complete', async () => {
 		await seedLanguage('en', true);
 		const document = await createPrivacyPolicy();
 		await saveLegalDraft({
@@ -402,25 +404,63 @@ describe('legal releases', () => {
 			effectiveDate: '2026-09-01',
 		});
 		if (!first.ok) throw new Error(first.error.message);
-		await env.DB.prepare(
-			"UPDATE legal_releases SET status = 'published' WHERE id = ?",
-		)
-			.bind(first.data.releaseId)
-			.run();
+		await markLegalReleasePublished(first.data.releaseId);
 
 		await expect(
 			activateLegalRelease(first.data.releaseId),
-		).resolves.toMatchObject({ ok: true });
-		await expect(
-			retireLegalRelease(first.data.releaseId),
 		).resolves.toMatchObject({
-			ok: true,
+			ok: false,
+			error: { code: 'LEGAL_RELEASE_ARTIFACTS_INCOMPLETE' },
 		});
 		const row = await env.DB.prepare(
 			'SELECT status FROM legal_releases WHERE id = ?',
 		)
 			.bind(first.data.releaseId)
 			.first<{ status: string }>();
-		expect(row?.status).toBe('retired');
+		expect(row?.status).toBe('published');
+	});
+
+	it('rejects a partially signed multilingual release', async () => {
+		await seedLanguage('en', true);
+		await seedLanguage('es');
+		const document = await createPrivacyPolicy();
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'en',
+			markdown: '# Privacy',
+		});
+		await saveLegalDraft({
+			documentId: document.id,
+			locale: 'es',
+			markdown: '# Privacidad',
+		});
+		const publication = await publishLegalDocument({
+			documentId: document.id,
+			version: '1',
+			effectiveDate: '2026-09-01',
+		});
+		if (!publication.ok) throw new Error(publication.error.message);
+		const [english] = await getLegalReleaseVariants(publication.data.releaseId);
+		if (!english) throw new Error('Expected an English release variant');
+		await saveLegalReleaseVariantArtifacts({
+			variantId: english.id,
+			releaseHash: 'a'.repeat(64),
+			signature: 'signed',
+			signingKeyId: 'legal-key',
+			publicJwk: '{"kty":"EC"}',
+			pdfKey: 'legal/privacy/en.pdf',
+		});
+		await markLegalReleasePublished(publication.data.releaseId);
+
+		await expect(
+			activateLegalRelease(publication.data.releaseId),
+		).resolves.toMatchObject({
+			ok: false,
+			error: { code: 'LEGAL_RELEASE_ARTIFACTS_INCOMPLETE' },
+		});
+		const policies = await env.DB.prepare(
+			'SELECT COUNT(*) AS count FROM c15t_consentPolicy',
+		).first<{ count: number }>();
+		expect(policies?.count).toBe(0);
 	});
 });

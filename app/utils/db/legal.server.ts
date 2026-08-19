@@ -336,7 +336,12 @@ export async function markLegalReleaseFailed(
 	await db
 		.update(legalReleases)
 		.set({ status: 'failed', failureReason: reason })
-		.where(eq(legalReleases.id, releaseId));
+		.where(
+			and(
+				eq(legalReleases.id, releaseId),
+				eq(legalReleases.status, 'processing'),
+			),
+		);
 }
 
 export async function markLegalReleaseProcessing(

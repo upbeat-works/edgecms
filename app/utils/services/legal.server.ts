@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers';
 import {
-	activateLegalReleaseRow,
 	countLegalReleases,
 	createFrozenLegalRelease,
 	getLegalDocumentById,
@@ -12,7 +11,6 @@ import {
 	markLegalReleaseProcessing,
 	removeFailedLegalRelease,
 	removeLegalDocument,
-	retireLegalReleaseRow,
 	setLegalReleaseWorkflow,
 	updateLegalDocument as updateLegalDocumentRow,
 	upsertLegalDraft,
@@ -22,6 +20,10 @@ import {
 	parseLegalSigningPrivateJwk,
 	serializeLegalReleasePayload,
 } from '../legal-release.server';
+import {
+	activateLegalReleaseWithConsentPolicy,
+	retireLegalReleaseWithConsentPolicy,
+} from '../legal-consent.server';
 import { err, ok, type ServiceResult } from './result';
 
 const LEGAL_DOCUMENT_TYPES = new Set<LegalDocumentType>([
@@ -440,7 +442,23 @@ export async function activateLegalRelease(
 			409,
 		);
 	}
-	await activateLegalReleaseRow(release);
+	try {
+		await activateLegalReleaseWithConsentPolicy(env, release.id);
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.name === 'LEGAL_RELEASE_ARTIFACTS_INCOMPLETE'
+		) {
+			return err(error.name, error.message, 409);
+		}
+		if (
+			error instanceof Error &&
+			error.name === 'LEGAL_RELEASE_NOT_ACTIVATABLE'
+		) {
+			return err(error.name, error.message, 409);
+		}
+		throw error;
+	}
 	return ok({ releaseId });
 }
 
@@ -458,7 +476,17 @@ export async function retireLegalRelease(
 			409,
 		);
 	}
-	await retireLegalReleaseRow(releaseId);
+	try {
+		await retireLegalReleaseWithConsentPolicy(env, releaseId);
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.name === 'LEGAL_RELEASE_NOT_RETIRABLE'
+		) {
+			return err(error.name, error.message, 409);
+		}
+		throw error;
+	}
 	return ok({ releaseId });
 }
 

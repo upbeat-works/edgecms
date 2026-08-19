@@ -10,6 +10,7 @@ import { createVersion } from '~/utils/db/versions.server';
 import { upsertTranslation } from '~/utils/db/translations.server';
 import {
 	resetDb,
+	seedActiveLegalDocument,
 	seedBlockCollection,
 	seedLanguage,
 	seedMedia,
@@ -71,6 +72,55 @@ describe('languages over RPC', () => {
 		await expect(service().setDefaultLanguage('de')).rejects.toMatchObject({
 			name: 'LOCALE_NOT_FOUND',
 		});
+	});
+});
+
+describe('legal consent over RPC', () => {
+	it('returns the active document and records its acceptance', async () => {
+		const seeded = await seedActiveLegalDocument();
+		const svc = service();
+
+		const legalDocument = await svc.getLegalDocument('privacy', 'en');
+		expect(legalDocument).toMatchObject({
+			releaseHash: seeded.signed.releaseHash,
+			consent: {
+				type: 'privacy_policy_privacy',
+				documentSnapshotToken: expect.any(String),
+			},
+		});
+
+		await expect(
+			svc.recordLegalConsent({
+				type: legalDocument.consent.type,
+				documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
+				subjectId: 'sub_3jv6z8n4q9',
+				domain: 'worker.example',
+				externalSubjectId: 'user_84',
+				identityProvider: 'worker-auth',
+			}),
+		).resolves.toMatchObject({
+			subjectId: 'sub_3jv6z8n4q9',
+			consentId: expect.stringMatching(/^cns_/u),
+			domain: 'worker.example',
+			type: 'privacy_policy_privacy',
+			metadata: {
+				edgecmsLegalDocument: {
+					locale: 'en',
+					documentHash: seeded.signed.releaseHash,
+				},
+			},
+		});
+	});
+
+	it('rejects a forged document capability', async () => {
+		await expect(
+			service().recordLegalConsent({
+				type: 'privacy_policy_privacy',
+				documentSnapshotToken: 'forged',
+				subjectId: 'sub_4jv6z8n4q9',
+				domain: 'worker.example',
+			}),
+		).rejects.toMatchObject({ name: 'LEGAL_DOCUMENT_SNAPSHOT_INVALID' });
 	});
 });
 

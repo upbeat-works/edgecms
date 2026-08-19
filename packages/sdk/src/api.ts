@@ -1,6 +1,6 @@
 export interface EdgeCMSClientConfig {
 	baseUrl: string;
-	apiKey: string;
+	apiKey?: string;
 }
 
 export interface Language {
@@ -46,8 +46,9 @@ export interface SectionAssignmentResponse {
 }
 
 export interface ApiError {
-	error: string;
-	code: string;
+	error?: string;
+	message?: string;
+	code?: string;
 }
 
 export interface BlockItem {
@@ -111,6 +112,88 @@ export interface LegalDraftResponse {
 	documentId: number;
 	locale: string;
 	state: 'draft';
+}
+
+export interface LegalConsentCapability {
+	endpoint: string;
+	type: string;
+	documentSnapshotToken: string;
+	expiresAt: string;
+}
+
+export interface LegalDocumentEvidenceResponse {
+	document: {
+		id: number;
+		name: string;
+		slug: string;
+		type: LegalDocumentType;
+	};
+	release: {
+		id: number;
+		version: string;
+		effectiveDate: string;
+		locale: string;
+	};
+	payload: {
+		documentId: number;
+		slug: string;
+		type: LegalDocumentType;
+		locale: string;
+		version: string;
+		effectiveDate: string;
+		markdown: string;
+	};
+	canonicalPayload: string;
+	releaseHash: string;
+	signature: string;
+	signatureAlgorithm: 'ES256';
+	signingKeyId: string;
+	publicJwk: Record<string, unknown>;
+	evidenceUrl: string;
+	markdownUrl: string;
+	pdfUrl: string;
+	consent: LegalConsentCapability;
+}
+
+export interface RecordLegalConsentInput {
+	type: string;
+	documentSnapshotToken: string;
+	subjectId: string;
+	domain: string;
+	metadata?: Record<string, unknown>;
+}
+
+export interface LegalConsentReceipt {
+	subjectId: string;
+	consentId: string;
+	domainId: string;
+	domain: string;
+	type: string;
+	metadata?: Record<string, unknown>;
+	appliedPreferences?: Record<string, boolean>;
+	uiSource?: string;
+	givenAt: string;
+}
+
+export interface LegalConsentRecord {
+	id: string;
+	type: string;
+	policyId?: string;
+	policyVersion?: string;
+	policyHash?: string;
+	policyEffectiveDate?: string;
+	isLatestPolicy: boolean;
+	preferences?: Record<string, boolean>;
+	givenAt: string;
+}
+
+export interface LegalConsentStatusResponse {
+	subject: {
+		id: string;
+		createdAt?: string;
+	};
+	consents: LegalConsentRecord[];
+	isValid: boolean;
 }
 
 export interface PublishResponse {
@@ -223,7 +306,7 @@ class EdgeCMSApiError extends Error {
  */
 export class EdgeCMSClient {
 	private baseUrl: string;
-	private apiKey: string;
+	private apiKey?: string;
 
 	constructor(config: EdgeCMSClientConfig) {
 		this.baseUrl = config.baseUrl;
@@ -232,13 +315,11 @@ export class EdgeCMSClient {
 
 	private async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
 		const url = `${this.baseUrl}${path}`;
-		const headers: Record<string, string> = {
-			'x-api-key': this.apiKey,
-			...(options.headers as Record<string, string>),
-		};
+		const headers = new Headers(options.headers);
+		if (this.apiKey) headers.set('x-api-key', this.apiKey);
 
 		if (options.body && typeof options.body === 'string') {
-			headers['Content-Type'] = 'application/json';
+			headers.set('Content-Type', 'application/json');
 		}
 
 		const response = await fetch(url, {
@@ -256,9 +337,13 @@ export class EdgeCMSClient {
 					code: 'HTTP_ERROR',
 				};
 			}
+			const message =
+				errorData.error ??
+				errorData.message ??
+				`HTTP ${response.status}: ${response.statusText}`;
 			throw new EdgeCMSApiError(
-				errorData.code,
-				errorData.error,
+				errorData.code ?? 'HTTP_ERROR',
+				message,
 				response.status,
 			);
 		}
@@ -421,6 +506,39 @@ export class EdgeCMSClient {
 				method: 'PUT',
 				body: JSON.stringify({ markdown }),
 			},
+		);
+	}
+
+	async getLegalDocument(
+		slug: string,
+		locale: string,
+	): Promise<LegalDocumentEvidenceResponse> {
+		return this.fetch<LegalDocumentEvidenceResponse>(
+			`/public/legal/${encodeURIComponent(slug)}/${encodeURIComponent(locale)}`,
+		);
+	}
+
+	async recordLegalConsent(
+		input: RecordLegalConsentInput,
+	): Promise<LegalConsentReceipt> {
+		return this.fetch<LegalConsentReceipt>('/consent/subjects', {
+			method: 'POST',
+			body: JSON.stringify(input),
+		});
+	}
+
+	async getLegalConsentStatus(
+		subjectId: string,
+		options: { type: string | [string, ...string[]] },
+	): Promise<LegalConsentStatusResponse> {
+		const query = new URLSearchParams();
+		if (typeof options.type === 'string') {
+			query.set('type', options.type);
+		} else {
+			query.set('type', options.type.join(','));
+		}
+		return this.fetch<LegalConsentStatusResponse>(
+			`/consent/subjects/${encodeURIComponent(subjectId)}?${query}`,
 		);
 	}
 

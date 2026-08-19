@@ -22,6 +22,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.10",
     "@better-auth/api-key": "^1.6.25",
+    "@c15t/backend": "2.2.0",
+    "@c15t/schema": "2.2.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -56,6 +58,7 @@
     "rehype-sanitize": "^6.0.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
+    "valibot": "1.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -92,8 +95,8 @@
       "BACKUPS_BUCKET": {
         "description": "R2 bucket for storing database backups and version snapshots."
       },
-      "RATE_LIMITER": {
-        "description": "Rate limiting binding to prevent abuse and control API request frequency."
+      "LEGAL_CONSENT_RATE_LIMITER": {
+        "description": "Rate limiting binding for public append-only legal consent writes."
       },
       "RELEASE_VERSION_WORKFLOW": {
         "description": "Workflow binding for handling content version releases and publishing."

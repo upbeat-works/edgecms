@@ -95,6 +95,17 @@
 			"id": "1c545352faed4be8b4029683188183b7"
 		}
 	],
+
+	"ratelimits": [
+		{
+			"name": "LEGAL_CONSENT_RATE_LIMITER",
+			"namespace_id": "227340521",
+			"simple": {
+				"limit": 60,
+				"period": 60
+			}
+		}
+	],
 	
 	/**
 	 * R2 Bucket Binding

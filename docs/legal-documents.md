@@ -53,7 +53,7 @@ The current aliases expose the active release:
 
 - `/edge-cms/public/legal/:slug/:locale` returns the parsed payload, its exact
   `canonicalPayload` string, hash, base64url ES256 signature, key ID, public
-  JWK, and immutable evidence, Markdown, and PDF URLs.
+  JWK, immutable evidence URLs, and a short-lived c15t consent capability.
 - `/edge-cms/public/legal/:slug/:locale.md` returns the active raw Markdown as
   `text/markdown`.
 - `/edge-cms/public/legal/:slug/:locale.pdf` streams its PDF rendition.
@@ -65,8 +65,11 @@ Every signed release remains available at immutable URLs after it is retired:
 - `/edge-cms/public/legal/:slug/:locale/releases/:releaseHash.pdf`
 
 Generated PDFs point to their hash-specific evidence URL, and the immutable
-responses use long-lived immutable caching. The current aliases use short-lived
-caching because a later publication can replace their content.
+responses use long-lived immutable caching. The current Markdown and PDF aliases
+use short-lived caching because a later publication can replace their content.
+The current JSON alias uses `private, no-store` because its consent capability
+expires after 15 minutes. Hash-specific JSON omits that capability and remains
+immutable.
 
 The key endpoint covers all published release history:
 
@@ -116,8 +119,105 @@ the private `d` value through a public endpoint.
 
 ## Consent integration
 
-Use `releaseHash` as the legal document version recorded by a consent provider
-such as c15t. Keep the consent tables in the existing D1 database under a
-dedicated prefix or schema convention. EdgeCMS does not install c15t or own
-consent receipts in this release; the public evidence endpoint is the boundary
-an integration can consume.
+EdgeCMS runs c15t at `/edge-cms/consent` and stores its append-only consent
+receipts in the instance D1 database. Migration `0023_add_c15t_consent.sql`
+creates the prefixed c15t tables. Activating a legal release registers one c15t
+policy for the document, covering every signed locale variant in that release.
+The prefixed policy table is part of c15t's schema, not an EdgeCMS projection
+table. EdgeCMS remains authoritative for authored content, signed variants,
+PDFs, and release lifecycle. c15t owns the policy index required by its status
+queries and is authoritative for consent receipts.
+
+Fetch the current document immediately before showing it. Its `consent` value
+contains a 15-minute snapshot token bound to the release policy and the exact
+locale-specific document hash, type, version, and effective date:
+
+```typescript
+const cmsUrl = 'https://cms.example.com';
+const document = await fetch(`${cmsUrl}/edge-cms/public/legal/privacy/en`).then(
+	response => response.json(),
+);
+
+const receipt = await fetch(new URL(document.consent.endpoint, cmsUrl), {
+	method: 'POST',
+	headers: { 'Content-Type': 'application/json' },
+	body: JSON.stringify({
+		type: document.consent.type,
+		subjectId: 'sub_2jv6z8n4q9',
+		domain: location.hostname,
+		documentSnapshotToken: document.consent.documentSnapshotToken,
+		metadata: { flow: 'signup' },
+	}),
+}).then(response => {
+	if (!response.ok) throw new Error('Could not record legal consent');
+	return response.json();
+});
+```
+
+Use a stable, pseudonymous `subjectId`. The public endpoint ignores account-link
+fields and records server receipt time as `givenAt`. Use authenticated RPC when
+an account link or explicit event time is required. Add the frontend origin to
+`TRUSTED_ORIGINS`; c15t handles its CORS preflight. A valid receipt includes
+`subjectId`, `consentId`, `domainId`, `domain`, `type`, and `givenAt`.
+
+Read the subject's current status with the c15t API:
+
+```text
+GET /edge-cms/consent/subjects/:subjectId?type=:consentType
+```
+
+The response reports whether the receipt remains valid and includes the recorded
+`policyHash`. EdgeCMS derives that hash from the release and all its localized
+document hashes. The receipt metadata identifies the exact locale and document
+hash the user accepted. EdgeCMS exposes only c15t health, per-subject status,
+and signed legal acceptance; it does not expose subject listings or external
+account identifiers. Consent request bodies are capped at 64 KiB.
+Public writes are limited to 60 requests per minute for each Cloudflare
+connecting IP. The SDK payload is allowlisted; raw callers cannot set c15t
+preference, action, jurisdiction, TCF, UI-source, policy, account-link, or
+receipt-time fields.
+
+The SDK exposes the same public flow without requiring an API key:
+
+```typescript
+import { EdgeCMSClient } from '@upbeat-works/edgecms-sdk';
+
+const edgecms = new EdgeCMSClient({
+	baseUrl: 'https://cms.example.com/edge-cms',
+});
+const document = await edgecms.getLegalDocument('privacy', 'en');
+const receipt = await edgecms.recordLegalConsent({
+	type: document.consent.type,
+	documentSnapshotToken: document.consent.documentSnapshotToken,
+	subjectId: 'sub_2jv6z8n4q9',
+	domain: location.hostname,
+	metadata: { flow: 'signup' },
+});
+const status = await edgecms.getLegalConsentStatus(receipt.subjectId, {
+	type: document.consent.type,
+});
+```
+
+Pass the capability returned with the rendered document to `recordLegalConsent`;
+do not fetch another release after the user accepts. The management SDK methods
+still require `apiKey` in the client configuration.
+
+Workers in the same Cloudflare account can use the `EdgeCMSService` binding. The
+RPC write uses the same signed capability as the frontend API, so the receipt is
+bound to the document the user saw:
+
+```typescript
+const document = await env.EDGECMS.getLegalDocument('privacy', 'en');
+const receipt = await env.EDGECMS.recordLegalConsent({
+	type: document.consent.type,
+	documentSnapshotToken: document.consent.documentSnapshotToken,
+	subjectId: 'sub_2jv6z8n4q9',
+	externalSubjectId: 'user_42',
+	identityProvider: 'my-worker',
+	domain: 'client.example',
+	metadata: { flow: 'signup' },
+});
+```
+
+The c15t snapshot signing key is derived from `LEGAL_SIGNING_PRIVATE_JWK` with a
+separate purpose label. No extra production secret is required.

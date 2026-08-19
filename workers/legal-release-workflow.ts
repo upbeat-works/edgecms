@@ -8,7 +8,6 @@ import {
 	getLegalReleaseById,
 	getLegalReleaseVariants,
 	markLegalReleaseFailed,
-	publishLegalReleaseAsCurrent,
 	saveLegalReleaseVariantArtifacts,
 } from '~/utils/db.server';
 import {
@@ -17,6 +16,7 @@ import {
 	signLegalReleasePayload,
 } from '~/utils/legal-release.server';
 import { generateLegalPdf } from '~/utils/legal-pdf.server';
+import { activateLegalReleaseWithConsentPolicy } from '~/utils/legal-consent.server';
 
 export interface LegalReleaseWorkflowParams {
 	releaseId: number;
@@ -179,7 +179,12 @@ export class LegalReleaseWorkflow extends WorkflowEntrypoint<
 					retries: { limit: 5, delay: '2 seconds', backoff: 'exponential' },
 					timeout: '30 seconds',
 				},
-				() => publishLegalReleaseAsCurrent(snapshot.releaseId),
+				async () => {
+					await activateLegalReleaseWithConsentPolicy(
+						this.env,
+						snapshot.releaseId,
+					);
+				},
 			);
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);
