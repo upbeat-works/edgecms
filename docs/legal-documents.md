@@ -128,6 +128,14 @@ table. EdgeCMS remains authoritative for authored content, signed variants,
 PDFs, and release lifecycle. c15t owns the policy index required by its status
 queries and is authoritative for consent receipts.
 
+c15t exposes an authenticated `/legal-documents/:type/current` endpoint, but its
+policy replacement uses an adapter transaction. D1 guarantees atomic
+multi-statement writes through `DB.batch()`, while the c15t Drizzle transaction
+callback cannot currently provide that boundary on D1. EdgeCMS therefore keeps
+c15t's official policy identity, schema, and replacement semantics inside the
+same D1 batch as the release transition. Do not replace this bridge with the
+official endpoint until c15t provides an atomic D1 transaction path.
+
 Fetch the current document immediately before showing it. Its `consent` value
 contains a 15-minute snapshot token bound to the release policy and the exact
 locale-specific document hash, type, version, and effective date:
@@ -171,11 +179,12 @@ The response reports whether the receipt remains valid and includes the recorded
 document hashes. The receipt metadata identifies the exact locale and document
 hash the user accepted. EdgeCMS exposes only c15t health, per-subject status,
 and signed legal acceptance; it does not expose subject listings or external
-account identifiers. Consent request bodies are capped at 64 KiB.
-Public writes are limited to 60 requests per minute for each Cloudflare
-connecting IP. The SDK payload is allowlisted; raw callers cannot set c15t
-preference, action, jurisdiction, TCF, UI-source, policy, account-link, or
-receipt-time fields.
+account identifiers. Consent request bodies are capped at 64 KiB. Public writes
+are limited to 60 requests per minute for each Cloudflare connecting IP. c15t
+does not require `consentAction` for legal documents, so EdgeCMS does not send
+one and c15t leaves the derived receipt action empty. The SDK payload is
+allowlisted, so callers cannot set c15t preference, action, jurisdiction, TCF,
+UI-source, policy, account-link, or receipt-time fields.
 
 The SDK exposes the same public flow without requiring an API key:
 
@@ -204,20 +213,35 @@ still require `apiKey` in the client configuration.
 
 Workers in the same Cloudflare account can use the `EdgeCMSService` binding. The
 RPC write uses the same signed capability as the frontend API, so the receipt is
-bound to the document the user saw:
+bound to the document the user saw. The calling Worker must forward the client
+request evidence; EdgeCMS passes it through c15t's normal proof collection:
 
 ```typescript
 const document = await env.EDGECMS.getLegalDocument('privacy', 'en');
+const ipAddress = request.headers.get('CF-Connecting-IP');
+const userAgent = request.headers.get('User-Agent');
+if (!ipAddress || !userAgent) throw new Error('Missing request evidence');
 const receipt = await env.EDGECMS.recordLegalConsent({
 	type: document.consent.type,
 	documentSnapshotToken: document.consent.documentSnapshotToken,
 	subjectId: 'sub_2jv6z8n4q9',
-	externalSubjectId: 'user_42',
-	identityProvider: 'my-worker',
 	domain: 'client.example',
+	ipAddress,
+	userAgent,
+	uiSource: 'signup',
 	metadata: { flow: 'signup' },
 });
+await env.EDGECMS.identifyLegalConsentSubject({
+	subjectId: receipt.subjectId,
+	externalId: 'user_42',
+	identityProvider: 'my-worker',
+	ipAddress,
+	userAgent,
+});
 ```
+
+`identifyLegalConsentSubject` uses c15t's subject PATCH flow. It updates the
+official subject row and appends c15t's `identify_user` audit entry.
 
 The c15t snapshot signing key is derived from `LEGAL_SIGNING_PRIVATE_JWK` with a
 separate purpose label. No extra production secret is required.

@@ -32,8 +32,9 @@ entrypoint, avoiding HTTP, DNS/TLS overhead, and API keys at runtime:
 
 Live read methods include translations, blocks, media, and languages. The RPC
 surface also supports draft inspection, language/schema/collection changes,
-key deletion, publication, and publish-status checks. RPC failures throw and
-use `error.name` for the same machine-readable codes returned by REST.
+key deletion, publication, publish-status checks, legal consent recording, and
+authenticated c15t subject identification. RPC failures throw and use
+`error.name` for the same machine-readable codes returned by REST.
 
 Service-binding reads of translations use the published snapshot. Blocks use
 the published snapshot when one exists; before the first publication they may

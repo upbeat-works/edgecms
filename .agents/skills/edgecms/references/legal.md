@@ -57,3 +57,9 @@ with ES256. It stores the lowercase hash, base64url signature, key ID, and
 derived public JWK with the immutable release. The public JWK contains `x` and
 `y` for verification; the private `d` value is never published. The PDF displays
 the payload hash and is a rendition, not a second source of truth.
+
+Legal consent submissions use c15t's optional legal-document action model and
+do not set `consentAction`. Policy activation remains an atomic D1 batch because
+c15t's `/legal-documents/:type/current` transaction callback is not atomic under
+the D1 Drizzle bridge. Keep the official c15t schema, policy identity, and
+replacement semantics in that batch until c15t provides an atomic D1 path.

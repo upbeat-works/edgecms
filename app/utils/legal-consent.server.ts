@@ -31,10 +31,29 @@ export interface RecordLegalConsentInput {
 	documentSnapshotToken: string;
 	subjectId: string;
 	domain: string;
+	ipAddress: string;
+	userAgent: string;
+	uiSource: string;
 	externalSubjectId?: string;
 	identityProvider?: string;
 	metadata?: Record<string, LegalConsentMetadataValue>;
 	givenAt?: number;
+}
+
+export interface IdentifyLegalConsentSubjectInput {
+	subjectId: string;
+	externalId: string;
+	identityProvider?: string;
+	ipAddress: string;
+	userAgent: string;
+}
+
+export interface IdentifyLegalConsentSubjectResult {
+	success: true;
+	subject: {
+		id: string;
+		externalId: string;
+	};
 }
 
 export type LegalConsentMetadataValue =
@@ -52,6 +71,7 @@ export interface LegalConsentReceipt {
 	domain: string;
 	type: string;
 	metadata?: Record<string, LegalConsentMetadataValue>;
+	uiSource?: string;
 	givenAt: string;
 }
 
@@ -369,11 +389,7 @@ async function ensureCanonicalConsentIdentity(
 			`INSERT INTO c15t_subject (id, externalId, identityProvider)
 			 VALUES (?, ?, ?)
 			 ON CONFLICT(id) DO NOTHING`,
-		).bind(
-			input.subjectId,
-			input.externalSubjectId ?? null,
-			identityProvider,
-		),
+		).bind(input.subjectId, input.externalSubjectId ?? null, identityProvider),
 		runtimeEnv.DB.prepare(
 			`INSERT INTO c15t_domain (id, name)
 			 SELECT ?, ?
@@ -426,7 +442,7 @@ async function storedLegalConsentForSubmission(
 			domain: string;
 			metadata: unknown;
 			givenAt: number;
-	}>();
+		}>();
 	for (const row of result.results) {
 		const metadata = decodeJsonBlob(row.metadata);
 		if (!metadata) continue;
@@ -462,7 +478,9 @@ function consentErrorResponse(
 	);
 }
 
-async function readConsentRequestBody(request: Request): Promise<string | null> {
+async function readConsentRequestBody(
+	request: Request,
+): Promise<string | null> {
 	const contentLength = Number(request.headers.get('Content-Length'));
 	if (
 		Number.isFinite(contentLength) &&
@@ -514,9 +532,8 @@ async function createConsentBackend(
 	context?: ExecutionContext,
 ): Promise<C15TInstance> {
 	const db = drizzle(runtimeEnv.DB, { schema: c15tSchema });
-	// D1 rejects BEGIN. EdgeCMS only exposes c15t's legal path, whose callback
-	// contains one append-only receipt insert; subject and policy writes are
-	// already outside that callback in c15t.
+	// D1 rejects the BEGIN emitted by Drizzle transactions. c15t still owns the
+	// handler flow, but its transaction callbacks execute sequentially on D1.
 	Object.defineProperty(db, 'transaction', {
 		value: async <T>(transaction: (database: typeof db) => Promise<T>) =>
 			transaction(db),
@@ -551,15 +568,20 @@ async function handleConsentRequestWithAccess(
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const isSubjectsRoute = url.pathname === `${CONSENT_BASE_PATH}/subjects`;
-	const isSubjectStatusRoute = new RegExp(
+	const isSubjectResourceRoute = new RegExp(
 		`^${CONSENT_BASE_PATH}/subjects/[^/]+$`,
 		'u',
 	).test(url.pathname);
 	const isStatusRoute = url.pathname === `${CONSENT_BASE_PATH}/status`;
+	const isServiceSubjectPatch =
+		access === 'service' &&
+		request.method === 'PATCH' &&
+		isSubjectResourceRoute;
 	if (
 		request.method !== 'GET' &&
 		request.method !== 'POST' &&
-		request.method !== 'OPTIONS'
+		request.method !== 'OPTIONS' &&
+		!isServiceSubjectPatch
 	) {
 		return consentErrorResponse(request, runtimeEnv, {
 			code: 'METHOD_NOT_ALLOWED',
@@ -577,7 +599,7 @@ async function handleConsentRequestWithAccess(
 		});
 	}
 	if (
-		(request.method === 'GET' && !isSubjectStatusRoute && !isStatusRoute) ||
+		(request.method === 'GET' && !isSubjectResourceRoute && !isStatusRoute) ||
 		(request.method === 'OPTIONS' && !isSubjectsRoute)
 	) {
 		return consentErrorResponse(request, runtimeEnv, {
@@ -587,7 +609,10 @@ async function handleConsentRequestWithAccess(
 		});
 	}
 	if (request.method === 'POST' && access === 'public') {
-		const rateLimited = await enforcePublicConsentRateLimit(request, runtimeEnv);
+		const rateLimited = await enforcePublicConsentRateLimit(
+			request,
+			runtimeEnv,
+		);
 		if (rateLimited) return rateLimited;
 	}
 	let verifiedSnapshot: LegalConsentSnapshotPayload | null = null;
@@ -647,10 +672,7 @@ async function handleConsentRequestWithAccess(
 		let forwardedBody = consentBody;
 		const validatedConsent = safeParse(postSubjectInputSchema, consentBody);
 		if (verifiedSnapshot?.type === type && validatedConsent.success) {
-			await ensureCanonicalConsentIdentity(
-				runtimeEnv,
-				validatedConsent.output,
-			);
+			await ensureCanonicalConsentIdentity(runtimeEnv, validatedConsent.output);
 			const metadata = consentMetadata(
 				consentBody.metadata,
 				verifiedSnapshot,
@@ -728,7 +750,7 @@ async function handleConsentRequestWithAccess(
 			{ status: response.status, headers: response.headers },
 		);
 	}
-	if (request.method === 'GET' && isSubjectStatusRoute && response.ok) {
+	if (request.method === 'GET' && isSubjectResourceRoute && response.ok) {
 		const value = await responseObject(response.clone());
 		if (isRecord(value.subject)) {
 			const subject = { ...value.subject };
@@ -859,6 +881,9 @@ async function legalConsentPolicy(
 	};
 }
 
+// c15t's /legal-documents/:type/current relies on a transaction callback. D1
+// only makes multi-statement writes atomic through batch(), so the same policy
+// writes stay inside the EdgeCMS release-transition batch.
 function consentPolicyStatements(
 	runtimeEnv: Env,
 	policy: LegalConsentPolicy,
@@ -1064,8 +1089,7 @@ export async function activateLegalReleaseWithConsentPolicy(
 	const transition = results.at(-2);
 	if (transition?.meta.changes === 1) return;
 	const classification = results.at(-1)?.results.at(0) as
-		| { matchesActiveState?: number }
-		| undefined;
+		{ matchesActiveState?: number } | undefined;
 	if (classification?.matchesActiveState === 1) return;
 	const error = new Error(
 		'Only a processing or published release can be activated',
@@ -1131,6 +1155,13 @@ function responseError(value: Record<string, unknown>, status: number): Error {
 	return error;
 }
 
+function requiredConsentEvidence(value: unknown, field: string): string {
+	if (typeof value === 'string' && value.trim()) return value;
+	const error = new Error(`${field} is required for RPC legal consent`);
+	error.name = 'INPUT_VALIDATION_FAILED';
+	throw error;
+}
+
 function legalConsentReceipt(
 	value: Record<string, unknown>,
 ): LegalConsentReceipt {
@@ -1161,7 +1192,23 @@ function legalConsentReceipt(
 			LegalConsentMetadataValue
 		>;
 	}
+	if (typeof value.uiSource === 'string') {
+		receipt.uiSource = value.uiSource;
+	}
 	return receipt;
+}
+
+function legalConsentSubjectIdentification(
+	value: Record<string, unknown>,
+): IdentifyLegalConsentSubjectResult {
+	if (value.success !== true || !isRecord(value.subject)) {
+		throw new Error('c15t returned an invalid subject identification');
+	}
+	const { id, externalId } = value.subject;
+	if (typeof id !== 'string' || typeof externalId !== 'string') {
+		throw new Error('c15t returned an invalid subject identification');
+	}
+	return { success: true, subject: { id, externalId } };
 }
 
 export async function recordLegalConsent(
@@ -1169,10 +1216,18 @@ export async function recordLegalConsent(
 	input: RecordLegalConsentInput,
 ): Promise<LegalConsentReceipt> {
 	const origin = new URL(runtimeEnv.BASE_URL).origin;
+	const ipAddress = requiredConsentEvidence(input.ipAddress, 'ipAddress');
+	const userAgent = requiredConsentEvidence(input.userAgent, 'userAgent');
+	const uiSource = requiredConsentEvidence(input.uiSource, 'uiSource');
 	const response = await handleConsentRequestWithAccess(
 		new Request(`${origin}${CONSENT_BASE_PATH}/subjects`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Origin: origin },
+			headers: {
+				'CF-Connecting-IP': ipAddress,
+				'Content-Type': 'application/json',
+				Origin: origin,
+				'User-Agent': userAgent,
+			},
 			body: JSON.stringify({
 				type: input.type,
 				subjectId: input.subjectId,
@@ -1181,6 +1236,7 @@ export async function recordLegalConsent(
 				identityProvider: input.identityProvider,
 				metadata: input.metadata,
 				givenAt: input.givenAt ?? Date.now(),
+				uiSource,
 				documentSnapshotToken: input.documentSnapshotToken,
 			}),
 		}),
@@ -1191,4 +1247,37 @@ export async function recordLegalConsent(
 	const value = await responseObject(response);
 	if (!response.ok) throw responseError(value, response.status);
 	return legalConsentReceipt(value);
+}
+
+export async function identifyLegalConsentSubject(
+	runtimeEnv: Env,
+	input: IdentifyLegalConsentSubjectInput,
+): Promise<IdentifyLegalConsentSubjectResult> {
+	const origin = new URL(runtimeEnv.BASE_URL).origin;
+	const ipAddress = requiredConsentEvidence(input.ipAddress, 'ipAddress');
+	const userAgent = requiredConsentEvidence(input.userAgent, 'userAgent');
+	const response = await handleConsentRequestWithAccess(
+		new Request(
+			`${origin}${CONSENT_BASE_PATH}/subjects/${encodeURIComponent(input.subjectId)}`,
+			{
+				method: 'PATCH',
+				headers: {
+					'CF-Connecting-IP': ipAddress,
+					'Content-Type': 'application/json',
+					Origin: origin,
+					'User-Agent': userAgent,
+				},
+				body: JSON.stringify({
+					externalId: input.externalId,
+					identityProvider: input.identityProvider,
+				}),
+			},
+		),
+		runtimeEnv,
+		undefined,
+		'service',
+	);
+	const value = await responseObject(response);
+	if (!response.ok) throw responseError(value, response.status);
+	return legalConsentSubjectIdentification(value);
 }

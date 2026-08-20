@@ -38,7 +38,10 @@ import {
 } from '~/utils/services/translations.server';
 import { unwrap } from '~/utils/services/result';
 import {
+	identifyLegalConsentSubject as identifyLegalConsentSubjectRecord,
 	recordLegalConsent as recordLegalConsentReceipt,
+	type IdentifyLegalConsentSubjectInput,
+	type IdentifyLegalConsentSubjectResult,
 	type LegalConsentReceipt,
 	type RecordLegalConsentInput,
 } from '~/utils/legal-consent.server';
@@ -86,6 +89,12 @@ export class EdgeCMSService extends WorkerEntrypoint<Env> {
 		input: RecordLegalConsentInput,
 	): Promise<LegalConsentReceipt> {
 		return recordLegalConsentReceipt(this.env, input);
+	}
+
+	async identifyLegalConsentSubject(
+		input: IdentifyLegalConsentSubjectInput,
+	): Promise<IdentifyLegalConsentSubjectResult> {
+		return identifyLegalConsentSubjectRecord(this.env, input);
 	}
 
 	/**

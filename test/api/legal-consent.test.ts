@@ -19,6 +19,12 @@ interface ConsentCapability {
 	expiresAt: string;
 }
 
+const rpcConsentEvidence = {
+	ipAddress: '198.51.100.42',
+	userAgent: 'test-worker/1.0',
+	uiSource: 'test',
+};
+
 beforeEach(resetDb);
 
 async function activeLegalDocument() {
@@ -307,7 +313,9 @@ describe('legal consent over the frontend API', () => {
 			clock.mockRestore();
 		}
 
-		expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
+		expect(responses.map(response => response.status).sort()).toEqual([
+			200, 409,
+		]);
 		const domain = await env.DB.prepare(
 			'SELECT COUNT(*) AS count FROM c15t_domain WHERE name = ?',
 		)
@@ -371,6 +379,7 @@ describe('legal consent over the frontend API', () => {
 			subjectId: 'sub_5jv6z8n4q9',
 			domain: 'new-rpc.example',
 			givenAt: Date.now() + 10 * 60 * 1_000,
+			...rpcConsentEvidence,
 		};
 
 		const receipts = await Promise.all([
@@ -616,6 +625,7 @@ describe('legal consent over the frontend API', () => {
 			subjectId: 'sub_2jv6z8n4q9',
 			domain: 'client.example',
 			givenAt: firstGivenAt,
+			...rpcConsentEvidence,
 		});
 		await recordLegalConsent(env, {
 			type: body.consent.type,
@@ -623,6 +633,7 @@ describe('legal consent over the frontend API', () => {
 			subjectId: 'sub_2jv6z8n4q9',
 			domain: 'client.example',
 			givenAt: firstGivenAt + 1_001,
+			...rpcConsentEvidence,
 		});
 
 		const row = await env.DB.prepare(
@@ -687,10 +698,13 @@ describe('legal consent over the frontend API', () => {
 		)
 			.bind('sub_2jv6z8n4q9')
 			.first<{ externalId: string | null; identityProvider: string }>();
-		expect(subject).toEqual({ externalId: null, identityProvider: 'anonymous' });
+		expect(subject).toEqual({
+			externalId: null,
+			identityProvider: 'anonymous',
+		});
 	});
 
-	it('ignores c15t consent controls outside the public legal contract', async () => {
+	it('does not let public callers set consent controls or invent an action', async () => {
 		const { body } = await activeLegalDocument();
 		if (!body.consent) throw new Error('Expected consent capability');
 
@@ -782,17 +796,14 @@ describe('legal consent over the frontend API', () => {
 				if (closeTimer) clearTimeout(closeTimer);
 			},
 		});
-		const request = new Request(
-			'https://cms.test/edge-cms/consent/subjects',
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Origin: 'https://cms.test',
-				},
-				body,
-			} as RequestInit,
-		);
+		const request = new Request('https://cms.test/edge-cms/consent/subjects', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Origin: 'https://cms.test',
+			},
+			body,
+		} as RequestInit);
 
 		const response = await handleConsentRequest(request, env);
 

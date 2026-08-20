@@ -742,11 +742,24 @@ await env.EDGECMS.deleteTranslationKeys(['home.hero.oldTitle'], {
 });
 const { publishId } = await env.EDGECMS.publish();
 const state = await env.EDGECMS.publishStatus(publishId);
+const ipAddress = request.headers.get('CF-Connecting-IP');
+const userAgent = request.headers.get('User-Agent');
+if (!ipAddress || !userAgent) throw new Error('Missing request evidence');
 const receipt = await env.EDGECMS.recordLegalConsent({
 	type: legalDocument.consent.type,
 	documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
 	subjectId: 'sub_2jv6z8n4q9',
 	domain: 'client.example',
+	ipAddress,
+	userAgent,
+	uiSource: 'signup',
+});
+await env.EDGECMS.identifyLegalConsentSubject({
+	subjectId: receipt.subjectId,
+	externalId: 'user_42',
+	identityProvider: 'my-worker',
+	ipAddress,
+	userAgent,
 });
 ```
 

@@ -89,16 +89,16 @@ describe('legal consent over RPC', () => {
 			},
 		});
 
-		await expect(
-			svc.recordLegalConsent({
-				type: legalDocument.consent.type,
-				documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
-				subjectId: 'sub_3jv6z8n4q9',
-				domain: 'worker.example',
-				externalSubjectId: 'user_84',
-				identityProvider: 'worker-auth',
-			}),
-		).resolves.toMatchObject({
+		const receipt = await svc.recordLegalConsent({
+			type: legalDocument.consent.type,
+			documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
+			subjectId: 'sub_3jv6z8n4q9',
+			domain: 'worker.example',
+			ipAddress: '198.51.100.42',
+			userAgent: 'customer-worker/1.0',
+			uiSource: 'signup',
+		});
+		expect(receipt).toMatchObject({
 			subjectId: 'sub_3jv6z8n4q9',
 			consentId: expect.stringMatching(/^cns_/u),
 			domain: 'worker.example',
@@ -109,6 +109,54 @@ describe('legal consent over RPC', () => {
 					documentHash: seeded.signed.releaseHash,
 				},
 			},
+			uiSource: 'signup',
+		});
+
+		await expect(
+			svc.identifyLegalConsentSubject({
+				subjectId: receipt.subjectId,
+				externalId: 'user_84',
+				identityProvider: 'worker-auth',
+				ipAddress: '198.51.100.42',
+				userAgent: 'customer-worker/1.0',
+			}),
+		).resolves.toEqual({
+			success: true,
+			subject: {
+				id: 'sub_3jv6z8n4q9',
+				externalId: 'user_84',
+			},
+		});
+
+		await expect(
+			env.DB.prepare(
+				`SELECT ipAddress, userAgent, uiSource, consentAction
+				 FROM c15t_consent WHERE subjectId = ?`,
+			)
+				.bind('sub_3jv6z8n4q9')
+				.first(),
+		).resolves.toEqual({
+			ipAddress: '198.51.100.0',
+			userAgent: 'customer-worker/1.0',
+			uiSource: 'signup',
+			consentAction: null,
+		});
+		await expect(
+			env.DB.prepare(
+				`SELECT subject.externalId, subject.identityProvider,
+					audit.actionType, audit.ipAddress, audit.userAgent
+				 FROM c15t_subject AS subject
+				 JOIN c15t_auditLog AS audit ON audit.subjectId = subject.id
+				 WHERE subject.id = ?`,
+			)
+				.bind('sub_3jv6z8n4q9')
+				.first(),
+		).resolves.toEqual({
+			externalId: 'user_84',
+			identityProvider: 'worker-auth',
+			actionType: 'identify_user',
+			ipAddress: '198.51.100.0',
+			userAgent: 'customer-worker/1.0',
 		});
 	});
 
@@ -119,8 +167,38 @@ describe('legal consent over RPC', () => {
 				documentSnapshotToken: 'forged',
 				subjectId: 'sub_4jv6z8n4q9',
 				domain: 'worker.example',
+				ipAddress: '198.51.100.42',
+				userAgent: 'customer-worker/1.0',
+				uiSource: 'signup',
 			}),
 		).rejects.toMatchObject({ name: 'LEGAL_DOCUMENT_SNAPSHOT_INVALID' });
+	});
+
+	it('requires request evidence from the calling Worker', async () => {
+		await seedActiveLegalDocument();
+		const legalDocument = await service().getLegalDocument('privacy', 'en');
+
+		await expect(
+			service().recordLegalConsent({
+				type: legalDocument.consent.type,
+				documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
+				subjectId: 'sub_5jv6z8n4q9',
+				domain: 'worker.example',
+				ipAddress: '',
+				userAgent: 'customer-worker/1.0',
+				uiSource: 'signup',
+			}),
+		).rejects.toMatchObject({
+			name: 'INPUT_VALIDATION_FAILED',
+			message: 'ipAddress is required for RPC legal consent',
+		});
+
+		const stored = await env.DB.prepare(
+			'SELECT COUNT(*) AS count FROM c15t_consent WHERE subjectId = ?',
+		)
+			.bind('sub_5jv6z8n4q9')
+			.first<{ count: number }>();
+		expect(stored?.count).toBe(0);
 	});
 });
 
