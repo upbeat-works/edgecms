@@ -12,6 +12,7 @@ export interface PullResponse {
 	languages: Language[];
 	defaultLocale: string | null;
 	translations: Record<string, Record<string, string>>;
+	revision: string;
 }
 
 export interface PushResponse {
@@ -19,6 +20,12 @@ export interface PushResponse {
 	keysUpdated: number;
 	locale: string;
 	section: string | null;
+	revision: string;
+}
+
+export interface PushRequestOptions {
+	baseRevision: string;
+	section?: string;
 }
 
 export interface LanguagesResponse {
@@ -264,11 +271,11 @@ export class EdgeCMSClient {
 	async push(
 		locale: string,
 		translations: Record<string, string>,
-		section?: string,
+		options: PushRequestOptions,
 	): Promise<PushResponse> {
 		return this.fetch<PushResponse>('/api/i18n/push', {
 			method: 'POST',
-			body: JSON.stringify({ locale, translations, section }),
+			body: JSON.stringify({ locale, translations, ...options }),
 		});
 	}
 

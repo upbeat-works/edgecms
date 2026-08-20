@@ -2,6 +2,7 @@ import { readFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { EdgeCMSConfig } from '../config.js';
 import { EdgeCMSClient } from '../api.js';
+import { readPullRevision, writePullState } from '../pull-state.js';
 
 export interface PushOptions {
 	section?: string;
@@ -38,6 +39,7 @@ export async function push(
 	} catch (error) {
 		throw new Error(`Failed to parse ${filePath}: ${(error as Error).message}`);
 	}
+	const baseRevision = await readPullRevision(config);
 
 	const keyCount = Object.keys(translations).length;
 	console.log(`Pushing ${locale}.json (${keyCount} keys)...`);
@@ -46,9 +48,13 @@ export async function push(
 		console.log(`  Section: ${options.section}`);
 	}
 
-	const response = await client.push(locale, translations, options.section);
+	const response = await client.push(locale, translations, {
+		baseRevision,
+		section: options.section,
+	});
 
 	if (response.success) {
+		await writePullState(config, response.revision);
 		console.log(`\nPush complete! ${response.keysUpdated} keys updated.`);
 		console.log(
 			'\nNote: Changes are saved as a draft. Publish from the CMS to make them live.',

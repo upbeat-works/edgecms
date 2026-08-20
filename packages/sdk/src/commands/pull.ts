@@ -1,8 +1,9 @@
-import { writeFile, mkdir, access } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import type { EdgeCMSConfig } from '../config.js';
 import { EdgeCMSClient } from '../api.js';
 import { generateTypes } from '../codegen.js';
+import { writePullState } from '../pull-state.js';
 
 export interface PullOptions {
 	version?: 'draft' | 'live';
@@ -70,6 +71,7 @@ export async function pull(
 
 	await writeFile(typesPath, typesContent, 'utf-8');
 	console.log(`  ${config.typesOutputPath} (${keys.length} keys)`);
+	await writePullState(config, response.revision);
 
 	const localesSummary = options.allLocales
 		? `${localesToWrite.length} locales, `

@@ -280,6 +280,10 @@ edgecms pull --from draft    # Pull draft translations
 edgecms pull --all           # Pull all locales
 ```
 
+Pull also writes `.edgecms-state.json` inside `localesDir`. This file records
+the opaque revision of the default-locale catalogue that was downloaded. Commit
+it with the locale snapshot so every checkout pushes from the same known base.
+
 This generates a types file with full autocompletion:
 
 ```typescript
@@ -305,6 +309,12 @@ Push local translations to EdgeCMS as a draft.
 edgecms push                        # Push default locale translations
 edgecms push --section "homepage"   # Assign new keys to a section
 ```
+
+Push requires the state written by `pull`. If an editor or another CLI changes
+the default-locale catalogue after that pull, the command fails before writing
+anything. Preserve local edits, pull the draft, reconcile both sets of changes,
+then push again. A successful push advances `.edgecms-state.json` to the new
+revision.
 
 #### `edgecms prune`
 

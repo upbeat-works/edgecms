@@ -8,6 +8,10 @@ fields are `localesDir`, `defaultLocale`, and `typesOutputPath`. Configure
 `EDGECMS_BASE_URL` takes precedence. `EDGECMS_API_KEY` is required for CLI
 authentication and must come from the environment.
 
+`pull` writes `.edgecms-state.json` inside `localesDir`. Keep it with the locale
+snapshot: it records the instance, default locale, and opaque catalogue revision
+that a later `push` must match.
+
 Prefer repository scripts such as `npm run edgecms:push` because they may load
 the correct environment file. Run commands from the project root.
 
@@ -16,7 +20,7 @@ the correct environment file. Run commands from the project root.
 | Command                                                                                    | Effect                                                                    |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
 | `edgecms pull [--all] [--from live\|draft]`                                                | Write locale snapshots and generated types                                |
-| `edgecms push [--section name]`                                                            | Push the default locale into the draft                                    |
+| `edgecms push [--section name]`                                                            | Push the default locale if its pulled base is still current                |
 | `edgecms check [--locale tag] [--verbose]`                                                 | Fail when translations are missing or empty                               |
 | `edgecms stale [--locale tag] [--verbose]`                                                 | Fail when translations were written against an older default-locale value |
 | `edgecms publish [--wait] [--timeout seconds]`                                             | Release the shared draft                                                  |
@@ -43,6 +47,23 @@ the correct environment file. Run commands from the project root.
 
 Check the installed SDK's `edgecms --help` before using commands absent from an
 older project version.
+
+## Push safety
+
+Push requires the state created by `pull`. The API rejects a missing revision
+and returns `CATALOGUE_CONFLICT` without writing when the default-locale
+catalogue has changed since that pull. This detects editor and CLI changes made
+within the same draft version; a draft version ID alone does not.
+
+On a conflict, preserve local edits before pulling the draft because pull
+replaces the local locale file. Reconcile the newer CMS values with those edits,
+then push from the new base. A successful push advances the local state file;
+commit it with the locale snapshot.
+
+Upgrade the EdgeCMS instance and SDK together. An updated instance rejects older
+SDKs that omit the base revision, while an updated SDK refuses an older instance
+that does not return one. After upgrading, preserve pending local edits, pull the
+draft, reconcile them, and commit the generated state before the next push.
 
 ## Deletion safety
 

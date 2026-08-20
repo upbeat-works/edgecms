@@ -1,17 +1,19 @@
 import { env } from 'cloudflare:workers';
 import { z } from 'zod';
 import { requireApiKey } from '~/utils/auth.middleware';
+import { getCatalogueRevision } from '~/utils/catalogue-revision';
+import { ensureDraftVersion } from '~/utils/ensure-draft-version.server';
 import {
-	getLatestVersion,
-	createVersion,
 	bulkUpsertTranslations,
 	getLanguages,
+	getTranslations,
 } from '~/utils/db.server';
 import type { Route } from './+types/i18n.push';
 
 const pushSchema = z.object({
 	locale: z.string().min(1, 'locale is required'),
 	translations: z.record(z.string(), z.string()),
+	baseRevision: z.string().min(1, 'baseRevision is required'),
 	section: z.string().optional(),
 });
 
@@ -23,11 +25,12 @@ const pushSchema = z.object({
  * {
  *   locale: string,           // Required: the locale to push (e.g., "en")
  *   translations: { [key]: value }, // Required: key-value map of strings
+ *   baseRevision: string,     // Required: revision returned by pull
  *   section?: string          // Optional: section to assign keys to
  * }
  *
  * Response:
- * { success: true, keysUpdated: number }
+ * { success: true, keysUpdated: number, revision: string }
  */
 export async function action({ request }: Route.ActionArgs) {
 	const apiKeyResult = await requireApiKey(request, env);
@@ -62,9 +65,8 @@ export async function action({ request }: Route.ActionArgs) {
 		);
 	}
 
-	const { locale, translations, section } = result.data;
+	const { locale, translations, baseRevision, section } = result.data;
 
-	// Verify the locale exists
 	const languages = await getLanguages();
 	const localeExists = languages.some(l => l.locale === locale);
 
@@ -90,28 +92,39 @@ export async function action({ request }: Route.ActionArgs) {
 		);
 	}
 
-	// Ensure a draft version exists (same pattern as UI import)
-	const [draftVersion, liveVersion] = await Promise.all([
-		getLatestVersion('draft'),
-		getLatestVersion('live'),
-	]);
+	const currentTranslations = Object.fromEntries(
+		(await getTranslations({ language: locale })).map(translation => [
+			translation.key,
+			translation.value,
+		]),
+	);
+	const currentRevision = await getCatalogueRevision(currentTranslations);
 
-	if (draftVersion == null) {
-		const description = liveVersion
-			? `fork from v${liveVersion.id}`
-			: new Date().toISOString().split('T')[0];
-		await createVersion(description, apiKeyResult.key.userId);
+	if (baseRevision !== currentRevision) {
+		return Response.json(
+			{
+				error:
+					'The CMS catalogue changed since this file was pulled. Preserve your local edits, pull the draft, then reconcile the changes before pushing again.',
+				code: 'CATALOGUE_CONFLICT',
+			},
+			{ status: 409 },
+		);
 	}
 
-	// Bulk upsert translations (same function as UI import)
+	await ensureDraftVersion(apiKeyResult.key.userId);
 	await bulkUpsertTranslations(locale, translations, { section });
 
 	const keysUpdated = Object.keys(translations).length;
+	const revision = await getCatalogueRevision({
+		...currentTranslations,
+		...translations,
+	});
 
 	return Response.json({
 		success: true,
 		keysUpdated,
 		locale,
 		section: section ?? null,
+		revision,
 	});
 }

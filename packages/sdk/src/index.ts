@@ -5,6 +5,7 @@ export {
 	type EdgeCMSClientConfig,
 	type PullResponse,
 	type PushResponse,
+	type PushRequestOptions,
 	type Language,
 	type BlocksResponse,
 	type BlockItem,
