@@ -9,9 +9,9 @@ describe('mobile navigation', () => {
 		const markup = renderToStaticMarkup(
 			createElement(
 				MemoryRouter,
-				{ initialEntries: ['/edge-cms/legal/1'] },
+				{ initialEntries: ['/edge-cms/i18n'] },
 				createElement(MobileNavigation, {
-					pathname: '/edge-cms/legal/1',
+					pathname: '/edge-cms/i18n',
 					isAdmin: true,
 				}),
 			),
@@ -20,5 +20,6 @@ describe('mobile navigation', () => {
 		expect(markup).toContain('<button');
 		expect(markup).toContain('aria-label="Navigation menu"');
 		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).not.toContain('/edge-cms/legal');
 	});
 });

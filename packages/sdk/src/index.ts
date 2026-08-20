@@ -25,15 +25,6 @@ export {
 	type MediaItem,
 	type MediaListResponse,
 	type SetBlockMediaResponse,
-	type LegalDocumentType,
-	type CreatedLegalDraftResponse,
-	type LegalDraftResponse,
-	type LegalConsentCapability,
-	type LegalDocumentEvidenceResponse,
-	type RecordLegalConsentInput,
-	type LegalConsentReceipt,
-	type LegalConsentRecord,
-	type LegalConsentStatusResponse,
 	type Section,
 	type SectionsResponse,
 	type DeleteSectionResponse,
@@ -88,13 +79,6 @@ export {
 	attachBlockMedia,
 	type ListMediaOptions,
 } from './commands/media.js';
-export {
-	createLegalDraft,
-	updateLegalDraft,
-	parseLegalDocumentType,
-	type CreateLegalDraftOptions,
-	type UpdateLegalDraftOptions,
-} from './commands/legal.js';
 export {
 	parseBlocksDocument,
 	planSchemaApplication,

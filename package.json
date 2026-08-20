@@ -16,14 +16,11 @@
     "test:watch": "vitest",
     "test:sdk": "npm --prefix packages/sdk test",
     "test:coverage": "vitest run --coverage",
-    "format": "prettier --write .",
-    "legal:keygen": "node scripts/generate-legal-signing-key.mjs"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.10",
     "@better-auth/api-key": "^1.6.25",
-    "@c15t/backend": "2.2.0",
-    "@c15t/schema": "2.2.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -62,7 +59,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/puppeteer": "^1.3.0",
     "@cloudflare/vite-plugin": "^1.52.1",
     "@cloudflare/vitest-pool-workers": "^0.20.2",
     "@react-router/dev": "^8.3.0",
@@ -95,9 +91,6 @@
       "BACKUPS_BUCKET": {
         "description": "R2 bucket for storing database backups and version snapshots."
       },
-      "LEGAL_CONSENT_RATE_LIMITER": {
-        "description": "Rate limiting binding for public append-only legal consent writes."
-      },
       "RELEASE_VERSION_WORKFLOW": {
         "description": "Workflow binding for handling content version releases and publishing."
       },
@@ -109,12 +102,6 @@
       },
       "AUTH_SECRET": {
         "description": "Secret key for better-auth authentication. Generate using `openssl rand -hex 32`."
-      },
-      "LEGAL_SIGNING_PRIVATE_JWK": {
-        "description": "EC P-256 private JWK used to sign immutable legal document releases."
-      },
-      "LEGAL_SIGNING_KEY_ID": {
-        "description": "Stable identifier for the active legal release signing key."
       },
       "OPENAI_API_KEY": {
         "description": "OpenAI API key for AI-powered translations. Get from https://platform.openai.com/api-keys"

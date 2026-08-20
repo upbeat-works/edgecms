@@ -612,7 +612,6 @@ export async function restoreTranslationsFromBackup(
 
 	await db.delete(translations);
 
-	// Language rows also anchor legal drafts and immutable releases.
 	await insertInBatches(
 		locales.map(locale => ({ locale, default: locale === defaultLocale })),
 		batch => db.insert(languages).values(batch).onConflictDoNothing(),

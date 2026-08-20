@@ -12,9 +12,6 @@ export default [
 		index('routes/edge-cms/home.tsx'),
 		layout('routes/edge-cms/_layout.tsx', [
 			...prefix('custom', extension.routes ?? []),
-			route('legal', 'routes/edge-cms/legal/legal.tsx'),
-			route('legal/new', 'routes/edge-cms/legal/legal.new.tsx'),
-			route('legal/:id', 'routes/edge-cms/legal/legal.$id.tsx'),
 			route('i18n', 'routes/edge-cms/i18n/i18n.tsx'),
 			route('i18n/versions', 'routes/edge-cms/versions.tsx'),
 			route('media', 'routes/edge-cms/media/media.tsx'),
@@ -60,11 +57,6 @@ export default [
 		route('api/sections', 'routes/edge-cms/api/sections.ts'),
 		route('api/media', 'routes/edge-cms/api/media.ts'),
 		route('api/media/:id', 'routes/edge-cms/api/media.$id.ts'),
-		route('api/legal', 'routes/edge-cms/api/legal.ts'),
-		route(
-			'api/legal/:id/drafts/:locale',
-			'routes/edge-cms/api/legal.$id.drafts.$locale.ts',
-		),
 		route('api/blocks/import', 'routes/edge-cms/api/blocks.import.ts'),
 		route('api/blocks/schemas', 'routes/edge-cms/api/blocks.schemas.ts'),
 		route(
@@ -88,31 +80,6 @@ export default [
 		route(
 			'public/blocks/:collection',
 			'routes/edge-cms/public/blocks.$collection.tsx',
-		),
-		route('public/legal/keys.json', 'routes/edge-cms/public/legal-keys.ts'),
-		route(
-			'public/legal/:slug/:locale/releases/:releaseHash.pdf',
-			'routes/edge-cms/public/legal-release-pdf.ts',
-		),
-		route(
-			'public/legal/:slug/:locale/releases/:releaseHash.md',
-			'routes/edge-cms/public/legal-release-markdown.ts',
-		),
-		route(
-			'public/legal/:slug/:locale/releases/:releaseHash',
-			'routes/edge-cms/public/legal-release.ts',
-		),
-		route(
-			'public/legal/:slug/:locale.pdf',
-			'routes/edge-cms/public/legal-document-pdf.ts',
-		),
-		route(
-			'public/legal/:slug/:locale.md',
-			'routes/edge-cms/public/legal-markdown.ts',
-		),
-		route(
-			'public/legal/:slug/:locale',
-			'routes/edge-cms/public/legal-document.ts',
 		),
 	]),
 ] satisfies RouteConfig;

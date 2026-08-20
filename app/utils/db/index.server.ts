@@ -7,7 +7,6 @@ export * from './media.server';
 export * from './versions.server';
 export * from './blocks.server';
 export * from './users.server';
-export * from './legal.server';
 
 // Re-export block types from shared module
 export type {

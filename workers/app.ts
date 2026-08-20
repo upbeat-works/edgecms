@@ -3,8 +3,6 @@ import { ReleaseVersionWorkflow } from './release-version-workflow';
 import { RollbackVersionWorkflow } from './rollback-version-workflow';
 import { AITranslateWorkflow } from './ai-translate-workflow';
 import { EdgeCMSService } from './edgecms-service';
-import { LegalReleaseWorkflow } from './legal-release-workflow';
-import { handleConsentRequest } from '~/utils/legal-consent.server';
 
 if (import.meta.hot) {
 	import.meta.hot.accept();
@@ -16,13 +14,13 @@ const requestHandler = createRequestHandler(
 );
 
 export default {
-	async fetch(request, env, context) {
+	async fetch(request, env) {
 		const pathname = new URL(request.url).pathname;
 		if (
 			pathname === '/edge-cms/consent' ||
 			pathname.startsWith('/edge-cms/consent/')
 		) {
-			return handleConsentRequest(request, env, context);
+			return new Response(null, { status: 404 });
 		}
 
 		const CORS_HEADERS = {
@@ -62,6 +60,5 @@ export {
 	ReleaseVersionWorkflow,
 	RollbackVersionWorkflow,
 	AITranslateWorkflow,
-	LegalReleaseWorkflow,
 	EdgeCMSService,
 };

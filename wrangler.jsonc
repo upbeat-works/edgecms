@@ -14,19 +14,10 @@
 	},
 	"vars": {
 		"BASE_URL": "http://localhost:5173",
-		"TRUSTED_ORIGINS": "http://localhost:5173",
-		"LEGAL_SIGNING_KEY_ID": "edgecms-legal-1"
+		"TRUSTED_ORIGINS": "http://localhost:5173"
 	},
 	"secrets": {
-		"required": [
-			"AUTH_SECRET",
-			"SESSION_SECRET",
-			"OPENAI_API_KEY",
-			"LEGAL_SIGNING_PRIVATE_JWK"
-		]
-	},
-	"browser": {
-		"binding": "BROWSER"
+		"required": ["AUTH_SECRET", "SESSION_SECRET", "OPENAI_API_KEY"]
 	},
 	/**
 	 * Smart Placement
@@ -96,17 +87,6 @@
 		}
 	],
 
-	"ratelimits": [
-		{
-			"name": "LEGAL_CONSENT_RATE_LIMITER",
-			"namespace_id": "227340521",
-			"simple": {
-				"limit": 60,
-				"period": 60
-			}
-		}
-	],
-	
 	/**
 	 * R2 Bucket Binding
 	 */
@@ -139,11 +119,6 @@
 			"name": "edgecms-ai-translate-workflow",
 			"binding": "AI_TRANSLATE_WORKFLOW",
 			"class_name": "AITranslateWorkflow"
-		},
-		{
-			"name": "edgecms-legal-release-workflow",
-			"binding": "LEGAL_RELEASE_WORKFLOW",
-			"class_name": "LegalReleaseWorkflow"
 		}
 	]
 }

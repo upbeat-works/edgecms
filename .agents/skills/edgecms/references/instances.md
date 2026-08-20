@@ -10,9 +10,8 @@ upstream EdgeCMS GitHub README:
 2. Authenticate with Cloudflare and provide the requested instance details.
 3. Confirm deployment. Cloudflare provisions and publishes the instance, then
    creates a new GitHub repository for that deployment.
-4. Configure the required Cloudflare secrets for session handling,
-   authentication, and `LEGAL_SIGNING_PRIVATE_JWK`. The legal signing secret is
-   required for the app to build and run.
+4. Configure the required Cloudflare secrets for session handling and
+   authentication.
 5. Optionally configure an OpenAI API key to enable AI-assisted translations.
 6. Verify authentication, the admin UI, and a public endpoint before treating
    the instance as live.

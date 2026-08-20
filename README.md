@@ -17,8 +17,6 @@ infrastructure on the planet.
   content blocks from the CLI. Your IDE stays happy.
 - **Version control for content** — Draft, publish, rollback. Treat your content
   like code.
-- **Signed legal releases** — Localized Markdown, immutable evidence, PDF
-  renditions, and automatic publication history.
 - **AI-powered translations** — Auto-translate missing keys with OpenAI. Ship
   faster in every language.
 
@@ -60,21 +58,6 @@ infrastructure on the planet.
 - Per-key rate limiting (default: 1000 req/hour)
 - Usage tracking with last-request timestamps
 
-### Legal Documents
-
-- Localized Markdown drafts managed at `/edge-cms/legal`
-- Draft creation and updates from Markdown through the SDK and CLI
-- Deterministic SHA-256 `releaseHash` over the exact frozen release payload
-- ES256 signatures and verification keys retained with release history
-- Sanitized PDF renditions generated with Cloudflare Browser Run and Puppeteer
-- One-step publishing that replaces the current legal document and retains its
-  history
-- Public evidence, PDF, and key endpoints with signed c15t consent capabilities
-- Append-only legal consent receipts through HTTP, SDK, and Worker RPC
-
-See [Legal documents and signed releases](docs/legal-documents.md) for the
-canonical payload, key setup, lifecycle, and consent API.
-
 ### Version Control
 
 - Draft and live content states
@@ -95,7 +78,6 @@ canonical payload, key setup, lifecycle, and consent API.
 | Auth      | Better Auth                |
 | AI        | OpenAI (via AI SDK)        |
 | Workflows | Cloudflare Workflows       |
-| Legal PDF | Cloudflare Browser Run     |
 | Runtime   | Cloudflare Workers         |
 
 ## Setup
@@ -114,12 +96,7 @@ Create a `.dev.vars` file for local development:
 AUTH_SECRET=your-secret-key-here
 ADMIN_SIGNUP_PASSWORD=your-admin-signup-secret
 OPENAI_API_KEY=your-openai-api-key  # Optional — for AI translations
-LEGAL_SIGNING_PRIVATE_JWK={"kty":"EC","x":"...","y":"...","crv":"P-256","d":"...","alg":"ES256","key_ops":["sign"],"ext":true}
 ```
-
-`LEGAL_SIGNING_PRIVATE_JWK` is required for the EdgeCMS app to build and run.
-Generate it with `npm run legal:keygen`. Keep it secret; the public half is
-derived and retained with every signed release.
 
 For production, set these as Cloudflare secrets:
 
@@ -127,7 +104,6 @@ For production, set these as Cloudflare secrets:
 npx wrangler secret put AUTH_SECRET
 npx wrangler secret put ADMIN_SIGNUP_PASSWORD
 npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put LEGAL_SIGNING_PRIVATE_JWK
 ```
 
 ### 3. Configure Cloudflare Bindings
@@ -154,15 +130,6 @@ Your `wrangler.jsonc` needs the following bindings:
 		},
 	],
 
-	// Public legal consent writes
-	"ratelimits": [
-		{
-			"name": "LEGAL_CONSENT_RATE_LIMITER",
-			"namespace_id": "<unique-positive-integer-for-your-account>",
-			"simple": { "limit": 60, "period": 60 },
-		},
-	],
-
 	// R2 Storage
 	"r2_buckets": [
 		{ "binding": "MEDIA_BUCKET", "bucket_name": "edgecms-media" },
@@ -186,27 +153,15 @@ Your `wrangler.jsonc` needs the following bindings:
 			"binding": "AI_TRANSLATE_WORKFLOW",
 			"class_name": "AITranslateWorkflow",
 		},
-		{
-			"name": "edgecms-legal-release-workflow",
-			"binding": "LEGAL_RELEASE_WORKFLOW",
-			"class_name": "LegalReleaseWorkflow",
-		},
 	],
-
-	// Browser Run
-	"browser": { "binding": "BROWSER" },
 
 	// Environment
 	"vars": {
 		"BASE_URL": "https://your-domain.com",
 		"TRUSTED_ORIGINS": "https://your-domain.com",
-		"LEGAL_SIGNING_KEY_ID": "edgecms-legal-1",
 	},
 }
 ```
-
-Replace the rate-limit `namespace_id` with a positive integer string that is
-unique within your Cloudflare account. Bindings that reuse an ID share counters.
 
 ### 4. Run Migrations
 
@@ -230,10 +185,6 @@ npm run typecheck
 npm run dev
 ```
 
-Legal PDF publication uses `@cloudflare/puppeteer` with the Browser Run binding
-configured in `wrangler.jsonc`. Standard local Wrangler development launches a
-local headless browser.
-
 ## Testing
 
 ```bash
@@ -246,9 +197,7 @@ Tests run inside the Workers runtime via `@cloudflare/vitest-pool-workers`,
 against a real D1 database with the project's migrations applied, real R2 and KV
 bindings, and real Workflows. API-key tests issue genuine better-auth keys, and
 ordinary content publish tests run `ReleaseVersionWorkflow` through to
-completion before asserting on its D1 rows and R2 objects. Legal tests exercise
-the real signing, persistence, lifecycle, and HTTP routes while faking the two
-external execution boundaries: Browser Run and starting a Workflow instance.
+completion before asserting on its D1 rows and R2 objects.
 
 The CLI in `packages/sdk` is plain Node code, so it is tested separately in a
 Node environment (`npm run test:sdk`). Those tests stub `fetch` — the one
@@ -299,29 +248,6 @@ export EDGECMS_BASE_URL=https://your-domain.com/edge-cms
 ```
 
 ### Commands
-
-#### Legal drafts
-
-Create a legal document and its first localized draft from Markdown, then
-replace any configured locale's draft by document ID:
-
-```bash
-edgecms legal:create ./privacy.en.md \
-  --name "Privacy Policy" \
-  --type privacy_policy \
-  --locale en
-edgecms legal:create ./terms.md \
-  --name "Terms" \
-  --type terms_and_conditions \
-  --slug customer-terms
-edgecms legal:update 42 ./privacy.es.md --locale es
-```
-
-`--locale` defaults to `defaultLocale`, and the locale must already exist in
-EdgeCMS. The files are saved exactly as mutable drafts. These commands never
-sign or publish a legal document. Review and publish legal drafts from
-`/edge-cms/legal`; the general `edgecms publish` command only releases the
-shared content draft.
 
 #### Media and block media
 
@@ -624,8 +550,6 @@ import {
 	assignKeysToSection,
 	assignMediaToSection,
 	removeSection,
-	createLegalDraft,
-	updateLegalDraft,
 	publish,
 	check,
 } from '@upbeat-works/edgecms-sdk';
@@ -665,41 +589,36 @@ someone passes `--yes`.
 
 ### Public API Routes
 
-| Route                                      | Description                                         |
-| ------------------------------------------ | --------------------------------------------------- |
-| `GET /edge-cms/public/i18n/:locale.json`   | Translations for a locale (cached)                  |
-| `GET /edge-cms/public/media/:filename`     | Serve media files from R2                           |
-| `GET /edge-cms/public/blocks/:collection`  | Block collection data                               |
-| `GET /edge-cms/public/legal/:slug/:locale` | Active signed legal evidence and consent capability |
-| `POST /edge-cms/consent/subjects`          | Record signed legal consent with c15t               |
-| `GET /edge-cms/consent/subjects/:id`       | Read a subject's current legal consent status       |
+| Route                                     | Description                        |
+| ----------------------------------------- | ---------------------------------- |
+| `GET /edge-cms/public/i18n/:locale.json`  | Translations for a locale (cached) |
+| `GET /edge-cms/public/media/:filename`    | Serve media files from R2          |
+| `GET /edge-cms/public/blocks/:collection` | Block collection data              |
 
 ### SDK API Routes (API Key Required)
 
-| Route                                    | Method | Description                                  |
-| ---------------------------------------- | ------ | -------------------------------------------- |
-| `/edge-cms/api/i18n/pull`                | GET    | Fetch translations                           |
-| `/edge-cms/api/i18n/push`                | POST   | Create/update translations                   |
-| `/edge-cms/api/i18n/languages`           | GET    | List available languages                     |
-| `/edge-cms/api/i18n/languages`           | POST   | Create a language                            |
-| `/edge-cms/api/i18n/languages`           | PATCH  | Set the default language                     |
-| `/edge-cms/api/i18n/missing`             | GET    | Report untranslated keys                     |
-| `/edge-cms/api/i18n/stale`               | GET    | Report translations the source has outrun    |
-| `/edge-cms/api/i18n/keys`                | DELETE | Delete translation keys (dry run by default) |
-| `/edge-cms/api/sections`                 | GET    | List sections                                |
-| `/edge-cms/api/sections`                 | POST   | Create a section                             |
-| `/edge-cms/api/sections`                 | PUT    | Assign existing i18n keys or media           |
-| `/edge-cms/api/sections`                 | PATCH  | Rename a section                             |
-| `/edge-cms/api/sections`                 | DELETE | Delete a section (dry run by default)        |
-| `/edge-cms/api/blocks/import`            | POST   | Bulk import blocks                           |
-| `/edge-cms/api/blocks/schemas`           | GET    | List schemas and their properties            |
-| `/edge-cms/api/blocks/schemas`           | POST   | Create a schema, or add missing properties   |
-| `/edge-cms/api/blocks/collections`       | GET    | List collections                             |
-| `/edge-cms/api/blocks/collections`       | POST   | Create a collection                          |
-| `/edge-cms/api/legal`                    | POST   | Create a legal document with one draft       |
-| `/edge-cms/api/legal/:id/drafts/:locale` | PUT    | Replace one localized legal draft            |
-| `/edge-cms/api/publish`                  | POST   | Release the draft (returns a `publishId`)    |
-| `/edge-cms/api/publish`                  | GET    | Status of a release, via `?id=<publishId>`   |
+| Route                              | Method | Description                                  |
+| ---------------------------------- | ------ | -------------------------------------------- |
+| `/edge-cms/api/i18n/pull`          | GET    | Fetch translations                           |
+| `/edge-cms/api/i18n/push`          | POST   | Create/update translations                   |
+| `/edge-cms/api/i18n/languages`     | GET    | List available languages                     |
+| `/edge-cms/api/i18n/languages`     | POST   | Create a language                            |
+| `/edge-cms/api/i18n/languages`     | PATCH  | Set the default language                     |
+| `/edge-cms/api/i18n/missing`       | GET    | Report untranslated keys                     |
+| `/edge-cms/api/i18n/stale`         | GET    | Report translations the source has outrun    |
+| `/edge-cms/api/i18n/keys`          | DELETE | Delete translation keys (dry run by default) |
+| `/edge-cms/api/sections`           | GET    | List sections                                |
+| `/edge-cms/api/sections`           | POST   | Create a section                             |
+| `/edge-cms/api/sections`           | PUT    | Assign existing i18n keys or media           |
+| `/edge-cms/api/sections`           | PATCH  | Rename a section                             |
+| `/edge-cms/api/sections`           | DELETE | Delete a section (dry run by default)        |
+| `/edge-cms/api/blocks/import`      | POST   | Bulk import blocks                           |
+| `/edge-cms/api/blocks/schemas`     | GET    | List schemas and their properties            |
+| `/edge-cms/api/blocks/schemas`     | POST   | Create a schema, or add missing properties   |
+| `/edge-cms/api/blocks/collections` | GET    | List collections                             |
+| `/edge-cms/api/blocks/collections` | POST   | Create a collection                          |
+| `/edge-cms/api/publish`            | POST   | Release the draft (returns a `publishId`)    |
+| `/edge-cms/api/publish`            | GET    | Status of a release, via `?id=<publishId>`   |
 
 Errors share a shape: `{ "error": "...", "code": "MACHINE_READABLE_CODE" }`.
 
@@ -725,7 +644,6 @@ const { languages, defaultLocale } = await env.EDGECMS.getLanguages();
 const draft = await env.EDGECMS.pullTranslations();
 const missing = await env.EDGECMS.missingTranslations();
 const stale = await env.EDGECMS.staleTranslations();
-const legalDocument = await env.EDGECMS.getLegalDocument('privacy', 'en');
 
 // Writes
 await env.EDGECMS.createLanguage('pt-BR', { makeDefault: false });
@@ -742,25 +660,6 @@ await env.EDGECMS.deleteTranslationKeys(['home.hero.oldTitle'], {
 });
 const { publishId } = await env.EDGECMS.publish();
 const state = await env.EDGECMS.publishStatus(publishId);
-const ipAddress = request.headers.get('CF-Connecting-IP');
-const userAgent = request.headers.get('User-Agent');
-if (!ipAddress || !userAgent) throw new Error('Missing request evidence');
-const receipt = await env.EDGECMS.recordLegalConsent({
-	type: legalDocument.consent.type,
-	documentSnapshotToken: legalDocument.consent.documentSnapshotToken,
-	subjectId: 'sub_2jv6z8n4q9',
-	domain: 'client.example',
-	ipAddress,
-	userAgent,
-	uiSource: 'signup',
-});
-await env.EDGECMS.identifyLegalConsentSubject({
-	subjectId: receipt.subjectId,
-	externalId: 'user_42',
-	identityProvider: 'my-worker',
-	ipAddress,
-	userAgent,
-});
 ```
 
 RPC methods throw on failure instead of returning status codes, with
