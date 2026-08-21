@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { action, loader } from '~/routes/edge-cms/api/media';
 import { action as replace } from '~/routes/edge-cms/api/media.$id';
 import { loader as serveMedia } from '~/routes/edge-cms/public/media.$filename';
+import { loader as serveMediaRevision } from '~/routes/edge-cms/public/media-revision';
 import { getMedia } from '~/utils/db/media.server';
 import { buildVersionedFilename } from '~/utils/media.server';
 import { createApiKey, resetDb, seedMedia } from '../helpers';
@@ -159,19 +160,40 @@ describe('media API', () => {
 		await expect(env.MEDIA_BUCKET.get('hero.png')).resolves.toBeNull();
 		await expect(env.MEDIA_BUCKET.get('hero.png-v2')).resolves.toBeNull();
 
-		const current = await serveMedia({
+		const currentAlias = await serveMedia({
 			request: new Request(
 				'https://cms.test/edge-cms/public/media/campaign-hero.PNG',
 			),
 			params: { filename: 'campaign-hero.PNG' },
 		} as never);
+		expect(currentAlias.status).toBe(302);
+		expect(currentAlias.headers.get('location')).toBe(
+			`https://cms.test/edge-cms/public/media/revisions/${renamed[1].id}/campaign-hero.PNG`,
+		);
+		const current = await serveMediaRevision({
+			request: new Request(currentAlias.headers.get('location')!),
+			params: {
+				id: String(renamed[1].id),
+				filename: 'campaign-hero.PNG',
+			},
+		} as never);
 		expect(current.headers.get('content-type')).toBe('image/png');
 		expect(new TextDecoder().decode(await current.arrayBuffer())).toBe('new');
-		const firstVersion = await serveMedia({
+		const firstVersionAlias = await serveMedia({
 			request: new Request(
 				'https://cms.test/edge-cms/public/media/campaign-hero.PNG?version=1',
 			),
 			params: { filename: 'campaign-hero.PNG' },
+		} as never);
+		expect(firstVersionAlias.headers.get('location')).toBe(
+			`https://cms.test/edge-cms/public/media/revisions/${renamed[0].id}/campaign-hero.PNG`,
+		);
+		const firstVersion = await serveMediaRevision({
+			request: new Request(firstVersionAlias.headers.get('location')!),
+			params: {
+				id: String(renamed[0].id),
+				filename: 'campaign-hero.PNG',
+			},
 		} as never);
 		expect(new TextDecoder().decode(await firstVersion.arrayBuffer())).toBe(
 			'old',

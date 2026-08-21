@@ -78,6 +78,10 @@ export default [
 			'routes/edge-cms/public/media.$filename.tsx',
 		),
 		route(
+			'public/media/revisions/:id/:filename',
+			'routes/edge-cms/public/media-revision.tsx',
+		),
+		route(
 			'public/blocks/:collection',
 			'routes/edge-cms/public/blocks.$collection.tsx',
 		),

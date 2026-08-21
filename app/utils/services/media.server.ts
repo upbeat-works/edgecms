@@ -22,13 +22,31 @@ export interface MediaResource {
 	uploadedAt: string;
 	version: number;
 	canonicalUrl: string;
+	revisionUrl: string;
+}
+
+function edgeCmsRoot(request: Request): string {
+	const url = new URL(request.url);
+	const apiIndex = url.pathname.indexOf('/api/');
+	if (apiIndex !== -1) return url.pathname.slice(0, apiIndex);
+
+	const publicIndex = url.pathname.indexOf('/public/');
+	if (publicIndex !== -1) return url.pathname.slice(0, publicIndex);
+	return '/edge-cms';
 }
 
 function canonicalUrl(request: Request, filename: string): string {
 	const url = new URL(request.url);
-	const apiIndex = url.pathname.indexOf('/api/');
-	const root = apiIndex === -1 ? '/edge-cms' : url.pathname.slice(0, apiIndex);
+	const root = edgeCmsRoot(request);
 	url.pathname = `${root}/public/media/${encodeURIComponent(filename)}`;
+	url.search = '';
+	return url.toString();
+}
+
+export function mediaRevisionUrl(request: Request, item: Media): string {
+	const url = new URL(request.url);
+	const root = edgeCmsRoot(request);
+	url.pathname = `${root}/public/media/revisions/${item.id}/${encodeURIComponent(item.filename)}`;
 	url.search = '';
 	return url.toString();
 }
@@ -38,6 +56,7 @@ export function toMediaResource(request: Request, item: Media): MediaResource {
 		...item,
 		uploadedAt: item.uploadedAt.toISOString(),
 		canonicalUrl: canonicalUrl(request, item.filename),
+		revisionUrl: mediaRevisionUrl(request, item),
 	};
 }
 
@@ -77,9 +96,12 @@ export async function uploadMedia(
 				404,
 			);
 		}
-		version = existing.version + 1;
+		const revisions = await getMedia({ filename: existing.filename });
+		version = Math.max(...revisions.map(revision => revision.version)) + 1;
 	}
 
+	let storedKey: string | null = null;
+	let storedNewObject = false;
 	try {
 		const formData = await parseFormData(
 			request,
@@ -87,15 +109,16 @@ export async function uploadMedia(
 			async file => {
 				if (file.fieldName !== 'file') return null;
 				const filename = existing?.filename ?? sanitizeFilename(file.name);
-				await env.MEDIA_BUCKET.put(
-					buildVersionedFilename(filename, version),
-					file.stream(),
-					{
-						httpMetadata: {
-							contentType: file.type || 'application/octet-stream',
-						},
+				storedKey = buildVersionedFilename(filename, version);
+				const stored = await env.MEDIA_BUCKET.put(storedKey, file.stream(), {
+					onlyIf: { etagDoesNotMatch: '*' },
+					httpMetadata: {
+						contentType: file.type || 'application/octet-stream',
 					},
-				);
+				});
+				if (!stored)
+					throw new Error(`Media revision ${version} already exists`);
+				storedNewObject = true;
 				return JSON.stringify({
 					filename,
 					mimeType: file.type || 'application/octet-stream',
@@ -124,6 +147,9 @@ export async function uploadMedia(
 		});
 		return ok({ ...created, uploadedAt: new Date(created.uploadedAt) });
 	} catch (error) {
+		if (storedNewObject && storedKey != null) {
+			await env.MEDIA_BUCKET.delete(storedKey);
+		}
 		return err('UPLOAD_FAILED', (error as Error).message, 400);
 	}
 }

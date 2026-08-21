@@ -136,6 +136,23 @@ export async function getMediaByFilename(
 	};
 }
 
+export async function getLiveMediaByFilename(
+	filename: string,
+): Promise<Media | null> {
+	const result = await db
+		.select()
+		.from(media)
+		.where(and(eq(media.filename, filename), eq(media.state, 'live')))
+		.orderBy(desc(media.version))
+		.limit(1);
+	if (result.length === 0) return null;
+
+	return {
+		...result[0],
+		uploadedAt: new Date(result[0].uploadedAt),
+	};
+}
+
 export async function getMediaById(mediaId: number): Promise<Media | null> {
 	const result = await db.select().from(media).where(eq(media.id, mediaId));
 	if (result.length === 0) return null;

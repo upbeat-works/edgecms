@@ -88,6 +88,7 @@ export interface MediaItem {
 	uploadedAt: string;
 	version: number;
 	canonicalUrl: string;
+	revisionUrl: string;
 }
 
 export interface MediaListResponse {
