@@ -19,7 +19,7 @@ const DialogOverlay = React.forwardRef<
 	<DialogPrimitive.Overlay
 		ref={ref}
 		className={cn(
-			'fixed inset-0 z-[90] bg-slate-950/60 backdrop-blur-[2px]',
+			'fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-[2px]',
 			className,
 		)}
 		{...props}
@@ -39,7 +39,7 @@ const DialogContent = React.forwardRef<
 		<DialogPrimitive.Content
 			ref={ref}
 			className={cn(
-				'fixed right-0 bottom-0 left-0 z-[100] grid max-h-[calc(100dvh-0.75rem)] w-full gap-5 overflow-y-auto overscroll-contain rounded-t-2xl border border-b-0 border-slate-200 bg-white px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_80px_rgb(15_23_42/0.24)] ring-1 ring-white/60 outline-none sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6 sm:shadow-[0_24px_80px_rgb(15_23_42/0.28)]',
+				'fixed right-0 bottom-0 left-0 z-[120] grid max-h-[calc(100dvh-0.75rem)] w-full gap-5 overflow-y-auto overscroll-contain rounded-t-2xl border border-b-0 border-slate-200 bg-white px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-24px_80px_rgb(15_23_42/0.24)] ring-1 ring-white/60 outline-none sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6 sm:shadow-[0_24px_80px_rgb(15_23_42/0.28)]',
 				size === 'sm' && 'sm:max-w-md',
 				size === 'md' && 'sm:max-w-lg',
 				size === 'lg' && 'sm:max-w-2xl',
