@@ -2,6 +2,7 @@ import { env } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { action } from '~/routes/edge-cms/media/media';
 import { getMedia } from '~/utils/db/media.server';
+import { getLatestVersion } from '~/utils/db/versions.server';
 import { authedRequest, resetDb, seedMedia, signIn } from '../helpers';
 
 let cookie: string;
@@ -12,6 +13,22 @@ beforeEach(async () => {
 });
 
 describe('media administration', () => {
+	it('does not open a draft for an invalid media action', async () => {
+		const body = new FormData();
+		body.set('intent', 'archive');
+		body.set('mediaId', 'not-an-id');
+
+		const response = await action({
+			request: authedRequest('/edge-cms/media', cookie, {
+				method: 'POST',
+				body,
+			}),
+		} as never);
+
+		expect(response).toEqual({ error: 'A valid media file is required' });
+		await expect(getLatestVersion('draft')).resolves.toBeNull();
+	});
+
 	it('renames a media file and all of its revisions', async () => {
 		const media = await seedMedia('hero.png', 'hero');
 		const body = new FormData();

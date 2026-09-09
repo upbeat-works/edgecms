@@ -92,7 +92,7 @@ program
 program
 	.command('media:replace')
 	.description('Replace a media revision without changing its canonical URL')
-	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.argument('<media-id>', 'Media asset ID', value => Number(value))
 	.argument('<file>', 'Replacement file')
 	.action(async (mediaId, file) => {
 		try {
@@ -108,7 +108,7 @@ program
 program
 	.command('media:rename')
 	.description('Rename a media file and all of its revisions')
-	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.argument('<media-id>', 'Media asset ID', value => Number(value))
 	.argument('<filename>', 'New filename')
 	.action(async (mediaId, filename) => {
 		try {
@@ -127,7 +127,7 @@ program
 	.argument('<collection>', 'Block collection name')
 	.argument('<instance-id>', 'Block instance ID', value => Number(value))
 	.argument('<property>', 'Media property name')
-	.argument('<media-id>', 'Media revision ID', value => Number(value))
+	.argument('<media-id>', 'Media asset ID', value => Number(value))
 	.action(async (collection, instanceId, property, mediaId) => {
 		try {
 			if (

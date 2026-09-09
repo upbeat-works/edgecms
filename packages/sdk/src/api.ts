@@ -80,6 +80,7 @@ export interface ImportBlocksResponse {
 
 export interface MediaItem {
 	id: number;
+	revisionId: number;
 	filename: string;
 	mimeType: string;
 	sizeBytes: number;

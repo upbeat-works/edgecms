@@ -251,9 +251,9 @@ export EDGECMS_BASE_URL=https://your-domain.com/edge-cms
 
 #### Media and block media
 
-Media uploads are live immediately. Each replacement creates a new revision ID
-while preserving the filename and canonical URL, so existing block references
-continue to resolve.
+Each file has a stable asset ID, and each replacement creates a new revision
+under that asset. Blocks keep the asset ID, so they resolve the current media
+revision without needing a block release.
 
 ```bash
 edgecms media --search hero                 # List/search current media
@@ -264,11 +264,12 @@ edgecms media:rename 42 homepage-hero.png
 edgecms blocks:set-media heroes 7 image 43  # Saved in the shared draft
 ```
 
-The upload, replace, and rename commands print the revision ID, state, and
-canonical URL. Renaming moves every stored revision to the new filename while
-preserving its revision ID, version, and state. The old public URL stops
-resolving. Block attachment and media IDs supplied to `import-blocks` are draft
-changes and become live through `edgecms publish`.
+The upload, replace, and rename commands print the asset ID, current revision,
+state, and filename URL. Renaming moves every stored revision to the new
+filename while preserving the asset ID. Block attachment and media IDs supplied
+to `import-blocks` change blocks, so those changes become live through
+`edgecms publish`. Media upload, replacement, rename, archive, and deletion take
+effect at once.
 
 #### `edgecms pull`
 
@@ -734,7 +735,7 @@ const { items } = await response.json();
 1. Navigate to `/edge-cms/media`
 2. Upload files — they're automatically sanitized to kebab-case
 3. Organize with sections
-4. Reference directly in your app:
+4. Use the filename URL returned by the media API:
 
 ```html
 <img src="/edge-cms/public/media/my-image.jpg" alt="My Image" />

@@ -71,6 +71,7 @@ export interface StaleTranslation {
 
 export interface Media {
 	id: number;
+	revisionId: number;
 	filename: string;
 	mimeType: string;
 	sizeBytes: number;
@@ -78,6 +79,10 @@ export interface Media {
 	state: 'live' | 'archived';
 	uploadedAt: Date;
 	version: number;
+}
+
+export interface MediaRevision extends Media {
+	assetId: number;
 }
 
 export interface Version {

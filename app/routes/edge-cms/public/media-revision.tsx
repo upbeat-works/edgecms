@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { getMediaById } from '~/utils/db.server';
+import { getMediaRevisionById } from '~/utils/db.server';
 import { buildVersionedFilename } from '~/utils/media.server';
 
 export async function loader({
@@ -14,7 +14,7 @@ export async function loader({
 		return notFound();
 	}
 
-	const media = await getMediaById(id);
+	const media = await getMediaRevisionById(id);
 	if (!media) return notFound();
 
 	const object = await env.MEDIA_BUCKET.get(

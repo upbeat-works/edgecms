@@ -141,17 +141,27 @@ export const translations = sqliteTable(
 	table => [primaryKey({ columns: [table.language, table.key] })],
 );
 
-export const media = sqliteTable(
-	'media',
+export const mediaAssets = sqliteTable('media_assets', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	filename: text('filename').notNull().unique(),
+	section: text('section').references(() => sections.name, {
+		onDelete: 'set null',
+		onUpdate: 'cascade',
+	}),
+	createdAt: text('createdAt')
+		.notNull()
+		.default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const mediaRevisions = sqliteTable(
+	'media_revisions',
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
-		filename: text('filename').notNull(),
+		assetId: integer('assetId')
+			.notNull()
+			.references(() => mediaAssets.id, { onDelete: 'cascade' }),
 		mimeType: text('mimeType').notNull(),
 		sizeBytes: integer('sizeBytes').notNull(),
-		section: text('section').references(() => sections.name, {
-			onDelete: 'set null',
-			onUpdate: 'cascade',
-		}),
 		state: text('state', { enum: ['live', 'archived'] })
 			.default('live')
 			.notNull(),
@@ -161,7 +171,10 @@ export const media = sqliteTable(
 		version: integer('version').notNull().default(1),
 	},
 	table => [
-		uniqueIndex('idx_media_filename_version').on(table.filename, table.version),
+		uniqueIndex('idx_media_asset_version').on(table.assetId, table.version),
+		uniqueIndex('idx_media_one_live_revision')
+			.on(table.assetId)
+			.where(sql`${table.state} = 'live'`),
 	],
 );
 
@@ -271,7 +284,7 @@ export const blockInstanceValues = sqliteTable(
 		stringValue: text('stringValue'),
 		booleanValue: integer('booleanValue'),
 		numberValue: real('numberValue'),
-		mediaId: integer('mediaId').references(() => media.id, {
+		mediaId: integer('mediaId').references(() => mediaAssets.id, {
 			onDelete: 'set null',
 		}),
 	},

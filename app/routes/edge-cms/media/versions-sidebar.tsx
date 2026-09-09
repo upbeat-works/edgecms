@@ -47,7 +47,7 @@ export function VersionsSidebar({
 	const handleDeleteConfirm = () => {
 		if (versionToDelete) {
 			fetcher.submit(
-				{ intent: 'delete-version', mediaId: versionToDelete.id },
+				{ intent: 'delete-version', mediaId: versionToDelete.revisionId },
 				{ method: 'post' },
 			);
 		}
@@ -91,7 +91,7 @@ export function VersionsSidebar({
 
 							{versions.map(version => (
 								<div
-									key={version.id}
+									key={version.revisionId}
 									className="space-y-2 rounded-lg border p-3"
 								>
 									<div className="flex items-start justify-between">
@@ -142,7 +142,10 @@ export function VersionsSidebar({
 													<DropdownMenuItem
 														onSelect={() =>
 															fetcher.submit(
-																{ intent: 'unarchive', mediaId: version.id },
+																{
+																	intent: 'unarchive',
+																	mediaId: version.revisionId,
+																},
 																{ method: 'post' },
 															)
 														}

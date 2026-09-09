@@ -5,7 +5,7 @@ import {
 	getLatestMediaVersions,
 	getMedia,
 	getMediaById,
-	markMediaArchived,
+	replaceMediaRevision,
 	renameMediaVersions,
 } from '../db/index.server';
 import { buildVersionedFilename, sanitizeFilename } from '../media.server';
@@ -14,6 +14,7 @@ import type { Media } from '../db/types';
 
 export interface MediaResource {
 	id: number;
+	revisionId: number;
 	filename: string;
 	mimeType: string;
 	sizeBytes: number;
@@ -46,7 +47,7 @@ function canonicalUrl(request: Request, filename: string): string {
 export function mediaRevisionUrl(request: Request, item: Media): string {
 	const url = new URL(request.url);
 	const root = edgeCmsRoot(request);
-	url.pathname = `${root}/public/media/revisions/${item.id}/${encodeURIComponent(item.filename)}`;
+	url.pathname = `${root}/public/media/revisions/${item.revisionId}/${encodeURIComponent(item.filename)}`;
 	url.search = '';
 	return url.toString();
 }
@@ -135,16 +136,23 @@ export async function uploadMedia(
 			mimeType: string;
 			sizeBytes: number;
 		};
-		if (existing) await markMediaArchived(existing.id);
 		const section = formData.get('section');
-		const created = await createMedia({
-			...file,
-			section:
-				typeof section === 'string' && section !== ''
-					? section
-					: (existing?.section ?? undefined),
-			version,
-		});
+		let created: Media;
+		if (existing) {
+			created = await replaceMediaRevision({
+				assetId: existing.id,
+				mimeType: file.mimeType,
+				sizeBytes: file.sizeBytes,
+				version,
+			});
+		} else {
+			created = await createMedia({
+				...file,
+				section:
+					typeof section === 'string' && section !== '' ? section : undefined,
+				version,
+			});
+		}
 		return ok({ ...created, uploadedAt: new Date(created.uploadedAt) });
 	} catch (error) {
 		if (storedNewObject && storedKey != null) {

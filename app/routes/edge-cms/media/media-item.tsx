@@ -58,7 +58,7 @@ export function MediaItem({
 				fetcher.submit(
 					{
 						intent: media.state === 'archived' ? 'unarchive' : 'archive',
-						mediaId: media.id.toString(),
+						mediaId: media.revisionId.toString(),
 					},
 					{ method: 'post' },
 				),

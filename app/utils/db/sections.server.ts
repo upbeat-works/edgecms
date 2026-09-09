@@ -3,7 +3,7 @@ import { eq, count, inArray, isNull } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import {
 	sections,
-	media,
+	mediaAssets,
 	translations,
 	translationKeys,
 } from '../schema.server';
@@ -65,7 +65,10 @@ export async function assignContentToSection(
 	) {
 		const chunk = assignments.mediaIds.slice(i, i + D1_PARAMETER_CHUNK_SIZE);
 		statements.push(
-			db.update(media).set({ section: name }).where(inArray(media.id, chunk)),
+			db
+				.update(mediaAssets)
+				.set({ section: name })
+				.where(inArray(mediaAssets.id, chunk)),
 		);
 	}
 
@@ -81,7 +84,10 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 
 	const [noSectionMedia, noSectionTranslations, noSectionTranslationKeys] =
 		await Promise.all([
-			db.select({ count: count() }).from(media).where(isNull(media.section)),
+			db
+				.select({ count: count() })
+				.from(mediaAssets)
+				.where(isNull(mediaAssets.section)),
 			db
 				.select({ count: count() })
 				.from(translations)
@@ -107,8 +113,8 @@ export async function getSectionsWithCounts(): Promise<SectionWithCounts[]> {
 			await Promise.all([
 				db
 					.select({ count: count() })
-					.from(media)
-					.where(eq(media.section, section.name)),
+					.from(mediaAssets)
+					.where(eq(mediaAssets.section, section.name)),
 				db
 					.select({ count: count() })
 					.from(translations)

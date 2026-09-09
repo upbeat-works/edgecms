@@ -38,47 +38,51 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
 	await requireAuth(request, env);
-
 	const formData = await request.formData();
 	const intent = formData.get('intent');
+	const validIntents = [
+		'delete-all-versions',
+		'delete-version',
+		'archive',
+		'unarchive',
+		'update-section',
+		'rename',
+	];
+	if (typeof intent !== 'string' || !validIntents.includes(intent)) {
+		return { error: 'Invalid action' };
+	}
+	const mediaId = Number(formData.get('mediaId'));
+	if (!Number.isInteger(mediaId) || mediaId < 1) {
+		return { error: 'A valid media file is required' };
+	}
 
 	switch (intent) {
 		case 'delete-all-versions': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
 			await deleteAllVersions(mediaId);
 			return { success: true };
 		}
 		case 'delete-version': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
 			await deleteVersion(mediaId);
 			return { success: true };
 		}
 		case 'archive': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
 			await markMediaArchived(mediaId);
 			return { success: true };
 		}
 		case 'unarchive': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
 			await markMediaLive(mediaId);
 			return { success: true };
 		}
 
 		case 'update-section': {
-			const mediaId = parseInt(formData.get('mediaId') as string);
 			const section = formData.get('section') as string | null;
 
 			await updateMediaSection(mediaId, section === '' ? null : section);
 			return { success: true };
 		}
 		case 'rename': {
-			const mediaId = Number(formData.get('mediaId'));
 			const filename = formData.get('filename');
-			if (
-				!Number.isInteger(mediaId) ||
-				mediaId < 1 ||
-				typeof filename !== 'string'
-			) {
+			if (typeof filename !== 'string') {
 				return { error: 'A valid media file and filename are required' };
 			}
 

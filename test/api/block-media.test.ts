@@ -86,7 +86,7 @@ describe('attaching media to a block', () => {
 		expect(await getLatestVersion('draft')).toBeNull();
 	});
 
-	it('keeps an existing block reference usable after replacement', async () => {
+	it('moves an existing block reference to the replacement', async () => {
 		const { image, collection, instance } = await fixture();
 		const media = await seedMedia('hero.png');
 		await patch(collection.name, instance.id, image.name, media.id);
@@ -95,7 +95,7 @@ describe('attaching media to a block', () => {
 			'file',
 			new File(['new'], 'replacement.png', { type: 'image/png' }),
 		);
-		await replaceMedia({
+		const response = await replaceMedia({
 			request: new Request(`https://cms.test/edge-cms/api/media/${media.id}`, {
 				method: 'PUT',
 				body: form,
@@ -103,7 +103,15 @@ describe('attaching media to a block', () => {
 			}),
 			params: { id: String(media.id) },
 		} as never);
+		const replacement = (await response.json()) as {
+			id: number;
+			version: number;
+		};
 
+		expect(replacement).toMatchObject({ id: media.id, version: 2 });
+		expect(await getBlockInstanceValues(instance.id)).toMatchObject([
+			{ mediaId: media.id },
+		]);
 		const data = await getBlockCollectionData(collection.name);
 		expect(data?.items).toMatchObject([
 			{ image: '/edge-cms/public/media/hero.png' },

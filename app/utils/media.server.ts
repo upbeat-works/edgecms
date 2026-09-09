@@ -2,6 +2,7 @@ import {
 	deleteMediaByFilename,
 	deleteMediaById,
 	getMediaById,
+	getMediaRevisionById,
 	getMedia,
 } from '~/utils/db.server';
 import { env } from 'cloudflare:workers';
@@ -40,30 +41,23 @@ export async function deleteAllVersions(mediaId: number): Promise<void> {
 	const allVersions = await getMedia({ filename: existing.filename });
 
 	await Promise.all(
-		allVersions.map(async version => {
-			const versionedFilename = buildVersionedFilename(
-				version.filename,
-				version.version,
-			);
-			await env.MEDIA_BUCKET.delete(versionedFilename);
-		}),
+		allVersions.map(version =>
+			env.MEDIA_BUCKET.delete(
+				buildVersionedFilename(version.filename, version.version),
+			),
+		),
 	);
-
-	// Delete all database records for this filename
 	await deleteMediaByFilename(existing.filename);
 }
 
 export async function deleteVersion(mediaId: number): Promise<void> {
-	const existing = await getMediaById(mediaId);
+	const existing = await getMediaRevisionById(mediaId);
 	if (!existing) return;
 
-	// Delete only the specific versioned file from the bucket
 	const versionedFilename = buildVersionedFilename(
 		existing.filename,
 		existing.version,
 	);
 	await env.MEDIA_BUCKET.delete(versionedFilename);
-
-	// Delete only this specific database record
-	await deleteMediaById(existing.id);
+	await deleteMediaById(existing.revisionId);
 }

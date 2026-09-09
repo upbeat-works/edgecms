@@ -2,6 +2,7 @@ import { WorkerEntrypoint, env } from 'cloudflare:workers';
 import {
 	getBlockCollectionData,
 	getLatestVersion,
+	getLiveMediaByFilename,
 	getMediaByFilename,
 	getTranslations,
 } from '~/utils/db.server';
@@ -123,7 +124,10 @@ export class EdgeCMSService extends WorkerEntrypoint<Env> {
 		etag: string;
 		body: ReadableStream;
 	}> {
-		const media = await getMediaByFilename(filename, version);
+		const media =
+			version == null
+				? await getLiveMediaByFilename(filename)
+				: await getMediaByFilename(filename, version);
 		if (!media) {
 			fail('MEDIA_NOT_FOUND', `Media not found: ${filename}`);
 		}

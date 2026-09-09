@@ -13,6 +13,7 @@ import { projectDir } from './helpers.js';
 
 const item = {
 	id: 7,
+	revisionId: 12,
 	filename: 'hero.png',
 	mimeType: 'image/png',
 	sizeBytes: 4,
@@ -21,7 +22,7 @@ const item = {
 	uploadedAt: '2026-01-01T00:00:00.000Z',
 	version: 2,
 	canonicalUrl: 'https://cms.test/edge-cms/public/media/hero.png',
-	revisionUrl: 'https://cms.test/edge-cms/public/media/revisions/7/hero.png',
+	revisionUrl: 'https://cms.test/edge-cms/public/media/revisions/12/hero.png',
 };
 
 const requests: { method: string; path: string; body?: unknown }[] = [];

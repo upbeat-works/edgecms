@@ -246,7 +246,6 @@ export function InlineMediaEditor({
 	const uploadFetcher = useFetcher();
 	const [showReplace, setShowReplace] = useState(false);
 
-	// After successful upload/replace, update the block instance value with the new media ID
 	useEffect(() => {
 		if (
 			uploadFetcher.data?.success &&

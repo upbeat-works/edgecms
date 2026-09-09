@@ -12,7 +12,7 @@ export interface ListMediaOptions {
 
 function printMedia(item: MediaItem) {
 	console.log(
-		`${item.id}\t${item.filename}\tv${item.version}\t${item.state}\t${item.canonicalUrl}`,
+		`${item.id}\t${item.filename}\tv${item.version} (revision ${item.revisionId})\t${item.state}\t${item.canonicalUrl}`,
 	);
 }
 

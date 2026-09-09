@@ -54,10 +54,10 @@ describe('public cache contracts', () => {
 			'no-store',
 		);
 		expect(response.headers.get('location')).toBe(
-			`https://cms.test/edge-cms/public/media/revisions/${media.id}/hero.png`,
+			`https://cms.test/edge-cms/public/media/revisions/${media.revisionId}/hero.png`,
 		);
 
-		const revision = await serveMediaRevision(media.id, 'hero.png');
+		const revision = await serveMediaRevision(media.revisionId, 'hero.png');
 		expect(revision.status).toBe(200);
 		expect(await responseText(revision)).toBe('original');
 		expect(revision.headers.get('cache-control')).toBe(
@@ -68,7 +68,7 @@ describe('public cache contracts', () => {
 		);
 
 		const notModified = await serveMediaRevision(
-			media.id,
+			media.revisionId,
 			'hero.png',
 			new Request(response.headers.get('location')!, {
 				headers: { 'If-None-Match': revision.headers.get('etag')! },
@@ -90,6 +90,7 @@ describe('public cache contracts', () => {
 		);
 		const resource = (await replacement.json()) as {
 			id: number;
+			revisionId: number;
 			revisionUrl: string;
 		};
 		const replacementLocation = (await serveMediaAlias('hero.png')).headers.get(
@@ -100,10 +101,10 @@ describe('public cache contracts', () => {
 		expect(resource.revisionUrl).toBe(replacementLocation);
 		expect(replacementLocation).not.toBe(originalLocation);
 		await expect(
-			serveMediaRevision(original.id, 'hero.png').then(responseText),
+			serveMediaRevision(original.revisionId, 'hero.png').then(responseText),
 		).resolves.toBe('original');
 		await expect(
-			serveMediaRevision(resource.id, 'hero.png').then(responseText),
+			serveMediaRevision(resource.revisionId, 'hero.png').then(responseText),
 		).resolves.toBe('replacement');
 	});
 
@@ -129,11 +130,11 @@ describe('public cache contracts', () => {
 		const apiKey = await createApiKey();
 		await replacementRequest(apiKey, original.id, 'replacement');
 
-		await markMediaLive(original.id);
+		await markMediaLive(original.revisionId);
 		const response = await serveMediaAlias('hero.png');
 
 		expect(response.headers.get('location')).toBe(
-			`https://cms.test/edge-cms/public/media/revisions/${original.id}/hero.png`,
+			`https://cms.test/edge-cms/public/media/revisions/${original.revisionId}/hero.png`,
 		);
 	});
 });

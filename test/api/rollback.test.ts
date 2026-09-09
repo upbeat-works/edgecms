@@ -17,7 +17,9 @@ import {
 	releaseDraft,
 	rollbackVersion,
 } from '~/utils/db/versions.server';
-import { resetDb, seedLanguage } from '../helpers';
+import { resetDb, seedLanguage, seedMedia } from '../helpers';
+import { getMediaById } from '~/utils/db/media.server';
+import { uploadMedia } from '~/utils/services/media.server';
 
 beforeEach(resetDb);
 
@@ -63,6 +65,7 @@ describe('rolling a version back', () => {
 		await createSection('homepage');
 		await upsertTranslation('home.title', 'en', 'Welcome', 'homepage');
 		await upsertTranslation('home.title', 'es', 'Bienvenido', 'homepage');
+		const media = await seedMedia('hero.png', 'old image');
 		await createVersion('first');
 
 		const published = await release(releasing);
@@ -73,6 +76,20 @@ describe('rolling a version back', () => {
 		await upsertTranslation('home.title', 'en', 'Welcome back');
 		await upsertTranslation('home.tagline', 'en', 'Added later');
 		await deleteTranslationsByKeys(['home.title']);
+		const replacement = new FormData();
+		replacement.set(
+			'file',
+			new File(['new image'], 'hero.png', { type: 'image/png' }),
+		);
+		const replaced = await uploadMedia(
+			new Request('https://cms.test/media', {
+				method: 'POST',
+				body: replacement,
+			}),
+			{ replaceMediaId: media.id },
+		);
+		expect(replaced.ok).toBe(true);
+		const laterMedia = await seedMedia('later.png', 'added later');
 
 		await rollbackVersion(published.id);
 		await (await onlyInstance(rollingBack)).waitForStatus('complete');
@@ -85,6 +102,12 @@ describe('rolling a version back', () => {
 		expect(rows[0].section).toBe('homepage');
 		expect(await getLatestVersion('live')).toMatchObject({
 			id: published.id,
+		});
+		await expect(getMediaById(media.id)).resolves.toMatchObject({
+			version: 2,
+		});
+		await expect(getMediaById(laterMedia.id)).resolves.toMatchObject({
+			state: 'live',
 		});
 	}, 45_000);
 
